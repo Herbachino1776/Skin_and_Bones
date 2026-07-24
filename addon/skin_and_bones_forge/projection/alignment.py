@@ -102,7 +102,23 @@ def facial_landmark_count(view):
     return sum(bool(value) for value in view.facial_landmarks_set)
 
 
-def _facial_landmark_metrics(view, head_bounds):
+def minimum_facial_landmarks(view_name):
+    """Return the useful minimum for this camera angle."""
+
+    return 2 if view_name in {"left", "right"} else 3
+
+
+def facial_landmarks_ready(view, view_name):
+    """Report whether a view has enough eye/mouth anchors to calibrate."""
+
+    return (
+        facial_landmark_count(view) >= minimum_facial_landmarks(view_name)
+        and any(view.facial_landmarks_set[:2])
+        and any(view.facial_landmarks_set[2:])
+    )
+
+
+def _facial_landmark_metrics(view, head_bounds, minimum_points=3):
     points = [
         tuple(getattr(view, name))
         for index, name in enumerate(FACIAL_LANDMARK_NAMES)
@@ -118,10 +134,14 @@ def _facial_landmark_metrics(view, head_bounds):
         for index in (2, 3)
         if view.facial_landmarks_set[index]
     ]
-    if len(points) < 3 or not eye_points or not mouth_points:
+    if (
+        len(points) < minimum_points
+        or not eye_points
+        or not mouth_points
+    ):
         raise ValueError(
-            "Facial calibration needs at least three points, including an "
-            "eye and a mouth corner."
+            f"Facial calibration needs at least {minimum_points} points, "
+            "including an eye and a mouth corner."
         )
 
     eye_center = (
@@ -161,9 +181,11 @@ def apply_face_calibration(settings, changed_view):
     view = getattr(settings, name)
     if view.image is None:
         raise ValueError(f"{name.replace('_', ' ').title()} has no image.")
-    if facial_landmark_count(view) < 3:
+    minimum_points = minimum_facial_landmarks(name)
+    if not facial_landmarks_ready(view, name):
         raise ValueError(
-            f"{name.replace('_', ' ').title()} needs at least three landmarks."
+            f"{name.replace('_', ' ').title()} needs at least "
+            f"{minimum_points} landmarks, including an eye and mouth corner."
         )
 
     _bounds, head_bounds, _key = _alpha_bounds(
@@ -172,7 +194,7 @@ def apply_face_calibration(settings, changed_view):
         head_threshold=settings.head_threshold,
     )
     if name == "front":
-        _facial_landmark_metrics(view, head_bounds)
+        _facial_landmark_metrics(view, head_bounds, minimum_points)
         view.facial_calibration_valid = True
         return {
             "name": name,
@@ -195,7 +217,7 @@ def apply_face_calibration(settings, changed_view):
         reference,
         reference_head_bounds,
     )
-    metrics = _facial_landmark_metrics(view, head_bounds)
+    metrics = _facial_landmark_metrics(view, head_bounds, minimum_points)
 
     vertical_factor = 1.0
     if metrics["vertical_ratio"] > 1.0e-5:
@@ -430,7 +452,7 @@ def auto_fit_view_image(settings, changed_view):
     view.auto_head_horizontal_scale = view.head_horizontal_scale
     view.auto_head_offset_x = view.head_offset_x
     view.auto_head_offset_y = view.head_offset_y
-    if facial_landmark_count(view) >= 3:
+    if facial_landmarks_ready(view, name):
         try:
             apply_face_calibration(settings, name)
         except ValueError:

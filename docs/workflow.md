@@ -6,7 +6,7 @@ Open the SPAR3D `.blend` or import its GLB. Keep a source copy. The add-on
 works in memory and writes to new output paths by default, but source control
 is still good production hygiene.
 
-Select the primary production mesh. Version 0.2.0 expects:
+Select the primary production mesh. Version 0.2.1 expects:
 
 - A real mesh with renderable polygons.
 - An existing production UV map.
@@ -76,8 +76,9 @@ source image.
    corner.
 3. Use the mouse wheel to zoom, middle mouse to pan, Backspace to undo, and
    `R` to reset. Press Enter to make Front the reference.
-4. Repeat for each side or optional 45-degree source. Press `S` to skip one
-   landmark that is genuinely hidden in a profile, then place the other three.
+4. Repeat for each side or optional 45-degree source. On a true left/right
+   profile, place the visible eye center and matching mouth corner, and press
+   `S` to skip both hidden points. Diagonal sources should use three or four.
 
 Each view is corrected independently. Applying a right-side calibration does
 not alter body fit or the already-calibrated left side. **Reapply** is
@@ -85,10 +86,12 @@ idempotent and starts from the saved silhouette auto-fit.
 
 ## Preview and refine
 
-Load the identity-priority preset and click **Create Projection Preview**.
-This operation creates temporary orthographic cameras, `SBF_PROJ_*` UV maps,
-and `SBF_WEIGHT_*` corner attributes, then assigns a temporary emission
-preview material.
+After loading the sources, click **One-Click Best Preview**. It applies the
+same identity-priority preset used by the visual acceptance harness, auto-fits
+every loaded silhouette, reapplies saved facial landmarks, and creates the
+preview. The operation creates temporary orthographic cameras, `SBF_PROJ_*`
+UV maps, and `SBF_WEIGHT_*` corner attributes, then assigns a temporary
+emission preview material.
 
 The source image, flip, scale, offset, alpha threshold, black key, enable
 state, and overall weight controls update the existing material immediately

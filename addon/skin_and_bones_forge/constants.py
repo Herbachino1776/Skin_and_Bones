@@ -2,7 +2,7 @@
 
 ADDON_NAME = "Skin & Bones Forge"
 ADDON_MODULE = "skin_and_bones_forge"
-ADDON_VERSION = (0, 2, 0)
+ADDON_VERSION = (0, 2, 1)
 ADDON_VERSION_STRING = ".".join(str(part) for part in ADDON_VERSION)
 
 CARDINAL_VIEW_NAMES = ("front", "back", "left", "right")

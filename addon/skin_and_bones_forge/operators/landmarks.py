@@ -20,6 +20,7 @@ from ..constants import (
 from ..projection.alignment import (
     apply_face_calibration,
     facial_landmark_count,
+    minimum_facial_landmarks,
 )
 
 
@@ -101,6 +102,12 @@ def _draw_landmarks(operator):
         "LMB place/move | Wheel zoom | MMB pan | S skip hidden point | "
         "Backspace undo | R reset | Enter apply | Esc cancel",
     )
+    if operator.view_name in {"left", "right"}:
+        blf.position(font_id, 24.0, 10.0, 0.0)
+        blf.draw(
+            font_id,
+            "True profile: one visible eye + matching mouth corner is enough.",
+        )
 
 
 class SBF_OT_calibrate_face_landmarks(Operator):
@@ -240,12 +247,14 @@ class SBF_OT_calibrate_face_landmarks(Operator):
 
     def _finish(self, context, view):
         count = facial_landmark_count(view)
+        minimum_points = minimum_facial_landmarks(self.view_name)
         has_eye = any(view.facial_landmarks_set[:2])
         has_mouth = any(view.facial_landmarks_set[2:])
-        if count < 3 or not has_eye or not has_mouth:
+        if count < minimum_points or not has_eye or not has_mouth:
             self.report(
                 {"WARNING"},
-                "Place at least three points, including an eye and mouth corner.",
+                f"Place at least {minimum_points} points, including an eye "
+                "and mouth corner.",
             )
             return {"RUNNING_MODAL"}
 

@@ -37,6 +37,7 @@ def _parse_args():
     parser.add_argument("--require-diagonals", action="store_true")
     parser.add_argument("--cardinals-only", action="store_true")
     parser.add_argument("--exercise-landmarks", action="store_true")
+    parser.add_argument("--use-best-preview", action="store_true")
     parser.add_argument("--front-left-head-offset-x", type=float)
     parser.add_argument("--front-right-head-offset-x", type=float)
     parser.add_argument("--source-edge-padding", type=float)
@@ -163,7 +164,7 @@ if args.exercise_landmarks:
     if "front" not in loaded_source_names or "right" not in loaded_source_names:
         raise RuntimeError("Landmark regression needs Front and Right sources")
 
-    def set_landmarks(name, horizontal_shift=0.0, three_point=False):
+    def set_landmarks(name, horizontal_shift=0.0, profile=False):
         view = getattr(settings, name)
         _bounds, head_bounds, _key = _alpha_bounds(
             view.image,
@@ -191,20 +192,20 @@ if args.exercise_landmarks:
             minimum_y + height * 0.40,
         )
         view.facial_landmarks_set = (
-            not three_point,
+            not profile,
             True,
-            True,
+            not profile,
             True,
         )
         view.facial_landmarks_skipped = (
-            three_point,
+            profile,
             False,
-            False,
+            profile,
             False,
         )
 
     set_landmarks("front")
-    set_landmarks("right", horizontal_shift=0.08, three_point=True)
+    set_landmarks("right", horizontal_shift=0.08, profile=True)
     front_result = apply_face_calibration(settings, "front")
     right_view = settings.right
     body_before = (
@@ -265,7 +266,11 @@ if args.render_original:
     )
     settings.proof_render_dir = str(output_dir / "proof_renders")
 
-_require_finished("create_preview", bpy.ops.sbf.create_preview())
+if args.use_best_preview:
+    _require_finished("best_preview", bpy.ops.sbf.best_preview())
+    settings.texture_size = args.size
+else:
+    _require_finished("create_preview", bpy.ops.sbf.create_preview())
 
 preview_material = next(
     (

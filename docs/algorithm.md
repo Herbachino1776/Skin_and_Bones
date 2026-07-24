@@ -124,9 +124,10 @@ image-right mouth corner
 
 Front defines the reference eye-to-mouth scale and facial center relative to
 its head bounds. Each other source receives a head-only similarity correction.
-A profile may omit one hidden point; three points still correct center and
-vertical scale. The body transform is never modified, and reapplying starts
-from the stored auto-fit transform rather than accumulating edits.
+A true profile may omit both hidden points; its visible eye and matching mouth
+corner still correct center and vertical scale. The body transform is never
+modified, and reapplying starts from the stored auto-fit transform rather than
+accumulating edits.
 
 ## Shader blend and fallback
 

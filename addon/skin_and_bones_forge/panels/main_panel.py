@@ -5,6 +5,7 @@ from __future__ import annotations
 from bpy.types import Panel
 
 from ..constants import VIEW_LABELS, VIEW_NAMES
+from ..projection.alignment import minimum_facial_landmarks
 
 
 def _draw_view(layout, settings, name):
@@ -51,7 +52,7 @@ def _draw_view(layout, settings, name):
     )
     calibrate.view_name = name
     landmark_count = sum(bool(value) for value in view.facial_landmarks_set)
-    if landmark_count >= 3:
+    if landmark_count >= minimum_facial_landmarks(name):
         apply_landmarks = calibration.operator(
             "sbf.apply_face_calibration",
             text="Reapply",
@@ -95,6 +96,11 @@ class SBF_PT_main(Panel):
         layout = self.layout
         settings = context.scene.sbf_settings
         layout.operator("sbf.load_preset", icon="PRESET")
+        layout.operator(
+            "sbf.best_preview",
+            text="One-Click Best Preview",
+            icon="SHADING_RENDERED",
+        )
         status = layout.box()
         status.label(text=settings.status_message, icon="INFO")
 
@@ -138,6 +144,10 @@ class SBF_PT_sources(_SBF_PT_section, Panel):
         layout.label(
             text="Calibrate Front first; other views are corrected independently.",
             icon="PIVOT_CURSOR",
+        )
+        layout.label(
+            text="True profiles need only the visible eye + mouth corner.",
+            icon="EYEDROPPER",
         )
         layout.label(
             text="45 deg views are optional, but improve intermediate angles.",

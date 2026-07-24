@@ -5,7 +5,7 @@ texture of a SPAR3D human mesh from matching front, back, character-left, and
 character-right images, with optional front-left and front-right 45-degree
 plates.
 
-Version 0.2.0 implements the Folsom reference workflow as an adjustable,
+Version 0.2.1 implements the Folsom reference workflow as an adjustable,
 non-destructive pipeline:
 
 - Preserve the target geometry, original UV map, material slot, and normal map.
@@ -27,7 +27,7 @@ non-destructive pipeline:
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v0.2.0.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v0.2.1.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -40,18 +40,19 @@ required top-level `skin_and_bones_forge` module.
 
 1. Open or import the SPAR3D character.
 2. Select its production mesh and click **Validate Character**.
-3. Load the **SPAR3D Human - Identity Priority / Occlusion Safe** preset.
-4. Assign matching front, back, character-left, and character-right images.
+3. Load the four matching source images.
+4. Click **One-Click Best Preview**. This applies the exact tested preset,
+   auto-fits the loaded silhouettes, and builds the preview.
    The two 45-degree views are optional.
-5. Expand Front, choose **Place Face Points...**, and mark both eye centers
-   and mouth corners. Calibrate each other source independently; press `S` to
-   skip one hidden profile landmark.
-6. Click **Create Projection Preview**.
-7. Inspect the face, head-orbit views, hands, torso, and thighs. Image,
+5. If a face needs correction, expand Front, choose **Place Face Points...**,
+   and mark both eye centers and mouth corners. Calibrate each other source
+   independently. A true profile needs only its visible eye and matching mouth
+   corner; press `S` to skip each hidden point.
+6. Inspect the face, head-orbit views, hands, torso, and thighs. Image,
    flip, scale, offset, alpha, and weight controls update live. Click
    **Refresh Preview** after changing fit, ownership, or occlusion settings.
-8. Choose the texture size and output path, then click **Bake Final Texture**.
-9. Use **Render Verification Set**, **Save New Base Asset**, and
+7. Choose the texture size and output path, then click **Bake Final Texture**.
+8. Use **Render Verification Set**, **Save New Base Asset**, and
    **Export New GLB**.
 
 The source `.blend` is not overwritten unless **Allow Source Overwrite** is
@@ -98,7 +99,7 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v0.2.0` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v0.2.1` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 

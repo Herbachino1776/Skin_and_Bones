@@ -2,6 +2,26 @@
 
 All notable changes follow semantic versioning.
 
+## 0.2.1 - 2026-07-24
+
+### Added
+
+- **One-Click Best Preview** applies the exact visual-acceptance preset,
+  auto-fits every loaded source, reapplies saved facial calibration, and
+  creates the projection preview in one action.
+
+### Changed
+
+- True left and right profile calibration now accepts the two landmarks that
+  are physically visible: one eye center and its matching mouth corner.
+- Profile calibration guidance explicitly explains how to skip the two hidden
+  points.
+
+### Fixed
+
+- Removed the incorrect three-point minimum that prevented valid total-profile
+  source calibration.
+
 ## 0.2.0 - 2026-07-23
 
 ### Added

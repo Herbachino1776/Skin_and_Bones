@@ -15,7 +15,7 @@ This is the fast structural regression. It validates:
 - Target discovery and all four projection views.
 - Nonzero view ownership after occlusion rejection.
 - Live body and head shader-control updates without rebuilding projection UVs.
-- Four-point Front and three-point profile landmark calibration.
+- Four-point Front and two-point true-profile landmark calibration.
 - Head-only correction with unchanged body transforms.
 - Idempotent facial-calibration reapply.
 - Bake completion and requested texture dimensions.
@@ -55,7 +55,7 @@ The release ZIP must contain a single top-level `skin_and_bones_forge/`
 package and no `__pycache__` or fixture assets.
 
 Every push to `main` runs these static checks on GitHub Actions and uploads
-`Skin_and_Bones_Forge_v0.2.0` as a 30-day workflow artifact.
+`Skin_and_Bones_Forge_v0.2.1` as a 30-day workflow artifact.
 
 ## Second-character gate
 

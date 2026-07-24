@@ -49,6 +49,64 @@ def _fail(operator, settings, exc):
     return {"CANCELLED"}
 
 
+def _apply_spar3d_preset(settings):
+    """Apply the exact settings used by the visual acceptance harness."""
+
+    settings.forward_axis = "+Y"
+    settings.up_axis = "+Z"
+    settings.framing_ratio = 0.90
+    settings.directional_exponent = 4.0
+    settings.minimum_weight = 0.001
+    settings.lower_front_back_bias = 3.0
+    settings.upper_front_back_bias = 10.0
+    settings.head_front_back_bias = 1.25
+    settings.head_identity_lock = True
+    settings.head_blend_sharpness = 3.0
+    settings.source_edge_padding = 0.05
+    settings.head_lock_transition = 0.025
+    settings.side_bias = 1.0
+    settings.upper_threshold = 0.58
+    settings.head_threshold = 0.80
+    settings.top_surface_coverage = 0.90
+    settings.fallback_threshold = 0.01
+    settings.occlusion_protection = True
+    settings.visibility_method = "RAY_CAST"
+    settings.visibility_samples = "CENTER_VERTEX"
+    settings.depth_tolerance_factor = 0.003
+    settings.occlusion_feather = 0.25
+    settings.live_preview = True
+    settings.auto_fit_source_images = True
+    settings.texture_size = "4096"
+    settings.bake_margin = 24
+    settings.generate_bake_uv = True
+    settings.roughness = 1.0
+    settings.normal_strength = 0.25
+    settings.smooth_shading = True
+    for name in VIEW_NAMES:
+        view = getattr(settings, name)
+        view.enabled = name in CARDINAL_VIEW_NAMES or view.image is not None
+        view.flip_x = False
+        view.flip_y = False
+        view.scale = 1.0
+        view.horizontal_scale = 1.0
+        view.offset_x = 0.0
+        view.offset_y = 0.0
+        view.head_scale = 1.0
+        view.head_horizontal_scale = 1.0
+        view.head_offset_x = 0.0
+        view.head_offset_y = 0.0
+        view.auto_head_scale = 1.0
+        view.auto_head_horizontal_scale = 1.0
+        view.auto_head_offset_x = 0.0
+        view.auto_head_offset_y = 0.0
+        view.alpha_threshold = 0.01
+        view.key_black_background = False
+        view.black_key_threshold = 0.01
+        view.weight = 1.0
+        view.occlusion = True
+    return auto_fit_loaded_images(settings)
+
+
 class SBF_OT_load_view_image(Operator):
     bl_idname = "sbf.load_view_image"
     bl_label = "Open Projection Image"
@@ -111,61 +169,7 @@ class SBF_OT_load_preset(Operator):
 
     def execute(self, context):
         settings = _settings(context)
-        settings.forward_axis = "+Y"
-        settings.up_axis = "+Z"
-        settings.framing_ratio = 0.90
-        settings.directional_exponent = 4.0
-        settings.minimum_weight = 0.001
-        settings.lower_front_back_bias = 3.0
-        settings.upper_front_back_bias = 10.0
-        settings.head_front_back_bias = 1.25
-        settings.head_identity_lock = True
-        settings.head_blend_sharpness = 3.0
-        settings.source_edge_padding = 0.05
-        settings.head_lock_transition = 0.025
-        settings.side_bias = 1.0
-        settings.upper_threshold = 0.58
-        settings.head_threshold = 0.80
-        settings.top_surface_coverage = 0.90
-        settings.fallback_threshold = 0.01
-        settings.occlusion_protection = True
-        settings.visibility_method = "RAY_CAST"
-        settings.visibility_samples = "CENTER_VERTEX"
-        settings.depth_tolerance_factor = 0.003
-        settings.occlusion_feather = 0.25
-        settings.live_preview = True
-        settings.auto_fit_source_images = True
-        settings.texture_size = "4096"
-        settings.bake_margin = 24
-        settings.generate_bake_uv = True
-        settings.roughness = 1.0
-        settings.normal_strength = 0.25
-        settings.smooth_shading = True
-        for name in VIEW_NAMES:
-            view = getattr(settings, name)
-            view.enabled = (
-                name in CARDINAL_VIEW_NAMES or view.image is not None
-            )
-            view.flip_x = False
-            view.flip_y = False
-            view.scale = 1.0
-            view.horizontal_scale = 1.0
-            view.offset_x = 0.0
-            view.offset_y = 0.0
-            view.head_scale = 1.0
-            view.head_horizontal_scale = 1.0
-            view.head_offset_x = 0.0
-            view.head_offset_y = 0.0
-            view.auto_head_scale = 1.0
-            view.auto_head_horizontal_scale = 1.0
-            view.auto_head_offset_x = 0.0
-            view.auto_head_offset_y = 0.0
-            view.alpha_threshold = 0.01
-            view.key_black_background = False
-            view.black_key_threshold = 0.01
-            view.weight = 1.0
-            view.occlusion = True
-        auto_fit_loaded_images(settings)
+        _apply_spar3d_preset(settings)
         settings.status_message = (
             f"Loaded: {PROCESSING_PRESET}. Four cardinal views are supported; "
             "45 deg views are optional."
@@ -258,6 +262,26 @@ class SBF_OT_refresh_preview(Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
+        return _execute_preview(self, context)
+
+
+class SBF_OT_best_preview(Operator):
+    bl_idname = "sbf.best_preview"
+    bl_label = "One-Click Best Preview"
+    bl_description = (
+        "Apply the tested SPAR3D preset, auto-fit every loaded source, "
+        "reapply saved facial calibration, and build the projection preview"
+    )
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        settings = _settings(context)
+        try:
+            results = _apply_spar3d_preset(settings)
+            if not results:
+                return _fail(self, settings, "No enabled source images are loaded.")
+        except (RuntimeError, ValueError) as exc:
+            return _fail(self, settings, exc)
         return _execute_preview(self, context)
 
 
@@ -360,6 +384,7 @@ OPERATOR_CLASSES = (
     SBF_OT_validate,
     SBF_OT_preview,
     SBF_OT_refresh_preview,
+    SBF_OT_best_preview,
     SBF_OT_bake,
     SBF_OT_cleanup,
     SBF_OT_save_copy,
