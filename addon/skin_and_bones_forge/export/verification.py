@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import bpy
@@ -112,6 +113,22 @@ def render_verification_set(context, info, settings):
     lower_target = _point_at_height(bounds, directions["up"], 0.30)
     three_right = (directions["front"] + directions["right"]).normalized()
     three_left = (directions["front"] + directions["left"]).normalized()
+    head_30_right = (
+        directions["front"] * (math.sqrt(3.0) * 0.5)
+        + directions["right"] * 0.5
+    ).normalized()
+    head_30_left = (
+        directions["front"] * (math.sqrt(3.0) * 0.5)
+        + directions["left"] * 0.5
+    ).normalized()
+    head_60_right = (
+        directions["front"] * 0.5
+        + directions["right"] * (math.sqrt(3.0) * 0.5)
+    ).normalized()
+    head_60_left = (
+        directions["front"] * 0.5
+        + directions["left"] * (math.sqrt(3.0) * 0.5)
+    ).normalized()
 
     views = (
         ("front", directions["front"], full_target, height / 0.90),
@@ -119,6 +136,24 @@ def render_verification_set(context, info, settings):
         ("left", directions["left"], full_target, height / 0.90),
         ("right", directions["right"], full_target, height / 0.90),
         ("face_closeup", directions["front"], face_target, height * 0.30),
+        ("head_30_right", head_30_right, face_target, height * 0.30),
+        ("head_30_left", head_30_left, face_target, height * 0.30),
+        (
+            "head_45_right",
+            directions["front_right"],
+            face_target,
+            height * 0.30,
+        ),
+        (
+            "head_45_left",
+            directions["front_left"],
+            face_target,
+            height * 0.30,
+        ),
+        ("head_60_right", head_60_right, face_target, height * 0.30),
+        ("head_60_left", head_60_left, face_target, height * 0.30),
+        ("head_profile_right", directions["right"], face_target, height * 0.30),
+        ("head_profile_left", directions["left"], face_target, height * 0.30),
         ("threequarter_right", three_right, upper_target, height * 0.52),
         ("threequarter_left", three_left, upper_target, height * 0.52),
         ("lower_front", directions["front"], lower_target, height * 0.58),

@@ -6,7 +6,7 @@ Open the SPAR3D `.blend` or import its GLB. Keep a source copy. The add-on
 works in memory and writes to new output paths by default, but source control
 is still good production hygiene.
 
-Select the primary production mesh. Version 0.1.0 expects:
+Select the primary production mesh. Version 0.2.0 expects:
 
 - A real mesh with renderable polygons.
 - An existing production UV map.
@@ -21,11 +21,14 @@ material, UV, base-color node, and normal-map node.
 
 ## Prepare the sources
 
-For each view, click **Open Image from Disk...** and select the front, back,
-character-left, or character-right RGBA image. The **Loaded** field underneath
-is Blender's selector for images already present in the current `.blend`.
-Each image should depict the same identity, outfit, hairstyle, proportions,
-pose, lighting, camera height, and framing.
+Expand each source header, click **Open Image from Disk...**, and select the
+front, back, character-left, or character-right image. Optional front-left and
+front-right 45-degree cards improve coverage when those plates are genuinely
+matched. The **Loaded** field is Blender's selector for images already present
+in the current `.blend`.
+**Auto-Fit Loaded Images** centers and scales a newly loaded subject from its
+alpha silhouette. Each image should depict the same identity, outfit,
+hairstyle, proportions, pose, lighting, camera height, and framing.
 
 Best results come from:
 
@@ -33,7 +36,9 @@ Best results come from:
 - Hands separated from the thighs.
 - Slightly separated legs.
 - Neutral, even light and a transparent background.
-- 2048–4096 pixels of useful character height for a 4K bake.
+- A transparent background is preferred; solid black backgrounds can use
+  **Key Black Background**.
+- 2048-4096 pixels of useful character height for a 4K bake.
 
 The left/right labels refer to the character's sides, not the viewer's.
 
@@ -55,8 +60,28 @@ Start with a framing ratio of `0.90`. Per-view controls then provide:
 - Alpha threshold
 - Overall view weight
 - Per-view occlusion enable
+- Head-only scale, horizontal fit, and offset
+- Interactive facial landmarks
 
 Scale values above `1.0` enlarge the source subject in the projection.
+
+## Calibrate the face
+
+Facial calibration is stored as metadata and never paints dots into the clean
+source image.
+
+1. Expand **Front** and choose **Place Face Points...**.
+2. The source opens in a zoomed Image Editor. Place the image-left eye center,
+   image-right eye center, image-left mouth corner, and image-right mouth
+   corner.
+3. Use the mouse wheel to zoom, middle mouse to pan, Backspace to undo, and
+   `R` to reset. Press Enter to make Front the reference.
+4. Repeat for each side or optional 45-degree source. Press `S` to skip one
+   landmark that is genuinely hidden in a profile, then place the other three.
+
+Each view is corrected independently. Applying a right-side calibration does
+not alter body fit or the already-calibrated left side. **Reapply** is
+idempotent and starts from the saved silhouette auto-fit.
 
 ## Preview and refine
 
@@ -64,6 +89,19 @@ Load the identity-priority preset and click **Create Projection Preview**.
 This operation creates temporary orthographic cameras, `SBF_PROJ_*` UV maps,
 and `SBF_WEIGHT_*` corner attributes, then assigns a temporary emission
 preview material.
+
+The source image, flip, scale, offset, alpha threshold, black key, enable
+state, and overall weight controls update the existing material immediately
+when **Live Alignment Preview** is enabled. Camera fit, head ownership, and
+occlusion settings still require **Refresh Preview** because they rebuild
+geometry attributes or ray visibility.
+
+**Identity-Safe Head Blend** is enabled by the preset. It strongly favors the
+best aligned source while allowing a narrow confidence transition to its
+neighbor. This avoids both failure modes: several complete faces blended at
+once, and hard polygon-shaped cuts between photographs. **Head Blend
+Sharpness**, **Source Edge Padding**, and the neck transition are adjustable
+under **Head Identity Protection**.
 
 Inspect:
 
@@ -74,26 +112,31 @@ Inspect:
 - Silhouettes for pale/white bands.
 - Under-arm regions for honest fallback to the original atlas.
 
-Change settings and click **Refresh Preview**. The add-on always rebuilds its
+Use live source controls for alignment. Click **Refresh Preview** only after
+changing fit, ownership, blending, or occlusion settings. The add-on rebuilds
 temporary state from the production material.
 
 ## Bake
 
 Choose an atlas size, output PNG, margin, roughness, normal strength, and
-packing state. Click **Bake Final Texture**.
+packing state. Keep **Clean Base-Color UV** enabled for SPAR3D output, then
+click **Bake Final Texture**.
 
 The bake:
 
 1. Uses the preview material as an EMIT source.
-2. Bakes into the original production UV map.
-3. Saves the PNG.
-4. Optionally packs it.
-5. Replaces only the production base-color image.
-6. Preserves the normal image.
-7. Applies the chosen roughness and normal strength.
-8. Removes projection cameras, UVs, weights, and the preview material.
+2. Builds `SBF_BaseColorUV` from a temporary exact-welded copy so fragmented
+   SPAR3D surfaces do not turn into tiny triangle islands.
+3. Copies that UV back without changing the production vertices or polygons.
+4. Bakes and saves the PNG.
+5. Explicitly binds the baked base color to `SBF_BaseColorUV`.
+6. Keeps the original UV and binds unconfigured normal/PBR image nodes to it.
+7. Optionally packs the image and applies roughness and normal strength.
+8. Removes projection cameras, projection UVs, weights, and preview material.
 
-The default 4096 bake uses Cycles CPU, one sample, and a 24-pixel margin.
+The default 4096 bake uses Cycles CPU, one sample, a 24-pixel margin, and the
+clean base-color UV. Disable that option only for a mesh whose original UV is
+already a deliberate, connected production atlas.
 
 ## Verify and deliver
 
@@ -101,6 +144,7 @@ The default 4096 bake uses Cycles CPU, one sample, and a 24-pixel margin.
 
 - Front, back, left, and right
 - Face close-up
+- Left and right head close-ups at 30, 45, 60, and 90 degrees
 - Left and right three-quarter
 - Lower front
 - Lower three-quarter

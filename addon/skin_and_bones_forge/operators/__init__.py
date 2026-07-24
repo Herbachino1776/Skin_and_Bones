@@ -1,5 +1,8 @@
 """Workflow operators."""
 
-from .workflow import OPERATOR_CLASSES
+from .landmarks import LANDMARK_OPERATOR_CLASSES
+from .workflow import OPERATOR_CLASSES as WORKFLOW_OPERATOR_CLASSES
+
+OPERATOR_CLASSES = LANDMARK_OPERATOR_CLASSES + WORKFLOW_OPERATOR_CLASSES
 
 __all__ = ("OPERATOR_CLASSES",)

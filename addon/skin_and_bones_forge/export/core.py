@@ -8,7 +8,11 @@ from pathlib import Path
 
 import bpy
 
-from ..constants import ADDON_VERSION_STRING, PROCESSING_PRESET
+from ..constants import (
+    ADDON_VERSION_STRING,
+    BASE_COLOR_UV_NAME,
+    PROCESSING_PRESET,
+)
 from ..projection import cleanup_temporary_data
 
 
@@ -48,6 +52,11 @@ def _manifest_payload(info, settings, output_type, output_path):
         },
         "material": info.material.name,
         "target_uv": info.uv_name,
+        "base_color_uv": (
+            BASE_COLOR_UV_NAME
+            if info.mesh.uv_layers.get(BASE_COLOR_UV_NAME)
+            else info.uv_name
+        ),
         "base_color_image": (
             info.base_color_node.image.name if info.base_color_node.image else None
         ),

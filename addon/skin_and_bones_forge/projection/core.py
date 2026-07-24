@@ -40,11 +40,14 @@ def view_directions(settings):
         raise ValueError("Forward Axis and Up Axis cannot be parallel.")
     up = (up - forward * forward.dot(up)).normalized()
     right = forward.cross(up).normalized()
+    left = -right
     return {
         "front": forward,
         "back": -forward,
-        "left": -right,
+        "left": left,
         "right": right,
+        "front_left": (forward + left).normalized(),
+        "front_right": (forward + right).normalized(),
         "up": up,
     }
 
@@ -192,13 +195,38 @@ def _create_projection_cameras(scene, settings, bounds, directions):
     return cameras
 
 
-def _transform_projection_uv(uv, view_settings):
-    x = 1.0 - uv.x if view_settings.flip_x else uv.x
-    y = 1.0 - uv.y if view_settings.flip_y else uv.y
-    scale = max(view_settings.scale, 1.0e-6)
-    x = (x - 0.5) / scale + 0.5 + view_settings.offset_x
-    y = (y - 0.5) / scale + 0.5 + view_settings.offset_y
-    return x, y
+def _smoothstep(edge_0, edge_1, value):
+    if edge_1 <= edge_0:
+        return 1.0 if value >= edge_1 else 0.0
+    factor = max(0.0, min(1.0, (value - edge_0) / (edge_1 - edge_0)))
+    return factor * factor * (3.0 - 2.0 * factor)
+
+
+def _projection_normals(mesh, world_points, normal_matrix, max_dimension):
+    """Average weight normals across exact SPAR3D fragment duplicates."""
+
+    normals = [
+        (normal_matrix @ vertex.normal).normalized()
+        for vertex in mesh.vertices
+    ]
+    tolerance = max(max_dimension * 1.0e-6, 1.0e-9)
+    groups = {}
+    for index, point in enumerate(world_points):
+        key = tuple(round(component / tolerance) for component in point)
+        groups.setdefault(key, []).append(index)
+
+    for indices in groups.values():
+        if len(indices) < 2:
+            continue
+        average = Vector((0.0, 0.0, 0.0))
+        for index in indices:
+            average += normals[index]
+        if average.length_squared <= 1.0e-12:
+            continue
+        average.normalize()
+        for index in indices:
+            normals[index] = average.copy()
+    return normals
 
 
 def _target_hit(hit_object, target):
@@ -290,13 +318,12 @@ def create_projection_state(context, info, settings):
             )
 
             camera = cameras[name]
-            view_settings = getattr(settings, name)
             for loop in mesh.loops:
                 world_co = bounds["points"][loop.vertex_index]
                 projected = world_to_camera_view(scene, camera, world_co)
-                uv_layer.data[loop.index].uv = _transform_projection_uv(
-                    projected, view_settings
-                )
+                # Source alignment remains in shader nodes so flip/scale/offset
+                # edits can update live without rebuilding ray-cast weights.
+                uv_layer.data[loop.index].uv = (projected.x, projected.y)
     finally:
         (
             scene.render.resolution_x,
@@ -309,9 +336,71 @@ def create_projection_state(context, info, settings):
             camera.hide_viewport = not settings.show_projection_cameras
 
     normal_matrix = target.matrix_world.to_3x3().inverted().transposed()
-    world_normals = [
-        (normal_matrix @ vertex.normal).normalized() for vertex in mesh.vertices
+    world_normals = _projection_normals(
+        mesh,
+        bounds["points"],
+        normal_matrix,
+        bounds["max_dimension"],
+    )
+    height_ratios = [
+        (point.dot(directions["up"]) - bounds["up_min"]) / bounds["up_span"]
+        for point in bounds["points"]
     ]
+
+    crown_threshold = min(0.95, settings.head_threshold + 0.10)
+    crown_right_values = [
+        point.dot(directions["right"])
+        for point, ratio in zip(bounds["points"], height_ratios, strict=True)
+        if ratio >= crown_threshold
+    ]
+    if crown_right_values:
+        head_right_center = (
+            min(crown_right_values) + max(crown_right_values)
+        ) * 0.5
+        head_right_radius = max(
+            (max(crown_right_values) - min(crown_right_values)) * 0.75,
+            1.0e-8,
+        )
+    else:
+        head_right_center = (
+            bounds["right_min"] + bounds["right_max"]
+        ) * 0.5
+        head_right_radius = bounds["right_span"] * 0.25
+
+    lateral_masks = []
+    for point in bounds["points"]:
+        lateral_distance = abs(
+            point.dot(directions["right"]) - head_right_center
+        )
+        lateral_masks.append(
+            1.0
+            - _smoothstep(
+                head_right_radius,
+                head_right_radius * 1.20,
+                lateral_distance,
+            )
+        )
+
+    head_mask_name = f"{WEIGHT_ATTRIBUTE_PREFIX}head_mask"
+    existing_head_mask = mesh.attributes.get(head_mask_name)
+    if existing_head_mask:
+        mesh.attributes.remove(existing_head_mask)
+    head_mask = mesh.attributes.new(
+        name=head_mask_name,
+        type="FLOAT",
+        domain="CORNER",
+    )
+    transition_start = settings.head_threshold - settings.head_lock_transition
+    for loop in mesh.loops:
+        mask = 0.0
+        if settings.head_identity_lock:
+            mask = _smoothstep(
+                transition_start,
+                settings.head_threshold,
+                height_ratios[loop.vertex_index],
+            )
+            mask *= lateral_masks[loop.vertex_index]
+        head_mask.data[loop.index].value = mask
 
     use_occlusion = settings.occlusion_protection
     depsgraph = context.evaluated_depsgraph_get()
@@ -330,6 +419,14 @@ def create_projection_state(context, info, settings):
     for polygon in mesh.polygons:
         for loop_index in polygon.loop_indices:
             loop_polygon_indices[loop_index] = polygon.index
+
+    view_position_bounds = {}
+    for name in VIEW_NAMES:
+        values = [point.dot(directions[name]) for point in bounds["points"]]
+        view_position_bounds[name] = (
+            min(values),
+            max(max(values) - min(values), 1.0e-8),
+        )
 
     wm = context.window_manager
     wm.progress_begin(0, len(VIEW_NAMES))
@@ -365,9 +462,8 @@ def create_projection_state(context, info, settings):
                 vertex_index = loop.vertex_index
                 world_co = bounds["points"][vertex_index]
                 world_normal = world_normals[vertex_index]
-                height_ratio = (
-                    world_co.dot(directions["up"]) - bounds["up_min"]
-                ) / bounds["up_span"]
+                height_ratio = height_ratios[vertex_index]
+                head_lock = head_mask.data[loop.index].value
 
                 if height_ratio >= settings.head_threshold:
                     identity_bias = settings.head_front_back_bias
@@ -377,17 +473,25 @@ def create_projection_state(context, info, settings):
                     identity_bias = settings.lower_front_back_bias
 
                 directional = max(0.0, world_normal.dot(direction))
-                if name in {"front", "back"}:
-                    front_position = (
-                        world_co.dot(directions["front"]) - bounds["front_min"]
-                    ) / bounds["front_span"]
+                surface_fill_visibility = 0.0
+                if name in {
+                    "front",
+                    "back",
+                    "front_left",
+                    "front_right",
+                }:
+                    position_min, position_span = view_position_bounds[name]
                     hemisphere = (
-                        front_position if name == "front" else 1.0 - front_position
-                    )
+                        world_co.dot(direction) - position_min
+                    ) / position_span
                     top_coverage = (
                         abs(world_normal.dot(directions["up"]))
                         * hemisphere
                         * settings.top_surface_coverage
+                    )
+                    surface_fill_visibility = min(
+                        1.0,
+                        top_coverage * head_lock,
                     )
                     directional = max(directional, top_coverage)
                     bias = identity_bias
@@ -395,16 +499,28 @@ def create_projection_state(context, info, settings):
                     bias = settings.side_bias
 
                 visibility = vertex_visibility[vertex_index]
-                visibility *= polygon_visibility[
+                polygon_sample = polygon_visibility[
                     loop_polygon_indices[loop.index]
                 ]
+                # Polygon-center rejection is intentionally faded out inside
+                # the identity-locked head.  A constant polygon sample creates
+                # visible triangular ownership islands on coarse SPAR3D faces,
+                # while per-vertex visibility interpolates continuously and is
+                # still conservative around genuine self-occlusion.
+                polygon_gate = (
+                    polygon_sample * (1.0 - head_lock) + head_lock
+                )
+                visibility *= polygon_gate
+                # Horizontal camera rays are tangent to the crown and
+                # underside of the jaw. Give those small head surfaces a
+                # conservative alpha-gated source fallback instead of exposing
+                # the old SPAR3D texture through a white or stretched hole.
+                visibility = max(visibility, surface_fill_visibility)
                 weight = (
                     settings.minimum_weight
                     + bias * math.pow(directional, settings.directional_exponent)
                 )
-                attributes[name].data[loop.index].value = (
-                    weight * visibility * view_settings.weight
-                )
+                attributes[name].data[loop.index].value = weight * visibility
             wm.progress_update(view_index + 1)
     finally:
         wm.progress_end()
@@ -418,4 +534,5 @@ def create_projection_state(context, info, settings):
         "directions": directions,
         "bounds": bounds,
         "attributes": attributes,
+        "head_mask": head_mask,
     }

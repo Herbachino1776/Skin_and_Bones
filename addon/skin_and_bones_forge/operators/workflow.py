@@ -9,14 +9,26 @@ from bpy.props import EnumProperty, StringProperty
 from bpy.types import Operator
 
 from ..baking import bake_final_texture
-from ..constants import PROCESSING_PRESET
+from ..constants import (
+    CARDINAL_VIEW_NAMES,
+    PROCESSING_PRESET,
+    VIEW_LABELS,
+    VIEW_NAMES,
+)
 from ..export import export_glb, render_verification_set, save_blend_copy
 from ..projection import (
     cleanup_temporary_data,
     create_preview_material,
     create_projection_state,
 )
+from ..projection.alignment import auto_fit_loaded_images
 from ..validation import ValidationError, validate_target
+
+
+VIEW_PICKER_ITEMS = tuple(
+    (name, VIEW_LABELS[name], f"{VIEW_LABELS[name]} projection")
+    for name in VIEW_NAMES
+)
 
 
 def _settings(context):
@@ -45,12 +57,7 @@ class SBF_OT_load_view_image(Operator):
 
     view_name: EnumProperty(
         name="View",
-        items=(
-            ("front", "Front", "Front projection"),
-            ("back", "Back", "Back projection"),
-            ("left", "Character Left", "Character-left projection"),
-            ("right", "Character Right", "Character-right projection"),
-        ),
+        items=VIEW_PICKER_ITEMS,
     )
     filepath: StringProperty(name="Image File", subtype="FILE_PATH")
     filter_glob: StringProperty(
@@ -74,7 +81,19 @@ class SBF_OT_load_view_image(Operator):
             image = bpy.data.images.load(str(path), check_existing=True)
             image.colorspace_settings.name = "sRGB"
             image.alpha_mode = "STRAIGHT"
-            getattr(settings, self.view_name).image = image
+            view = getattr(settings, self.view_name)
+            if view.image != image:
+                view.facial_landmarks_set = (False, False, False, False)
+                view.facial_landmarks_skipped = (
+                    False,
+                    False,
+                    False,
+                    False,
+                )
+                view.facial_calibration_valid = False
+                view.landmark_image_name = ""
+            view.enabled = True
+            view.image = image
         except (RuntimeError, TypeError, ValueError) as exc:
             return _fail(self, settings, f"Could not load image: {exc}")
 
@@ -99,10 +118,14 @@ class SBF_OT_load_preset(Operator):
         settings.minimum_weight = 0.001
         settings.lower_front_back_bias = 3.0
         settings.upper_front_back_bias = 10.0
-        settings.head_front_back_bias = 40.0
+        settings.head_front_back_bias = 1.25
+        settings.head_identity_lock = True
+        settings.head_blend_sharpness = 3.0
+        settings.source_edge_padding = 0.05
+        settings.head_lock_transition = 0.025
         settings.side_bias = 1.0
         settings.upper_threshold = 0.58
-        settings.head_threshold = 0.75
+        settings.head_threshold = 0.80
         settings.top_surface_coverage = 0.90
         settings.fallback_threshold = 0.01
         settings.occlusion_protection = True
@@ -110,23 +133,68 @@ class SBF_OT_load_preset(Operator):
         settings.visibility_samples = "CENTER_VERTEX"
         settings.depth_tolerance_factor = 0.003
         settings.occlusion_feather = 0.25
+        settings.live_preview = True
+        settings.auto_fit_source_images = True
         settings.texture_size = "4096"
         settings.bake_margin = 24
+        settings.generate_bake_uv = True
         settings.roughness = 1.0
         settings.normal_strength = 0.25
         settings.smooth_shading = True
-        for name in ("front", "back", "left", "right"):
+        for name in VIEW_NAMES:
             view = getattr(settings, name)
-            view.enabled = True
+            view.enabled = (
+                name in CARDINAL_VIEW_NAMES or view.image is not None
+            )
             view.flip_x = False
             view.flip_y = False
             view.scale = 1.0
+            view.horizontal_scale = 1.0
             view.offset_x = 0.0
             view.offset_y = 0.0
+            view.head_scale = 1.0
+            view.head_horizontal_scale = 1.0
+            view.head_offset_x = 0.0
+            view.head_offset_y = 0.0
+            view.auto_head_scale = 1.0
+            view.auto_head_horizontal_scale = 1.0
+            view.auto_head_offset_x = 0.0
+            view.auto_head_offset_y = 0.0
             view.alpha_threshold = 0.01
+            view.key_black_background = False
+            view.black_key_threshold = 0.01
             view.weight = 1.0
             view.occlusion = True
-        settings.status_message = f"Loaded: {PROCESSING_PRESET}"
+        auto_fit_loaded_images(settings)
+        settings.status_message = (
+            f"Loaded: {PROCESSING_PRESET}. Four cardinal views are supported; "
+            "45 deg views are optional."
+        )
+        return {"FINISHED"}
+
+
+class SBF_OT_auto_fit_sources(Operator):
+    bl_idname = "sbf.auto_fit_sources"
+    bl_label = "Auto-Fit Source Images"
+    bl_description = (
+        "Center and scale loaded sources from their visible alpha silhouettes"
+    )
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        settings = _settings(context)
+        try:
+            results = auto_fit_loaded_images(settings)
+        except (RuntimeError, ValueError) as exc:
+            return _fail(self, settings, exc)
+        if not results:
+            return _fail(self, settings, "No enabled source images are loaded.")
+        summary = ", ".join(
+            f"{result['name']} x={result['offset_x']:+.3f}"
+            for result in results
+        )
+        settings.status_message = f"Auto-fit {len(results)} sources: {summary}"
+        self.report({"INFO"}, settings.status_message)
         return {"FINISHED"}
 
 
@@ -163,8 +231,8 @@ def _execute_preview(operator, context):
         create_projection_state(context, info, settings)
         create_preview_material(info, settings)
         settings.status_message = (
-            "Projection preview ready. Inspect the material, adjust settings, "
-            "then Refresh Preview or Bake Final Texture."
+            "Projection preview ready. Alignment controls are live; Refresh "
+            "after changing ownership, fit, or occlusion settings."
         )
         operator.report({"INFO"}, settings.status_message)
         return {"FINISHED"}
@@ -196,7 +264,10 @@ class SBF_OT_refresh_preview(Operator):
 class SBF_OT_bake(Operator):
     bl_idname = "sbf.bake_final"
     bl_label = "Bake Final Texture"
-    bl_description = "Bake the projection preview to the original production UV map"
+    bl_description = (
+        "Bake the projection preview to a clean base-color UV while preserving "
+        "the original UV for normal and PBR maps"
+    )
     bl_options = {"REGISTER"}
 
     def execute(self, context):
@@ -285,6 +356,7 @@ class SBF_OT_render_verification(Operator):
 OPERATOR_CLASSES = (
     SBF_OT_load_view_image,
     SBF_OT_load_preset,
+    SBF_OT_auto_fit_sources,
     SBF_OT_validate,
     SBF_OT_preview,
     SBF_OT_refresh_preview,

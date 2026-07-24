@@ -5,8 +5,10 @@ from __future__ import annotations
 import bpy
 from bpy.props import (
     BoolProperty,
+    BoolVectorProperty,
     EnumProperty,
     FloatProperty,
+    FloatVectorProperty,
     IntProperty,
     PointerProperty,
     StringProperty,
@@ -28,15 +30,83 @@ def _mesh_object_poll(_self, obj):
     return obj is not None and obj.type == "MESH"
 
 
+def _update_view_preview(view, context):
+    """Push inexpensive source-view edits into an existing preview material."""
+
+    if context is None or context.scene is None:
+        return
+    settings = getattr(context.scene, "sbf_settings", None)
+    if settings is None or not settings.live_preview:
+        return
+    try:
+        from .projection.material import update_preview_view_controls
+
+        update_preview_view_controls(settings, changed_view=view)
+    except (AttributeError, ReferenceError, RuntimeError):
+        # Property updates must remain safe while Blender registers/unregisters
+        # classes or while temporary preview data is being cleaned up.
+        return
+
+
+def _update_view_image(view, context):
+    if (
+        view.image is not None
+        and view.landmark_image_name
+        and view.landmark_image_name != view.image.name
+    ):
+        view.facial_landmarks_set = (False, False, False, False)
+        view.facial_landmarks_skipped = (False, False, False, False)
+        view.facial_calibration_valid = False
+        view.landmark_image_name = ""
+    if context is not None and context.scene is not None and view.image is not None:
+        settings = getattr(context.scene, "sbf_settings", None)
+        if settings is not None and settings.auto_fit_source_images:
+            try:
+                from .projection.alignment import auto_fit_view_image
+
+                auto_fit_view_image(settings, changed_view=view)
+            except (AttributeError, ReferenceError, RuntimeError, ValueError):
+                pass
+    _update_view_preview(view, context)
+
+
+def _update_all_preview_views(_settings, context):
+    if context is None or context.scene is None:
+        return
+    settings = getattr(context.scene, "sbf_settings", None)
+    if settings is None or not settings.live_preview:
+        return
+    try:
+        from .projection.material import update_preview_view_controls
+
+        update_preview_view_controls(settings)
+    except (AttributeError, ReferenceError, RuntimeError):
+        return
+
+
 class SBFViewSettings(PropertyGroup):
     image: PointerProperty(
         name="Image",
         description="RGBA projection image for this character view",
         type=Image,
+        update=_update_view_image,
     )
-    enabled: BoolProperty(name="Enabled", default=True)
-    flip_x: BoolProperty(name="Flip X", default=False)
-    flip_y: BoolProperty(name="Flip Y", default=False)
+    enabled: BoolProperty(
+        name="Enabled",
+        default=True,
+        update=_update_view_preview,
+    )
+    expanded: BoolProperty(name="Expanded", default=False)
+    flip_x: BoolProperty(
+        name="Flip X",
+        default=False,
+        update=_update_view_preview,
+    )
+    flip_y: BoolProperty(
+        name="Flip Y",
+        default=False,
+        update=_update_view_preview,
+    )
     scale: FloatProperty(
         name="Scale",
         description="Scale the source around its center",
@@ -45,6 +115,19 @@ class SBFViewSettings(PropertyGroup):
         max=5.0,
         soft_min=0.5,
         soft_max=2.0,
+        update=_update_view_preview,
+    )
+    horizontal_scale: FloatProperty(
+        name="Horizontal Fit",
+        description=(
+            "Independent horizontal source fit used to match the mesh silhouette"
+        ),
+        default=1.0,
+        min=0.1,
+        max=5.0,
+        soft_min=0.5,
+        soft_max=2.0,
+        update=_update_view_preview,
     )
     offset_x: FloatProperty(
         name="Horizontal",
@@ -53,6 +136,7 @@ class SBFViewSettings(PropertyGroup):
         max=2.0,
         soft_min=-0.25,
         soft_max=0.25,
+        update=_update_view_preview,
     )
     offset_y: FloatProperty(
         name="Vertical",
@@ -61,13 +145,131 @@ class SBFViewSettings(PropertyGroup):
         max=2.0,
         soft_min=-0.25,
         soft_max=0.25,
+        update=_update_view_preview,
     )
+    head_scale: FloatProperty(
+        name="Head Scale",
+        description="Additional live scale applied only inside the head region",
+        default=1.0,
+        min=0.25,
+        max=4.0,
+        soft_min=0.75,
+        soft_max=1.5,
+        update=_update_view_preview,
+    )
+    head_horizontal_scale: FloatProperty(
+        name="Head Horizontal Fit",
+        description=(
+            "Independent horizontal fit for aligning eyes, nose, ears, "
+            "and silhouette landmarks"
+        ),
+        default=1.0,
+        min=0.25,
+        max=4.0,
+        soft_min=0.75,
+        soft_max=1.5,
+        update=_update_view_preview,
+    )
+    head_offset_x: FloatProperty(
+        name="Head Horizontal",
+        default=0.0,
+        min=-1.0,
+        max=1.0,
+        soft_min=-0.15,
+        soft_max=0.15,
+        update=_update_view_preview,
+    )
+    head_offset_y: FloatProperty(
+        name="Head Vertical",
+        default=0.0,
+        min=-1.0,
+        max=1.0,
+        soft_min=-0.15,
+        soft_max=0.15,
+        update=_update_view_preview,
+    )
+    eye_image_left: FloatVectorProperty(
+        name="Image-Left Eye",
+        description="Normalized image position of the eye on the left of the image",
+        size=2,
+        default=(0.40, 0.75),
+        min=0.0,
+        max=1.0,
+    )
+    eye_image_right: FloatVectorProperty(
+        name="Image-Right Eye",
+        description="Normalized image position of the eye on the right of the image",
+        size=2,
+        default=(0.60, 0.75),
+        min=0.0,
+        max=1.0,
+    )
+    mouth_image_left: FloatVectorProperty(
+        name="Image-Left Mouth",
+        description="Normalized image position of the mouth corner on the left",
+        size=2,
+        default=(0.44, 0.65),
+        min=0.0,
+        max=1.0,
+    )
+    mouth_image_right: FloatVectorProperty(
+        name="Image-Right Mouth",
+        description="Normalized image position of the mouth corner on the right",
+        size=2,
+        default=(0.56, 0.65),
+        min=0.0,
+        max=1.0,
+    )
+    facial_landmarks_set: BoolVectorProperty(
+        name="Facial Landmarks Set",
+        size=4,
+        default=(False, False, False, False),
+        options={"HIDDEN"},
+    )
+    facial_landmarks_skipped: BoolVectorProperty(
+        name="Facial Landmarks Skipped",
+        size=4,
+        default=(False, False, False, False),
+        options={"HIDDEN"},
+    )
+    facial_calibration_valid: BoolProperty(
+        name="Facial Calibration Ready",
+        default=False,
+        options={"HIDDEN"},
+    )
+    landmark_image_name: StringProperty(default="", options={"HIDDEN"})
+    auto_head_scale: FloatProperty(default=1.0, options={"HIDDEN"})
+    auto_head_horizontal_scale: FloatProperty(
+        default=1.0,
+        options={"HIDDEN"},
+    )
+    auto_head_offset_x: FloatProperty(default=0.0, options={"HIDDEN"})
+    auto_head_offset_y: FloatProperty(default=0.0, options={"HIDDEN"})
     alpha_threshold: FloatProperty(
         name="Alpha Threshold",
         default=0.01,
         min=0.0,
         max=1.0,
         subtype="FACTOR",
+        update=_update_view_preview,
+    )
+    key_black_background: BoolProperty(
+        name="Key Black Background",
+        description=(
+            "Treat a solid black image background as transparent; auto-fit "
+            "enables this when needed"
+        ),
+        default=False,
+        update=_update_view_preview,
+    )
+    black_key_threshold: FloatProperty(
+        name="Black Key Threshold",
+        default=0.01,
+        min=0.0,
+        max=0.25,
+        soft_max=0.05,
+        precision=3,
+        update=_update_view_preview,
     )
     weight: FloatProperty(
         name="Overall Weight",
@@ -75,6 +277,7 @@ class SBFViewSettings(PropertyGroup):
         min=0.0,
         max=10.0,
         soft_max=2.0,
+        update=_update_view_preview,
     )
     occlusion: BoolProperty(name="Occlusion", default=True)
 
@@ -107,6 +310,8 @@ class SBFSettings(PropertyGroup):
     )
 
     front: PointerProperty(type=SBFViewSettings)
+    front_left: PointerProperty(type=SBFViewSettings)
+    front_right: PointerProperty(type=SBFViewSettings)
     back: PointerProperty(type=SBFViewSettings)
     left: PointerProperty(type=SBFViewSettings)
     right: PointerProperty(type=SBFViewSettings)
@@ -121,6 +326,22 @@ class SBFSettings(PropertyGroup):
     show_projection_cameras: BoolProperty(
         name="Show Projection Cameras",
         default=False,
+    )
+    live_preview: BoolProperty(
+        name="Live Alignment Preview",
+        description=(
+            "Update image, flip, scale, offset, alpha, and overall weight "
+            "controls immediately after a projection preview exists"
+        ),
+        default=True,
+        update=_update_all_preview_views,
+    )
+    auto_fit_source_images: BoolProperty(
+        name="Auto-Fit Loaded Images",
+        description=(
+            "Center and scale each newly loaded source from its alpha silhouette"
+        ),
+        default=True,
     )
 
     directional_exponent: FloatProperty(
@@ -150,9 +371,51 @@ class SBFSettings(PropertyGroup):
     )
     head_front_back_bias: FloatProperty(
         name="Head Front/Back",
-        default=40.0,
+        default=1.25,
         min=0.0,
         max=200.0,
+    )
+    head_identity_lock: BoolProperty(
+        name="Identity-Safe Head Blend",
+        description=(
+            "Use a strongly confidence-weighted blend for the head so adjacent "
+            "aligned sources transition without duplicate faces or hard seams"
+        ),
+        default=True,
+    )
+    head_blend_sharpness: FloatProperty(
+        name="Head Blend Sharpness",
+        description=(
+            "Higher values narrow the transition between the strongest aligned "
+            "head sources; lower values soften source seams"
+        ),
+        default=3.0,
+        min=1.0,
+        max=12.0,
+        soft_max=6.0,
+        update=_update_all_preview_views,
+    )
+    source_edge_padding: FloatProperty(
+        name="Source Edge Padding",
+        description=(
+            "Fill small scalp, jaw, and shoulder projection gaps from a nearby "
+            "valid sample inside each aligned source silhouette"
+        ),
+        default=0.05,
+        min=0.0,
+        max=0.20,
+        soft_max=0.10,
+        subtype="FACTOR",
+        update=_update_all_preview_views,
+    )
+    head_lock_transition: FloatProperty(
+        name="Neck Transition",
+        description="Vertical feather between body blending and head ownership",
+        default=0.025,
+        min=0.0,
+        max=0.2,
+        soft_max=0.08,
+        precision=3,
     )
     side_bias: FloatProperty(
         name="Side Bias",
@@ -169,7 +432,7 @@ class SBFSettings(PropertyGroup):
     )
     head_threshold: FloatProperty(
         name="Head Threshold",
-        default=0.75,
+        default=0.80,
         min=0.0,
         max=1.0,
         subtype="FACTOR",
@@ -243,6 +506,14 @@ class SBFSettings(PropertyGroup):
         default="4096",
     )
     bake_margin: IntProperty(name="Bake Margin", default=24, min=0, max=256)
+    generate_bake_uv: BoolProperty(
+        name="Clean Base-Color UV",
+        description=(
+            "Generate a dedicated connected UV atlas for the baked base color "
+            "while keeping the original UV assigned to normal and other maps"
+        ),
+        default=True,
+    )
     roughness: FloatProperty(
         name="Roughness",
         default=1.0,

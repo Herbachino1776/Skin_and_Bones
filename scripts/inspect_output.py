@@ -67,6 +67,8 @@ for obj in meshes:
 
     if not mesh.uv_layers:
         errors.append(f"{obj.name}: missing production UV")
+    elif len(mesh.uv_layers) < 2:
+        errors.append(f"{obj.name}: clean base-color UV is missing")
     if any(layer.name.startswith("SBF_PROJ_") for layer in mesh.uv_layers):
         errors.append(f"{obj.name}: temporary projection UV remains")
     if any(attr.name.startswith("SBF_WEIGHT_") for attr in mesh.attributes):
@@ -80,6 +82,19 @@ for obj in meshes:
         errors.append(
             f"{obj.name}: base-color size is {list(base_nodes[0].image.size)}"
         )
+    else:
+        vector_links = list(base_nodes[0].inputs["Vector"].links)
+        expected_base_uv = (
+            "SBF_BaseColorUV" if kind == "BLEND" else mesh.uv_layers[1].name
+        )
+        if (
+            len(vector_links) != 1
+            or vector_links[0].from_node.bl_idname != "ShaderNodeUVMap"
+            or vector_links[0].from_node.uv_map != expected_base_uv
+        ):
+            errors.append(
+                f"{obj.name}: base color is not bound to {expected_base_uv}"
+            )
     if not normal_nodes:
         errors.append(f"{obj.name}: normal map node missing")
     if not principled_nodes:
@@ -91,6 +106,12 @@ for obj in meshes:
             "vertices": len(mesh.vertices),
             "polygons": len(mesh.polygons),
             "uv_layers": [layer.name for layer in mesh.uv_layers],
+            "base_color_uv": (
+                base_nodes[0].inputs["Vector"].links[0].from_node.uv_map
+                if base_nodes
+                and base_nodes[0].inputs["Vector"].is_linked
+                else None
+            ),
             "materials": [
                 slot.material.name if slot.material else None
                 for slot in obj.material_slots

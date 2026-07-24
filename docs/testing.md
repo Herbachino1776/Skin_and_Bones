@@ -14,15 +14,20 @@ This is the fast structural regression. It validates:
 
 - Target discovery and all four projection views.
 - Nonzero view ownership after occlusion rejection.
+- Live body and head shader-control updates without rebuilding projection UVs.
+- Four-point Front and three-point profile landmark calibration.
+- Head-only correction with unchanged body transforms.
+- Idempotent facial-calibration reapply.
 - Bake completion and requested texture dimensions.
 - Original vertex/polygon counts in the Blender output.
-- Original UV layer names.
+- Byte-for-byte-equivalent original UV coordinates plus `SBF_BaseColorUV`.
+- Explicit baked base-color binding to the clean UV.
 - Normal image assignment.
 - Temporary-data cleanup.
 - Packed base color.
 - Roughness `1.0` and normal strength `0.25`.
 - Blender output reopen.
-- GLB export and GLB re-import.
+- GLB export and GLB re-import, including base-color UV-set selection.
 
 ## Release-quality Folsom test
 
@@ -50,7 +55,7 @@ The release ZIP must contain a single top-level `skin_and_bones_forge/`
 package and no `__pycache__` or fixture assets.
 
 Every push to `main` runs these static checks on GitHub Actions and uploads
-`Skin_and_Bones_Forge_v0.1.1` as a 30-day workflow artifact.
+`Skin_and_Bones_Forge_v0.2.0` as a 30-day workflow artifact.
 
 ## Second-character gate
 
@@ -58,7 +63,7 @@ Before 1.0.0, run the same workflow on at least one unrelated SPAR3D human:
 
 - Different body proportions and clothing.
 - A different import orientation to exercise axis controls.
-- Four sources produced independently of Folsom.
+- Four standardized cardinal sources produced independently of Folsom.
 
 The second-character result must require settings changes only, never add-on
 source edits. No second SPAR3D fixture is included in the v1 handoff, so this

@@ -7,9 +7,12 @@ from dataclasses import dataclass, field
 import bpy
 
 from ..constants import (
+    CARDINAL_VIEW_NAMES,
     ORIGINAL_MATERIAL_PROPERTY,
     ORIGINAL_SLOT_PROPERTY,
     PREVIEW_MATERIAL_PREFIX,
+    VIEW_LABELS,
+    VIEW_NAMES,
 )
 
 
@@ -219,16 +222,15 @@ def validate_target(context, settings, require_sources=False):
         warnings.append("No Principled BSDF was found; roughness will not be adjusted.")
     if normal_map is None or normal_image is None:
         warnings.append("No connected normal map was found; base color can still be baked.")
-
     if require_sources:
         missing = [
-            name.title()
-            for name in ("front", "back", "left", "right")
+            VIEW_LABELS[name]
+            for name in VIEW_NAMES
             if getattr(settings, name).enabled and getattr(settings, name).image is None
         ]
         enabled_count = sum(
             1
-            for name in ("front", "back", "left", "right")
+            for name in VIEW_NAMES
             if getattr(settings, name).enabled and getattr(settings, name).image is not None
         )
         if missing:
@@ -237,6 +239,16 @@ def validate_target(context, settings, require_sources=False):
             )
         if enabled_count < 2:
             raise ValidationError("Enable at least two source images.")
+        missing_cardinals = [
+            VIEW_LABELS[name]
+            for name in CARDINAL_VIEW_NAMES
+            if getattr(settings, name).image is None
+        ]
+        if missing_cardinals:
+            raise ValidationError(
+                "Required cardinal source images are missing: "
+                + ", ".join(missing_cardinals)
+            )
 
     settings.target_object = obj
     settings.production_material = material
