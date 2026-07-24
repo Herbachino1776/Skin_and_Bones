@@ -1,0 +1,23 @@
+# Python / Blender caches
+__pycache__/
+*.py[cod]
+*.blend1
+*.blend2
+
+# Generated validation and release artifacts
+build/
+dist/
+*.zip
+
+# Local large regression fixtures supplied by the migration archive.
+# Keep the fixture documentation under version control.
+reference_assets/*
+!reference_assets/README.md
+proof_renders/*
+!proof_renders/README.md
+
+# Editor and OS state
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

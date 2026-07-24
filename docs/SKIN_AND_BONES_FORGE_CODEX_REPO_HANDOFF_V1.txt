@@ -1,0 +1,814 @@
+SKIN_AND_BONES_FORGE
+Fresh repository / fresh Codex project handoff
+Reference implementation: Folsom Savage v7
+Prepared: July 23, 2026
+
+======================================================================
+READY-TO-PASTE PROMPT FOR THE NEW CODEX PROJECT
+======================================================================
+
+Create a polished, installable, versioned Blender add-on named:
+
+    Skin_and_Bones_Forge
+
+The first product milestone is a reliable visual-finishing pipeline for
+SPAR3D-generated human character GLBs.
+
+SPAR3D can generate useful offline character meshes, but its automatically
+generated UV textures—especially faces—often look muddy, distorted, flat,
+or cartoonish. Skin_and_Bones_Forge must let an artist load high-resolution
+front, back, left-profile, and right-profile images of the same character,
+project those images onto the existing SPAR3D mesh, intelligently blend the
+views, prevent foreground body parts from being stamped onto surfaces behind
+them, and bake a clean 4K replacement base-color atlas into the model's
+existing UV layout.
+
+The add-on must be non-destructive, adjustable, repeatable on another GLB,
+offline, and usable by a solo game developer. It should convert a crusty
+SPAR3D output into a visually acceptable new base asset without depending on
+online character providers, monthly credits, subscriptions, or usage limits.
+
+I am providing an original SPAR3D Blender file, a successful v7 corrected
+Blender file, the exported v7 GLB, the 4K baked texture, the four projection
+images, proof renders, and the Python scripts used to produce the reference.
+Inspect the original and v7 files and read this entire handoff before
+designing the add-on.
+
+Target the installed Blender version first:
+
+    Blender 5.1.2
+
+Build an installable add-on ZIP, keep the repository clean and versioned,
+write installation and usage documentation, and provide automated or
+scriptable validation wherever Blender permits it.
+
+The first acceptance test is that the add-on can recreate a result comparable
+to folsomsavage_retextured_v7.blend from folsomsavage.blend and the supplied
+projection images without editing add-on source code.
+
+======================================================================
+PROJECT VISION
+======================================================================
+
+This add-on is the visual-processing stage in a fully controlled offline
+character pipeline:
+
+    1. Generate a boneless character mesh with SPAR3D.
+    2. Open/import the SPAR3D asset in Blender.
+    3. Run Skin_and_Bones_Forge.
+    4. Replace muddy SPAR3D color with a high-quality multi-view 4K bake.
+    5. Save the result as a clean, new, visually finished base asset.
+    6. Reimport that base asset into a fresh Blender project.
+    7. Convert the boneless mesh into a quality rigged skeleton.
+    8. Process the rigged character with the user's mature DevForge Blender
+       add-on for animation and gore systems.
+    9. Export the final game-ready character.
+
+This creates full control from generation to game:
+
+- No online character provider.
+- No subscription.
+- No monthly credits.
+- No artificial generation limit.
+- No loss of source assets.
+- Repeatable local processing.
+- Artist-controlled appearance, rigging, animation, and gore.
+
+Skin_and_Bones_Forge should initially do one job extremely well: make the
+SPAR3D mesh visually acceptable and produce a clean base asset for the next
+rigging stage.
+
+Do not turn the first milestone into a rigging, animation, or gore add-on.
+Those are downstream stages. Preserve the mesh and material contract needed
+by those stages, but keep this repository focused on visual finishing.
+
+======================================================================
+REFERENCE ASSETS
+======================================================================
+
+Original SPAR3D Blender file:
+
+    D:\Blender\Blends\folsomsavage.blend
+
+Successful v7 corrected Blender file:
+
+    D:\Blender\Blends\folsomsavage_retextured_v7.blend
+
+Successful v7 corrected GLB:
+
+    D:\Blender\Blends\folsomsavage_retextured_v7.glb
+
+Original high-resolution front concept:
+
+    E:\Dev\Dread_Stone_Black\output\imagegen\folsom_bandits_4k\folsom bandit 1 4k.png
+
+Standardized projection sources:
+
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\projection_views\front_projection.png
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\projection_views\back_projection.png
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\projection_views\left_projection.png
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\projection_views\right_projection.png
+
+Final v7 baked 4K atlas:
+
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\folsomsavage_rebuilt_base_color_4096_v7.png
+
+Reference scripts:
+
+    E:\Dev\Dread_Stone_Black\tmp\blender_texture_rebuild\project_and_bake.py
+    E:\Dev\Dread_Stone_Black\tmp\blender_texture_rebuild\verify_retexture.py
+    E:\Dev\Dread_Stone_Black\tmp\blender_texture_rebuild\cleanup_delivery.py
+
+V7 proof renders:
+
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\v7_verify_front.png
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\v7_verify_back.png
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\v7_verify_left.png
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\v7_verify_right.png
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\v7_verify_face_closeup.png
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\v7_verify_threequarter_left.png
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\v7_verify_threequarter_right.png
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\v7_verify_lower_front.png
+    E:\Dev\Dread_Stone_Black\output\blender_texture_rebuild\v7_verify_lower_threequarter.png
+
+The paths above document the source workspace. The migration package should
+also contain copies so the new repository does not depend on Dread Stone
+Black after initialization.
+
+======================================================================
+WHAT WAS PROVEN
+======================================================================
+
+The original SPAR3D mesh had useful geometry and UVs, but its face was muddy.
+A high-resolution front identity image plus generated matching side/back
+views produced a dramatically better character when projected and baked into
+the original UV atlas.
+
+The successful result preserves:
+
+- The original geometry.
+- The original UVMap.
+- The original normal texture.
+- The original material structure where practical.
+- A single production mesh.
+- A packed 4096 x 4096 replacement base-color image.
+- A GLB that can be moved into the next character-processing stage.
+
+The cleaned v7 reference file contains only:
+
+- geometry_0
+- world
+- UVMap
+- Production material
+- Packed 4K base-color image
+- Original packed normal map
+
+Reference material values:
+
+- Roughness: 1.0
+- Normal-map strength: 0.25
+- Smooth shading: enabled
+
+Roughness 1.0 is an intentional visual default. On these characters it makes
+the clothing and skin feel darker, less plastic, less cartoonish, and more
+grounded. It must remain adjustable in the add-on.
+
+======================================================================
+THE V7 REPROJECTION ALGORITHM
+======================================================================
+
+1. Validate and preserve the target
+
+- Require a selected mesh.
+- Require an existing production UV map.
+- Detect its primary material and base-color image node.
+- Detect and preserve its normal map.
+- Record object transforms, hierarchy, material slots, UV names, and image
+  settings before changing anything.
+- Never overwrite the source Blender file by default.
+- Work in temporary datablocks or a duplicated working state.
+
+2. Load projection images
+
+Baseline inputs:
+
+- Front
+- Back
+- Character left profile
+- Character right profile
+
+Use sRGB for base-color sources. Preserve source alpha and interpret the
+reference projection images as straight alpha.
+
+The images should show the same identity, hairstyle, clothing, proportions,
+pose, lighting, camera height, and framing.
+
+3. Create orthographic projection cameras
+
+For the reference model:
+
+- Front outward direction: (0, +1, 0)
+- Back outward direction:  (0, -1, 0)
+- Left outward direction:  (-1, 0, 0)
+- Right outward direction: (+1, 0, 0)
+
+Every camera looks at the character bounding-box center.
+
+Reference framing:
+
+    ortho_scale = character_height / 0.90
+
+Do not assume every imported GLB uses the same axes. Provide forward/up-axis
+controls and a predictable auto-orient workflow.
+
+4. Create temporary camera-projection UV maps
+
+Create:
+
+- PROJ_front
+- PROJ_back
+- PROJ_left
+- PROJ_right
+
+For each mesh loop/corner:
+
+    world_co = object.matrix_world @ vertex.co
+    projected = world_to_camera_view(scene, camera, world_co)
+    projection_uv = (projected.x, projected.y)
+
+Update the Blender view layer after positioning cameras so
+world_to_camera_view() sees evaluated transforms.
+
+5. Calculate smooth directional weights
+
+For each loop:
+
+    world_normal = normalize(
+        object.matrix_world.to_3x3() @ vertex.normal
+    )
+
+    directional = max(
+        0,
+        dot(world_normal, view_outward_direction)
+    )
+
+Normalize height:
+
+    height_ratio =
+        (world_co.z - world_z_min) /
+        max(world_z_max - world_z_min, epsilon)
+
+Successful identity-priority defaults:
+
+    if height_ratio >= 0.75:
+        front_back_bias = 40.0
+    elif height_ratio >= 0.58:
+        front_back_bias = 10.0
+    else:
+        front_back_bias = 3.0
+
+Side bias:
+
+    side_bias = 1.0
+
+This prevents profile-generated eyes, noses, mouths, collars, and other
+identity details from ghosting into three-quarter views.
+
+6. Handle top-facing geometry
+
+Hair crowns and shoulder tops may have almost no X/Y-facing normal. Without
+a positional rule, all views receive similarly tiny weights and average into
+a visible collage.
+
+Normalize front/back position:
+
+    front_position =
+        (world_co.y - world_y_min) /
+        max(world_y_max - world_y_min, epsilon)
+
+For front:
+
+    hemisphere = front_position
+
+For back:
+
+    hemisphere = 1.0 - front_position
+
+Then:
+
+    top_surface_coverage =
+        abs(world_normal.z) * hemisphere * 0.90
+
+    directional =
+        max(directional, top_surface_coverage)
+
+7. Reject through-projection with depth visibility
+
+This is the major v7 improvement.
+
+Plain camera projection has no depth awareness. A side image can show an arm
+or hand in front of the torso or thigh. Without visibility rejection, that
+opaque arm pixel is applied to every surface along the same projection ray,
+including the body behind it. This caused visible phantom hands/arms baked
+onto the tunic and pants.
+
+Image alpha does not solve the problem because the foreground arm pixel is
+opaque.
+
+For every projection view, determine whether the target surface point is the
+first surface reached from that view.
+
+Reference ray test:
+
+    ray_distance = max(character_dimensions) * 4.0
+    depth_tolerance = character_height * 0.003
+
+For surface point p and outward view direction d:
+
+    ray_origin = p + d * ray_distance
+    ray_direction = -d
+
+Ray-cast toward the model. The point is visible only when:
+
+- The ray hits the target mesh.
+- The first hit location is within depth_tolerance of p.
+
+V7 conservatively checks polygon centers and loop vertices. A view weight is
+accepted only when both checks identify the point as frontmost.
+
+The add-on should improve this into an adjustable visibility system:
+
+- Occlusion protection enabled by default.
+- Camera/depth-map visibility where practical.
+- Ray-cast fallback for preview or compatibility.
+- Adjustable self-hit/depth tolerance.
+- Edge feathering around visibility transitions.
+- Per-view enable/disable.
+- Diagnostic visibility display.
+
+For a production-quality implementation, a projection-resolution depth map
+is preferable to one visibility value per polygon because it gives cleaner
+occlusion boundaries. A ray-cast MVP is acceptable if it samples enough
+points and can be verified against v7.
+
+8. Calculate final geometric view weight
+
+Defaults:
+
+- Minimum directional weight: 0.001
+- Directional exponent: 4.0
+- Lower front/back bias: 3.0
+- Upper front/back bias: 10.0
+- Head front/back bias: 40.0
+- Side bias: 1.0
+- Upper threshold: 0.58
+- Head threshold: 0.75
+- Top coverage: 0.90
+
+Formula:
+
+    geometric_weight =
+        (0.001 + view_bias * pow(directional, 4.0))
+        * depth_visibility
+
+Store temporary per-corner FLOAT attributes:
+
+- weight_front
+- weight_back
+- weight_left
+- weight_right
+
+9. Blend with image alpha
+
+For every projection:
+
+    alpha_weight =
+        source_image_alpha * geometric_weight
+
+    weighted_color =
+        source_color * alpha_weight
+
+Then:
+
+    normalized_color =
+        sum(weighted_colors) /
+        max(sum(alpha_weights), 0.0001)
+
+Full intended add-on formula:
+
+    final_view_weight =
+        directional_weight
+        * source_alpha
+        * depth_visibility
+        * optional_user_mask
+
+If total coverage is too small, use the original SPAR3D base color instead
+of black or transparent pixels.
+
+Reference fallback threshold:
+
+    0.01
+
+10. Bake to the original atlas
+
+Reference settings:
+
+- Target size: 4096 x 4096
+- Bake type: EMIT
+- Engine: Cycles
+- Device: CPU
+- Samples: 1
+- Bake margin: 24 pixels
+- Target color space: sRGB
+- Target UV: original UVMap
+
+The temporary projection UVs drive the source material. The original UVMap
+receives the final baked atlas.
+
+11. Restore production material settings
+
+- Replace only the base-color image.
+- Preserve the original normal texture.
+- Set normal strength to 0.25 by default.
+- Set Principled BSDF roughness to 1.0 by default.
+- Make both values adjustable.
+- Enable smooth shading.
+- Pack the baked image when requested.
+
+12. Clean and export
+
+Remove:
+
+- Projection cameras
+- PROJ UV maps
+- Weight attributes
+- Temporary materials
+- Temporary projection image datablocks when safe
+
+Preserve:
+
+- Original UVMap
+- Production mesh
+- Production hierarchy
+- Production material
+- Baked base color
+- Original normal map
+
+Save a new Blender copy and export a new GLB. Never overwrite the source
+unless the user explicitly selects that behavior.
+
+======================================================================
+LESSONS FROM FAILED PASSES
+======================================================================
+
+Failure: smooth blending with equal identity influence
+
+Result:
+
+- Doubled eyes and facial features at three-quarter angles.
+- Alternate profile face details visible on the front face.
+- Collaged shoulder and hair-top details.
+
+Correction:
+
+- Strong head and upper-body front/back identity bias.
+- Positional front/back weighting for top-facing geometry.
+
+Failure: one hard projection per polygon
+
+Result:
+
+- Large pale and white silhouette bands.
+- Abrupt changes along arms and shoulders.
+- Alpha/framing differences exposed as stripes.
+
+Correction:
+
+- Keep smooth directional blending.
+- Use bias and visibility masks, not whole-body hard locking.
+
+Failure: no depth visibility
+
+Result:
+
+- Side-view arms and hands stamped through onto torso and thighs.
+- Opaque foreground pixels baked onto geometry behind them.
+
+Correction:
+
+- Per-view depth/first-surface rejection.
+- Fall back to another visible view or the original atlas.
+
+Known source-coverage limitation:
+
+- Surfaces underneath an arm may not be visible in front, back, or exact
+  profile sources.
+- Once through-projection is correctly rejected, those surfaces may use the
+  old atlas or appear darker.
+- Optional three-quarter source images and paintable masks should be added
+  after the four-view MVP to improve these areas honestly rather than
+  projecting through foreground geometry.
+
+======================================================================
+ADD-ON USER EXPERIENCE
+======================================================================
+
+Suggested location:
+
+    3D Viewport > N-panel > Skin & Bones Forge
+
+Target section:
+
+- Target mesh
+- Production material
+- Base-color node/image
+- Normal-map node/image
+- Target UV map
+- Forward axis
+- Up axis
+- Validate button
+
+Source Views section:
+
+- Front image
+- Back image
+- Left image
+- Right image
+- Optional left/right three-quarter slots
+- Enable checkbox per view
+- Flip X/Y per view
+- Scale per view
+- Horizontal offset per view
+- Vertical offset per view
+- Alpha threshold per view
+- Overall weight per view
+
+Fit and Preview section:
+
+- Auto-fit cameras
+- Framing ratio; default 0.90
+- Shared and per-view scale
+- Show projection cameras
+- Refresh projection UVs
+- Preview reprojected material
+- Toggle original/reprojected
+- View-ownership debug colors
+- Occlusion/depth debug display
+
+Identity Blending section:
+
+- Directional exponent; default 4.0
+- Minimum weight; default 0.001
+- Lower front/back bias; default 3.0
+- Upper front/back bias; default 10.0
+- Head front/back bias; default 40.0
+- Side bias; default 1.0
+- Upper threshold; default 0.58
+- Head threshold; default 0.75
+- Top-surface coverage; default 0.90
+
+Occlusion section:
+
+- Occlusion Protection; default on
+- Visibility method: Depth Map / Ray Cast
+- Depth tolerance; default relative to character height
+- Visibility samples
+- Occlusion feather
+- Per-view occlusion enable
+- Show rejected regions
+- Paintable include/exclude mask per view
+
+Material Output section:
+
+- Texture size: 1024 / 2048 / 4096 / 8192
+- Default texture size: 4096
+- Bake margin; default 24
+- Roughness; default 1.0
+- Normal strength; default 0.25
+- Smooth shading; default on
+- Pack baked image
+- Output image path
+
+Actions:
+
+- Validate Character
+- Create Projection Preview
+- Refresh Preview
+- Bake Final Texture
+- Render Verification Set
+- Clean Temporary Data
+- Save New Base Asset
+- Export New GLB
+
+Preset:
+
+    SPAR3D Human - Identity Priority / Occlusion Safe
+
+======================================================================
+SOURCE-IMAGE RULES
+======================================================================
+
+For future characters, source quality determines the ceiling.
+
+Use:
+
+- The same character identity in every view.
+- The same outfit and colors.
+- The same hairstyle.
+- The same proportions.
+- Neutral, even lighting.
+- Consistent camera height and lens feel.
+- Consistent subject scale and framing.
+- Transparent background when possible.
+- At least 2048-4096 pixels of useful character height for a 4K bake.
+
+Preferred pose:
+
+- Mild A-pose.
+- Arms separated from torso.
+- Hands separated from thighs.
+- Legs slightly separated.
+- No crossed limbs.
+- No weapon crossing the torso.
+- No cape covering the back unless it exists in the mesh.
+
+This reduces occlusion and missing texture data. It does not replace depth
+visibility; occlusion protection is still required.
+
+======================================================================
+CLEAN BASE-ASSET OUTPUT CONTRACT
+======================================================================
+
+The output of Skin_and_Bones_Forge is not yet the final animated character.
+It is the visually finished, boneless base asset that will enter rigging.
+
+The add-on should produce:
+
+- A new Blender file.
+- A new GLB.
+- The baked base-color texture.
+- Optional verification renders.
+- Optional JSON processing manifest.
+
+The output should preserve:
+
+- Original geometry unless the user explicitly requests mesh cleanup.
+- Original object transforms or clearly documented applied transforms.
+- Stable object naming.
+- Original UV layout.
+- Material slot ordering.
+- Original normal map.
+- A predictable packed/embedded texture state.
+
+The output should not contain:
+
+- Temporary cameras.
+- Temporary projection materials.
+- Temporary UV layers.
+- Temporary weight attributes.
+- Hidden source planes.
+- Rigging experiments.
+- Animation data.
+- Gore systems.
+
+This clean contract makes the asset safe to reimport into a new Blender
+project for skeleton creation and later DevForge processing.
+
+======================================================================
+REPOSITORY AND VERSIONING EXPECTATIONS
+======================================================================
+
+Suggested repository name:
+
+    Skin_and_Bones_Forge
+
+Suggested initial package/module name:
+
+    skin_and_bones_forge
+
+Suggested first development version:
+
+    0.1.0
+
+Suggested structure:
+
+    Skin_and_Bones_Forge/
+      README.md
+      LICENSE
+      CHANGELOG.md
+      pyproject.toml or project metadata
+      addon/
+        skin_and_bones_forge/
+          __init__.py
+          operators/
+          panels/
+          properties/
+          projection/
+          baking/
+          validation/
+          export/
+      scripts/
+        install_addon.py
+        run_reference_test.py
+        inspect_output.py
+      tests/
+        reference/
+      docs/
+        workflow.md
+        algorithm.md
+        troubleshooting.md
+      reference_assets/
+        README.md
+
+Do not commit large binary reference assets blindly if Git LFS or a release
+asset is more appropriate. Decide intentionally and document how the test
+fixtures are obtained.
+
+Use semantic versioning:
+
+- 0.1.0: four-view reference workflow reproduces Folsom v7.
+- 0.2.0: improved depth-map masking and alignment controls.
+- 0.3.0: optional three-quarter views and paintable masks.
+- 1.0.0: stable repeatable workflow verified on several unrelated SPAR3D
+  human characters.
+
+The add-on should expose its version in Blender and in generated processing
+metadata.
+
+======================================================================
+FIRST REPOSITORY MILESTONE
+======================================================================
+
+The first Codex task should:
+
+1. Inspect the original and v7 Blender files.
+2. Inspect the reference projection images and scripts.
+3. Scaffold a real installable Blender 5.1.2 add-on.
+4. Implement target validation.
+5. Implement four source-image slots.
+6. Implement camera fit and temporary projection UV creation.
+7. Implement the proven identity-priority weight controls.
+8. Implement occlusion-safe visibility.
+9. Implement preview, 4K bake, cleanup, save-copy, and GLB export.
+10. Implement roughness 1.0 and normal strength 0.25 as adjustable defaults.
+11. Add the Folsom v7 regression test.
+12. Render front, back, profiles, face, three-quarter, and lower-body proof
+    images.
+13. Package an installable add-on ZIP.
+14. Write installation, workflow, and troubleshooting documentation.
+
+Keep the milestone narrow enough to finish and test. Do not begin automatic
+rigging or DevForge integration until texture finishing is repeatable on a
+second character.
+
+======================================================================
+ACCEPTANCE TESTS
+======================================================================
+
+The first release candidate passes when:
+
+1. It processes the original Folsom SPAR3D file without source-code edits.
+2. The face is sharp and recognizable.
+3. No doubled eyes, nose, mouth, or profile face is visible.
+4. No arm or hand is projected through onto torso or thigh geometry.
+5. No large white projection stripes appear on the silhouette.
+6. Clothing remains coherent from front, back, and profiles.
+7. The original UVMap is preserved.
+8. The output base-color texture is 4096 x 4096.
+9. The normal map remains intact.
+10. Roughness is set to the chosen output value, defaulting to 1.0.
+11. Temporary cameras, UVs, attributes, and materials are removed.
+12. The source file is untouched.
+13. The new Blender file reopens without missing packed textures.
+14. The exported GLB reimports successfully.
+15. The output is a clean boneless base asset ready for a separate rigging
+    project.
+16. The workflow succeeds on a second SPAR3D human character without code
+    changes.
+
+======================================================================
+FINAL PRODUCT PRINCIPLE
+======================================================================
+
+The value of Skin_and_Bones_Forge is not merely “put a better picture on a
+mesh.”
+
+It is a controlled bridge between offline AI-assisted character generation
+and professional downstream character work:
+
+    SPAR3D geometry
+        -> identity-faithful visual reconstruction
+        -> clean reusable base asset
+        -> quality skeleton
+        -> DevForge animation and gore
+        -> game-ready character
+
+The add-on should make the successful Folsom process boringly repeatable:
+load the model, load matching views, align, preview, refine a few meaningful
+sliders, bake, verify, and export.
+
+That repeatability—without providers, credits, or limits—is the core product.
+
+======================================================================
+END OF HANDOFF
+======================================================================

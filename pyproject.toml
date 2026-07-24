@@ -1,0 +1,16 @@
+[project]
+name = "skin-and-bones-forge"
+version = "0.1.0"
+description = "Occlusion-safe multi-view visual finishing for SPAR3D Blender characters"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+authors = [{ name = "Skin & Bones Forge contributors" }]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+exclude = ["reference_scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
