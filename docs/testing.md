@@ -50,7 +50,7 @@ The release ZIP must contain a single top-level `skin_and_bones_forge/`
 package and no `__pycache__` or fixture assets.
 
 Every push to `main` runs these static checks on GitHub Actions and uploads
-`Skin_and_Bones_Forge_v0.1.0` as a 30-day workflow artifact.
+`Skin_and_Bones_Forge_v0.1.1` as a 30-day workflow artifact.
 
 ## Second-character gate
 

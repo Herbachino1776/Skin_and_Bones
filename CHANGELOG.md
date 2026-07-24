@@ -2,6 +2,16 @@
 
 All notable changes follow semantic versioning.
 
+## 0.1.1 - 2026-07-23
+
+### Fixed
+
+- Added an explicit **Open Image from Disk...** file browser to every front,
+  back, character-left, and character-right source slot.
+- Kept the existing image datablock selector as a clearly labeled **Loaded**
+  field for reusing images already present in the Blender file.
+- Exercised disk image loading through the Blender Folsom regression.
+
 ## 0.1.0 - 2026-07-23
 
 ### Added

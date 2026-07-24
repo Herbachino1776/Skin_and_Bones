@@ -102,11 +102,19 @@ for name in ("front", "back", "left", "right"):
     image_path = projection_dir / f"{name}_projection.png"
     if not image_path.exists():
         raise RuntimeError(f"Missing projection fixture: {image_path}")
-    image = bpy.data.images.load(str(image_path), check_existing=False)
-    image.name = f"SBF_Test_{name}"
-    image.colorspace_settings.name = "sRGB"
-    image.alpha_mode = "STRAIGHT"
-    getattr(settings, name).image = image
+    _require_finished(
+        f"load_{name}_image",
+        bpy.ops.sbf.load_view_image(
+            view_name=name,
+            filepath=str(image_path),
+        ),
+    )
+    image = getattr(settings, name).image
+    loaded_path = (
+        Path(bpy.path.abspath(image.filepath)).resolve() if image else None
+    )
+    if loaded_path != image_path:
+        raise RuntimeError(f"{name.title()} image picker did not assign its file")
 
 _require_finished("validate", bpy.ops.sbf.validate())
 _require_finished("create_preview", bpy.ops.sbf.create_preview())

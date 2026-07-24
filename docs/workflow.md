@@ -21,9 +21,11 @@ material, UV, base-color node, and normal-map node.
 
 ## Prepare the sources
 
-Assign front, back, character-left, and character-right RGBA images. Each
-image should depict the same identity, outfit, hairstyle, proportions, pose,
-lighting, camera height, and framing.
+For each view, click **Open Image from Disk...** and select the front, back,
+character-left, or character-right RGBA image. The **Loaded** field underneath
+is Blender's selector for images already present in the current `.blend`.
+Each image should depict the same identity, outfit, hairstyle, proportions,
+pose, lighting, camera height, and framing.
 
 Best results come from:
 

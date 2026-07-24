@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import bpy
+from bpy.props import EnumProperty, StringProperty
 from bpy.types import Operator
 
 from ..baking import bake_final_texture
@@ -32,6 +35,53 @@ def _fail(operator, settings, exc):
     settings.status_message = f"Error: {message}"
     operator.report({"ERROR"}, message)
     return {"CANCELLED"}
+
+
+class SBF_OT_load_view_image(Operator):
+    bl_idname = "sbf.load_view_image"
+    bl_label = "Open Projection Image"
+    bl_description = "Load a projection image from disk into this source view"
+    bl_options = {"REGISTER", "UNDO"}
+
+    view_name: EnumProperty(
+        name="View",
+        items=(
+            ("front", "Front", "Front projection"),
+            ("back", "Back", "Back projection"),
+            ("left", "Character Left", "Character-left projection"),
+            ("right", "Character Right", "Character-right projection"),
+        ),
+    )
+    filepath: StringProperty(name="Image File", subtype="FILE_PATH")
+    filter_glob: StringProperty(
+        default="*.png;*.jpg;*.jpeg;*.tif;*.tiff;*.bmp;*.tga;*.exr;*.webp",
+        options={"HIDDEN"},
+    )
+
+    def invoke(self, context, _event):
+        view = getattr(_settings(context), self.view_name)
+        if view.image is not None and view.image.filepath:
+            self.filepath = bpy.path.abspath(view.image.filepath)
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        settings = _settings(context)
+        path = Path(bpy.path.abspath(self.filepath)).resolve()
+        if not path.is_file():
+            return _fail(self, settings, f"Image file does not exist: {path}")
+        try:
+            image = bpy.data.images.load(str(path), check_existing=True)
+            image.colorspace_settings.name = "sRGB"
+            image.alpha_mode = "STRAIGHT"
+            getattr(settings, self.view_name).image = image
+        except (RuntimeError, TypeError, ValueError) as exc:
+            return _fail(self, settings, f"Could not load image: {exc}")
+
+        label = self.view_name.replace("_", " ").title()
+        settings.status_message = f"Loaded {label} image: {path.name}"
+        self.report({"INFO"}, settings.status_message)
+        return {"FINISHED"}
 
 
 class SBF_OT_load_preset(Operator):
@@ -233,6 +283,7 @@ class SBF_OT_render_verification(Operator):
 
 
 OPERATOR_CLASSES = (
+    SBF_OT_load_view_image,
     SBF_OT_load_preset,
     SBF_OT_validate,
     SBF_OT_preview,

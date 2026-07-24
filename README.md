@@ -4,7 +4,7 @@ Skin & Bones Forge is a Blender 5.1.2 add-on for rebuilding the base-color
 texture of a SPAR3D human mesh from matching front, back, character-left, and
 character-right RGBA images.
 
-Version 0.1.0 implements the Folsom reference workflow as an adjustable,
+Version 0.1.1 implements the Folsom reference workflow as an adjustable,
 non-destructive pipeline:
 
 - Preserve the target geometry, production UV map, material slot, and normal map.
@@ -19,7 +19,7 @@ non-destructive pipeline:
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v0.1.0.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v0.1.1.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -86,7 +86,7 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v0.1.0` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v0.1.1` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 

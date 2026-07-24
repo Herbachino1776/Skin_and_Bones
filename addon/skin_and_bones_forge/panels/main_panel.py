@@ -13,7 +13,13 @@ def _draw_view(box, settings, name):
     header.prop(view, "enabled", text="")
     header.label(text=VIEW_LABELS[name])
     header.prop(view, "occlusion", text="", icon="MOD_MASK")
-    box.prop(view, "image", text="")
+    open_image = box.operator(
+        "sbf.load_view_image",
+        text="Open Image from Disk...",
+        icon="FILE_FOLDER",
+    )
+    open_image.view_name = name
+    box.prop(view, "image", text="Loaded")
     transforms = box.row(align=True)
     transforms.prop(view, "flip_x", text="Flip X")
     transforms.prop(view, "flip_y", text="Flip Y")
