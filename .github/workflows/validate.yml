@@ -1,0 +1,68 @@
+name: Validate and build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Show Python version
+        run: python --version
+
+      - name: Validate add-on source contracts
+        run: python scripts/validate_addon.py
+
+      - name: Run static contract tests
+        run: python -m unittest discover -s tests -p "test_*.py"
+
+      - name: Build deterministic add-on ZIP
+        run: python scripts/build_release.py
+
+      - name: Locate generated add-on ZIP
+        id: addon_zip
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(dist/Skin_and_Bones_Forge_v*.zip)
+          if (( ${#files[@]} != 1 )); then
+            echo "Expected exactly one dist/Skin_and_Bones_Forge_v*.zip; found ${#files[@]}." >&2
+            if (( ${#files[@]} > 0 )); then
+              printf 'Matched: %s\n' "${files[@]}" >&2
+            fi
+            exit 1
+          fi
+          path="${files[0]}"
+          filename="$(basename "$path")"
+          name="${filename%.zip}"
+          printf 'path=%s\n' "$path" >> "$GITHUB_OUTPUT"
+          printf 'name=%s\n' "$name" >> "$GITHUB_OUTPUT"
+          echo "Discovered add-on ZIP: $path"
+
+      - name: Test ZIP integrity
+        env:
+          ZIP_PATH: ${{ steps.addon_zip.outputs.path }}
+        run: >-
+          python -c "import sys, zipfile; z=zipfile.ZipFile(sys.argv[1]); bad=z.testzip(); z.close(); raise SystemExit('ZIP integrity failure: ' + bad if bad else 0)" "$ZIP_PATH"
+
+      - name: Upload installable add-on
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.addon_zip.outputs.name }}
+          path: ${{ steps.addon_zip.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30

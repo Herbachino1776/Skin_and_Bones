@@ -41,11 +41,16 @@ looks coherent.
 
 ```powershell
 python -m compileall -q addon scripts
+python scripts/validate_addon.py
+python -m unittest discover -s tests -p "test_*.py"
 python scripts/build_release.py
 ```
 
 The release ZIP must contain a single top-level `skin_and_bones_forge/`
 package and no `__pycache__` or fixture assets.
+
+Every push to `main` runs these static checks on GitHub Actions and uploads
+`Skin_and_Bones_Forge_v0.1.0` as a 30-day workflow artifact.
 
 ## Second-character gate
 

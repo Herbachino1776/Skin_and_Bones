@@ -20,3 +20,5 @@ All notable changes follow semantic versioning.
 - Nine-view verification renderer.
 - Folsom Blender/GLB regression and output-inspection scripts.
 - Versioned release ZIP builder and documentation.
+- Deterministic GitHub Actions packaging on every `main` push, with the
+  installable ZIP retained as a downloadable workflow artifact for 30 days.
