@@ -55,7 +55,43 @@ The release ZIP must contain a single top-level `skin_and_bones_forge/`
 package and no `__pycache__` or fixture assets.
 
 Every push to `main` runs these static checks on GitHub Actions and uploads
-`Skin_and_Bones_Forge_v0.2.1` as a 30-day workflow artifact.
+`Skin_and_Bones_Forge_v0.5.0` as a 30-day workflow artifact.
+
+## Local Bones fixture test
+
+The proprietary rig and target are not committed. When they are available,
+run the Blender 5.1.2 regression directly:
+
+```powershell
+E:\Blender\blender.exe `
+  "D:\Blender\Blends\baked animation rigged test model.blend" `
+  --background --python scripts\run_rig_fixture_test.py -- `
+  --target "D:\AI aRt\Models\skinandbones\retexturedfolsomsavage.glb" `
+  --reference-glb "D:\AI aRt\Models\skinandbones\baked animation rigged test model.glb" `
+  --addon addon `
+  --forge-repo "E:\DeVForge\dreadstone_animation_forge"
+```
+
+This checks deterministic animation-neutral fingerprinting, state restore,
+target analysis, exact names/hierarchy, preview replacement, saved correction
+reapply, and byte-stable protected topology/vertex positions/UVs/material
+slots. It also proves deterministic `DSB_SIMPLE_HANDS_V1` generation, exact
+36-bone descendant exclusion, both retained hand bones and parents, donor
+finger-weight merging, no removed deform groups, and unchanged source
+Actions/NLA. Production coverage includes forced transaction rollback,
+idempotent rebinding, all 21 production deform groups, one Armature modifier,
+zero unweighted or non-normalized vertices, four maximum influences,
+component/proxy cleanup, 14 pose tests, five filtered production Actions,
+clean GLB reimport with no removed channels, and Dreadstone Animation Forge's
+actual analyzer and required hand mapping.
+
+The same fixture applies `RELAXED`, `OPEN_MAGIC`, and `GRIP_SHAFT` as finite,
+distinct whole-hand alignments and verifies the optional shape-key names remain
+reserved rather than required.
+
+The legacy Skin texture-bake harness requires the local assets documented in
+`reference_assets/README.md`. Do not claim complete Skin regression coverage
+when those ignored fixtures are absent.
 
 ## Second-character gate
 

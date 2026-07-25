@@ -2,6 +2,107 @@
 
 All notable changes follow semantic versioning.
 
+## 0.5.0 - 2026-07-25
+
+### Added
+
+- Versioned `DSB_SIMPLE_HANDS_V1` production contract derived
+  deterministically from the immutable full canonical source contract.
+- Hierarchy- and naming-verified exclusion of all 36 thumb/finger descendants,
+  retaining the exact 21 unrelated body, limb, wrist, and hand bones.
+- Transactional canonical-donor simplification that merges removed finger
+  weights into the matching retained hand, normalizes them, and deletes the
+  temporary donor after transfer.
+- Owned deterministic filtered Action copies, per-channel removal reports,
+  idempotent replacement, and cleanup support without editing source Actions.
+- Simplified-contract, donor-merge, Action-filter, GLB round-trip, and actual
+  Dreadstone Animation Forge regression coverage in Blender 5.1.2.
+
+### Changed
+
+- Fitted previews, weighting, finalization, export, and validation now use one
+  singular deforming hand bone per side; finger articulation is intentionally
+  outside this production profile.
+- The Bones UI distinguishes the Full Canonical Contract from the Simplified
+  Production Profile and reports removed/remaining bones and filtered channels.
+- `RELAXED`, `OPEN_MAGIC`, and `GRIP_SHAFT` are whole-hand alignment presets.
+  Optional `DSB_HAND_OPEN_MAGIC` and `DSB_HAND_GRIP_SHAFT` shape-key names are
+  reserved but not required or authored.
+
+## 0.4.0 - 2026-07-25
+
+### Added
+
+- Transactional production binding with canonical donor preparation,
+  nearest-face barycentric transfer, classification of every disconnected
+  target component, fitted bone-segment proxy fallback, deterministic cleanup,
+  complete rollback, and idempotent rebinding.
+- Machine-readable weight acceptance covering normalization, unweighted and
+  invalid vertices, influence limits, deform-group coverage, side
+  contamination, component repairs, regional summaries, and hand/foot usage.
+- Fourteen owned pose-torture tests plus five canonical Action compatibility
+  fixtures with Blender 5 Action-slot handling and non-destructive
+  rest-proportion translation adaptation.
+- Production-rig finalization, five-Action NLA export, rigging manifest,
+  clean-GLB reimport validation, and isolated acceptance through Dreadstone
+  Animation Forge's actual `daf.analyze` operator.
+- Blender 5.1.2 regression coverage for forced rollback, repeat binding,
+  permanent weights, state restoration, export/reimport, Animation Forge, and
+  release-ZIP registration.
+
+### Changed
+
+- The Bones panel now continues from fitted-skeleton validation through
+  binding, deformation tests, finalization, delivery, and compatibility
+  acceptance.
+- Version advanced to 0.4.0. Hand-pose aesthetics remain explicitly deferred;
+  canonical hand/finger structure and nonempty deform coverage are enforced.
+
+## 0.3.1 - 2026-07-24
+
+### Added
+
+- Owned `RELAXED`, `OPEN_MAGIC`, and `GRIP_SHAFT` functional hand presets,
+  with `RELAXED` applied automatically to every fitted preview.
+- Numerical validation for hand span versus palm width, finger spread, fitted
+  hand bounds versus target height, left/right asymmetry, and finite pose
+  transforms.
+
+### Changed
+
+- Palm-local finger fitting now uses a conservative `0.50` scale multiplier,
+  compresses lateral spread to `0.50`, reduces thumb flare, and keeps the
+  canonical names, hierarchy, deform flags, and animation-facing channels.
+- The Blender rig fixture now exercises all three hand poses and rejects
+  oversized, splayed, asymmetric, or invalid fitted hands.
+
+## 0.3.0 - 2026-07-24
+
+### Added
+
+- Canonical rest-skeleton reports and deterministic SHA-256 fingerprints,
+  including hierarchy, deform/connect flags, rest matrices, local axes,
+  transforms, reference mesh relationships, vertex groups, Actions, and NLA.
+- Evaluated world-space SPAR3D analysis with topology/material/UV inventory,
+  symmetry, connected components, bone-heat warnings, and 26 confidence-scored
+  humanoid landmarks.
+- An owned, idempotent fitted armature preview that retains the canonical 57
+  bone names, hierarchy, deform flags, and roll conventions while fitting
+  independent body and limb proportions.
+- Sixteen editable landmark handles with deterministic correction persistence,
+  correction reapply/reset, preview refit, cleanup, and three-state validation.
+- Blender 5.1.2 rig-fixture regression coverage using local proprietary assets.
+
+### Changed
+
+- Add-on version advanced to 0.3.0 and the sidebar now includes
+  **Bones — Automatic Humanoid Rig**.
+
+### Scope
+
+- Permanent target parenting, armature modifiers, vertex groups, weights,
+  animation retargeting, and rigged export remain intentionally excluded.
+
 ## 0.2.1 - 2026-07-24
 
 ### Added

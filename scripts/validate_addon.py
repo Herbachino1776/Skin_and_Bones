@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "addon" / "skin_and_bones_forge"
-EXPECTED_VERSION = (0, 2, 1)
+EXPECTED_VERSION = (0, 5, 0)
 EXPECTED_BLENDER = (5, 1, 2)
 REQUIRED_FILES = (
     PACKAGE / "__init__.py",
@@ -22,6 +22,20 @@ REQUIRED_FILES = (
     PACKAGE / "panels" / "main_panel.py",
     PACKAGE / "projection" / "core.py",
     PACKAGE / "projection" / "material.py",
+    PACKAGE / "rigging" / "contract.py",
+    PACKAGE / "rigging" / "analysis.py",
+    PACKAGE / "rigging" / "landmarks.py",
+    PACKAGE / "rigging" / "fitting.py",
+    PACKAGE / "rigging" / "validation.py",
+    PACKAGE / "rigging" / "profile.py",
+    PACKAGE / "rigging" / "hands.py",
+    PACKAGE / "rigging" / "weights.py",
+    PACKAGE / "rigging" / "poses.py",
+    PACKAGE / "rigging" / "production.py",
+    PACKAGE / "rigging" / "compatibility.py",
+    PACKAGE / "rigging" / "acceptance_runner.py",
+    PACKAGE / "rigging" / "reimport_runner.py",
+    PACKAGE / "operators" / "rigging.py",
     PACKAGE / "validation" / "core.py",
 )
 
@@ -47,27 +61,27 @@ def _compile_sources():
 
 
 def _validate_operator_ids():
-    operator_path = PACKAGE / "operators" / "workflow.py"
-    tree = ast.parse(
-        operator_path.read_text(encoding="utf-8"),
-        filename=str(operator_path),
-    )
     identifiers = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ClassDef):
-            continue
-        for statement in node.body:
-            if not isinstance(statement, ast.Assign):
+    for operator_path in sorted((PACKAGE / "operators").glob("*.py")):
+        tree = ast.parse(
+            operator_path.read_text(encoding="utf-8"),
+            filename=str(operator_path),
+        )
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
                 continue
-            if any(
-                isinstance(target, ast.Name) and target.id == "bl_idname"
-                for target in statement.targets
-            ):
-                identifier = ast.literal_eval(statement.value)
-                assert identifier.startswith("sbf."), (
-                    f"Unexpected operator namespace: {identifier}"
-                )
-                identifiers.append(identifier)
+            for statement in node.body:
+                if not isinstance(statement, ast.Assign):
+                    continue
+                if any(
+                    isinstance(target, ast.Name) and target.id == "bl_idname"
+                    for target in statement.targets
+                ):
+                    identifier = ast.literal_eval(statement.value)
+                    assert identifier.startswith("sbf."), (
+                        f"Unexpected operator namespace: {identifier}"
+                    )
+                    identifiers.append(identifier)
     assert identifiers, "No SBF operators were discovered."
     assert len(identifiers) == len(set(identifiers)), "Duplicate operator ID found."
 

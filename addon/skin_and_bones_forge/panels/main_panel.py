@@ -271,6 +271,149 @@ class SBF_PT_delivery(_SBF_PT_section, Panel):
         layout.operator("sbf.cleanup", icon="TRASH")
 
 
+class SBF_PT_bones(_SBF_PT_section, Panel):
+    bl_label = "Bones — Automatic Humanoid Rig"
+    bl_idname = "SBF_PT_bones"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.sbf_settings
+        layout.prop(settings, "canonical_armature")
+        row = layout.row(align=True)
+        row.operator("sbf.analyze_canonical_rig", icon="ARMATURE_DATA")
+        row.operator("sbf.write_rig_report", icon="TEXT")
+        layout.prop(settings, "canonical_report_path")
+
+        fingerprint = settings.canonical_fingerprint
+        if len(fingerprint) > 20:
+            fingerprint = f"{fingerprint[:20]}..."
+        layout.label(
+            text=f"Full Canonical Contract: {fingerprint}", icon="KEY_HLT"
+        )
+        profile = layout.box()
+        profile.label(text="Simplified Production Profile", icon="ARMATURE_DATA")
+        profile.label(text=settings.rig_production_profile)
+        production_fingerprint = settings.rig_production_fingerprint
+        if len(production_fingerprint) > 20:
+            production_fingerprint = f"{production_fingerprint[:20]}..."
+        profile.label(
+            text=f"Fingerprint: {production_fingerprint}", icon="KEY_HLT"
+        )
+        profile.label(
+            text=f"Full canonical bones: {settings.rig_full_bone_count}"
+        )
+        profile.label(
+            text=(
+                f"Removed finger bones: "
+                f"{settings.rig_removed_finger_bone_count}"
+            )
+        )
+        profile.label(
+            text=f"Remaining production bones: {settings.rig_production_bone_count}"
+        )
+
+        target = layout.box()
+        target.label(text="Target & Landmarks", icon="OUTLINER_OB_MESH")
+        target.operator("sbf.analyze_target_humanoid", icon="VIEWZOOM")
+        target.operator("sbf.generate_rig_landmarks", icon="EMPTY_AXIS")
+        target.label(text=f"Height: {settings.target_height:.4f} m")
+        target.label(text=settings.landmark_confidence_summary, icon="INFO")
+
+        fit = layout.box()
+        fit.label(text="Editable Skeleton Preview", icon="ARMATURE_DATA")
+        hand_fit = fit.box()
+        hand_fit.label(text="Singular Deforming Hands", icon="BONE_DATA")
+        hand_fit.label(text="One retained hand bone per side")
+        hand_fit.label(text="Finger chains are excluded")
+        hand_fit.label(text="Optional shape keys reserved; not required")
+        fit.operator("sbf.fit_skeleton_preview", icon="MOD_ARMATURE")
+        row = fit.row(align=True)
+        row.operator("sbf.refit_from_corrections", icon="FILE_REFRESH")
+        row.operator("sbf.reset_rig_landmarks", icon="LOOP_BACK")
+        hand_pose = fit.row(align=True)
+        hand_pose.prop(settings, "rig_hand_pose", text="")
+        hand_pose.operator("sbf.apply_hand_pose", text="Align Hand")
+        fit.operator("sbf.validate_fitted_skeleton", icon="CHECKMARK")
+        fit.operator("sbf.clean_rig_preview", icon="TRASH")
+
+        state_icon = {
+            "READY_FOR_BINDING": "CHECKMARK",
+            "NEEDS_ARTIST_CORRECTION": "ERROR",
+            "FAILED": "CANCEL",
+        }.get(settings.rig_validation_state, "QUESTION")
+        validation_label = settings.rig_validation_state.replace(
+            "_", " "
+        ).title()
+        layout.label(
+            text=f"Validation: {validation_label}",
+            icon=state_icon,
+        )
+        if settings.rig_blocking_warnings:
+            warnings = layout.box()
+            warnings.alert = settings.rig_validation_state == "FAILED"
+            for message in settings.rig_blocking_warnings.split(" | ")[:4]:
+                warnings.label(text=message, icon="ERROR")
+
+        binding = layout.box()
+        binding.label(text="Production Binding", icon="MOD_ARMATURE")
+        binding.prop(settings, "rig_binding_method")
+        advanced = binding.column(align=True)
+        advanced.prop(settings, "rig_weight_threshold")
+        advanced.prop(settings, "rig_influence_limit")
+        binding.operator("sbf.bind_production_character", icon="LINKED")
+        binding.operator("sbf.validate_production_weights", icon="CHECKMARK")
+        weight_icon = {
+            "READY_FOR_POSE_TEST": "CHECKMARK",
+            "NEEDS_WEIGHT_REVIEW": "ERROR",
+            "FAILED": "CANCEL",
+        }.get(settings.rig_weight_status, "QUESTION")
+        binding.label(
+            text=f"Weights: {settings.rig_weight_status.replace('_', ' ').title()}",
+            icon=weight_icon,
+        )
+        stats = binding.grid_flow(columns=2, even_columns=True, align=True)
+        stats.label(text=f"Unweighted: {settings.rig_unweighted_count}")
+        stats.label(text=f"Max influences: {settings.rig_maximum_influences}")
+        stats.label(text=f"Donor confidence: {settings.rig_donor_confidence:.3f}")
+        stats.label(text=f"Proxy fallback: {settings.rig_proxy_fallback_count}")
+
+        tests = layout.box()
+        tests.label(text="Deformation Acceptance", icon="POSE_HLT")
+        tests.operator("sbf.run_pose_torture_tests", icon="PLAY")
+        tests.label(text=f"Pose tests: {settings.rig_pose_test_status}")
+        tests.operator("sbf.test_canonical_actions", icon="ACTION")
+        tests.label(text=f"Canonical Actions: {settings.rig_action_test_status}")
+        tests.label(
+            text=f"Filtered Actions: {settings.rig_filtered_action_count}"
+        )
+        tests.label(
+            text=(
+                f"Removed finger channels: "
+                f"{settings.rig_removed_finger_channel_count}"
+            )
+        )
+        tests.operator("sbf.finalize_production_rig", icon="ARMATURE_DATA")
+
+        delivery = layout.box()
+        delivery.label(text="Rigged GLB & Compatibility", icon="EXPORT")
+        delivery.prop(settings, "rigged_export_glb_path")
+        delivery.prop(settings, "rig_export_actions")
+        delivery.operator("sbf.export_rigged_glb", icon="EXPORT")
+        delivery.label(text=f"Export: {settings.rig_export_status}")
+        delivery.operator("sbf.validate_clean_reimport", icon="IMPORT")
+        delivery.label(text=f"Reimport: {settings.rig_reimport_status}")
+        delivery.prop(settings, "animation_forge_repository")
+        delivery.operator(
+            "sbf.run_animation_forge_acceptance", icon="PLUGIN"
+        )
+        delivery.label(
+            text=f"Animation Forge: {settings.rig_animation_forge_status}"
+        )
+        delivery.operator("sbf.clean_temporary_rigging_data", icon="TRASH")
+        layout.label(text=settings.rig_recommended_action, icon="LIGHT")
+
+
 PANEL_CLASSES = (
     SBF_PT_main,
     SBF_PT_target,
@@ -281,4 +424,5 @@ PANEL_CLASSES = (
     SBF_PT_occlusion,
     SBF_PT_output,
     SBF_PT_delivery,
+    SBF_PT_bones,
 )

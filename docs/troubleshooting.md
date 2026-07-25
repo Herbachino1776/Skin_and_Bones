@@ -99,3 +99,74 @@ Map node. Re-run validation and address its warning before baking.
 
 The save path matches the source file. Choose a new path. Source overwrite is
 blocked unless **Allow Source Overwrite** is explicitly enabled.
+
+## The canonical rig looks huge in armature space
+
+The supplied Animate Anything rig is normalized by uniformly scaled parent
+empties. Do not apply those transforms. Bones reads the exact rest data from
+the armature and measures visible reference height from evaluated mesh
+world-space bounds; object dimensions and `DSB_SIZE_ROOT_*` names are not used
+as scale authority.
+
+## Animation changes the canonical report
+
+Action and NLA names are inventory fields, so their inventory can differ after
+an artist adds animation. The canonical fingerprint must remain unchanged
+while Actions play because it is derived only from ordered rest bones,
+hierarchy, flags, heads/tails, rolls, and quantized rest matrices. If it does
+change, confirm the armature rest data itself was not edited.
+
+## Validation requests landmark correction
+
+This is expected for uncertain elbows, hands, heels, toes, or fragmented
+SPAR3D topology. Move the cyan handles in Object mode, click **Refit From
+Corrections**, and validate again. Corrections are serialized on the target
+mesh and survive preview cleanup and file reload. **Reset Landmark
+Corrections** removes the saved overrides and regenerates automatic handles.
+
+## Bone-heat risk is high
+
+The production Folsom target contains many disconnected surface components.
+The warning is advisory during preview fitting. For production, keep
+**Canonical + Proxy Fallback** selected: it classifies every component and
+uses canonical donor evidence first, then a temporary fitted bone-segment
+proxy for low-confidence vertices. Do not join, weld, remesh, or retopologize
+the production target to silence the warning.
+
+## Production weights need review
+
+Open the machine-readable weight report from the target's `sbf_weight_report`
+custom property. A binding is not pose-ready if it has unweighted,
+non-normalized, invalid, non-deform, over-limit, missing, or empty deform
+groups. Re-run binding after changing the method or tiny-weight threshold;
+repeated binding replaces owned groups and the owned Armature modifier.
+
+## Canonical Actions explode on the fitted rig
+
+Do not apply the original source Actions directly to the identity-space fitted
+armature. The canonical fixture stores pose translations in its scaled source
+rest space. **Test Canonical Actions** creates temporary adapted copies and
+scales only location channels by each fitted/source rest-bone length ratio.
+**Finalize Production Rig** creates the five owned export Actions without
+editing the originals.
+
+## Animation Forge rejects the GLB
+
+First run **Validate Clean Reimport**. Then verify **Animation Forge
+Repository** points at the package directory containing its `__init__.py`.
+Acceptance runs a factory-clean Blender subprocess and calls the real
+`daf.analyze` operator; review the sibling `.animation_forge.json` report for
+the mapping, missing roles, operator result, and process output.
+
+## Finger bones appear in the production preview or export
+
+Re-run **Analyze Canonical Rig**, then rebuild the preview. The
+`DSB_SIMPLE_HANDS_V1` profile must report 36 removed finger descendants and 21
+remaining production bones for the supplied canonical fixture. Do not hide or
+collapse finger bones to satisfy an old fingerprint: the full 57-bone
+fingerprint describes the immutable source, while the separate production
+fingerprint describes the simplified output.
+
+If a singular hand needs an open-palm or closed-grip silhouette, that requires
+future mesh deformation (for example the reserved `DSB_HAND_OPEN_MAGIC` or
+`DSB_HAND_GRIP_SHAFT` shape keys), not per-finger bones in this profile.

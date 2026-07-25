@@ -2,7 +2,7 @@
 
 ADDON_NAME = "Skin & Bones Forge"
 ADDON_MODULE = "skin_and_bones_forge"
-ADDON_VERSION = (0, 2, 1)
+ADDON_VERSION = (0, 5, 0)
 ADDON_VERSION_STRING = ".".join(str(part) for part in ADDON_VERSION)
 
 CARDINAL_VIEW_NAMES = ("front", "back", "left", "right")
@@ -51,3 +51,20 @@ ORIGINAL_SLOT_PROPERTY = "sbf_original_slot"
 ORIGINAL_UV_PROPERTY = "sbf_original_uv"
 
 PROCESSING_PRESET = "SPAR3D Human - Identity Priority / Occlusion Safe"
+
+RIG_PREVIEW_COLLECTION = "SBF_RigPreview"
+RIG_PREVIEW_ARMATURE = "SBF_FittedSkeletonPreview"
+RIG_LANDMARK_PREFIX = "SBF_Landmark_"
+RIG_OWNER_PROPERTY = "sbf_rig_owner"
+RIG_TARGET_PROPERTY = "sbf_rig_target"
+RIG_CONTRACT_PROPERTY = "sbf_canonical_fingerprint"
+RIG_ANALYSIS_PROPERTY = "sbf_rig_analysis"
+RIG_CORRECTIONS_PROPERTY = "sbf_landmark_corrections"
+RIG_TOPOLOGY_PROPERTY = "sbf_rig_topology_snapshot"
+RIG_PRODUCTION_ARMATURE = "SBF_ProductionRig"
+RIG_TEMP_COLLECTION = "SBF_RiggingTemporary"
+RIG_DONOR_OBJECT = "SBF_CanonicalWeightDonor"
+RIG_PROXY_OBJECT = "SBF_WeightFallbackProxy"
+RIG_ARMATURE_MODIFIER = "SBF_ProductionArmature"
+RIG_WEIGHT_REPORT_PROPERTY = "sbf_weight_report"
+RIG_PRODUCTION_PROPERTY = "sbf_production_rig"

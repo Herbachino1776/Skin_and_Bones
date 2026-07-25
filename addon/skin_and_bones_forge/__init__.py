@@ -12,11 +12,11 @@ bl_info = {
     "name": "Skin & Bones Forge",
     "author": "Skin & Bones Forge contributors",
     # Blender's add-on scanner parses bl_info with ast.literal_eval.
-    "version": (0, 2, 1),
+    "version": (0, 5, 0),
     "blender": (5, 1, 2),
     "location": "3D Viewport > Sidebar > Skin & Bones Forge",
     "description": (
-        "Occlusion-safe multi-view visual finishing for SPAR3D human meshes"
+        "Visual finishing and production humanoid rigging for SPAR3D meshes"
     ),
     "category": "Material",
 }

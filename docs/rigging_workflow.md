@@ -1,0 +1,118 @@
+# Bones automatic humanoid rig workflow
+
+## Prepare
+
+Use Blender 5.1.2. Keep the known-good Animate Anything armature, its reference
+mesh, parent scale hierarchy, Actions, and NLA intact. Import the retextured
+SPAR3D GLB into the same working file. Set the production mesh as **Target
+Mesh** and the known-good armature as **Canonical Rig Source**.
+
+The source `.blend` remains the rest-skeleton authority. The exported rigged
+GLB is useful for external GLB compatibility inspection but does not override
+rest heads, tails, matrices, hierarchy, or bone names.
+
+## Analyze
+
+1. Click **Analyze Canonical Rig**. The fingerprint covers stable rest data;
+   Actions and NLA are inventoried but excluded. Use **Write Rig Report** for
+   the JSON-compatible full report.
+2. Confirm the existing Forward and Up axes describe the target, then click
+   **Analyze Target Humanoid**.
+3. Review target height, connected-component/bone-heat warnings, and landmark
+   confidence. A warning is not silently promoted to a confident result.
+
+## Preview and correct
+
+1. Click **Generate Landmark Preview** to create 16 cyan editable handles in
+   `SBF_RigPreview`.
+2. Click **Fit Skeleton Preview**. The add-on duplicates the armature object
+   and data, removes animation/constraints from the duplicate, derives
+   `DSB_SIMPLE_HANDS_V1`, excludes verified finger descendants, fits the 21
+   remaining bone endpoints, and displays it in front. Exact retained names,
+   hierarchy, and deform flags remain intact.
+3. Move uncertain handles in Object mode. Click **Refit From Corrections** to
+   serialize their world positions on the target and rebuild the preview.
+4. Use **Reset Landmark Corrections** to discard saved overrides and return to
+   deterministic automatic landmarks.
+
+## Simplified production hands
+
+The full canonical rig remains immutable and retains all 57 bones. The
+versioned production profile retains `arm_left_hand` and `arm_right_hand`,
+attached to their canonical forearm parents, while excluding all 36 verified
+thumb/finger descendants. No finger landmarks or hidden compatibility bones
+are created.
+
+`RELAXED` is the default whole-hand alignment. `OPEN_MAGIC` and `GRIP_SHAFT`
+aim the singular hand bones for casting direction and weapon-shaft alignment;
+they do not articulate fingers. The optional future shape-key names
+`DSB_HAND_OPEN_MAGIC` and `DSB_HAND_GRIP_SHAFT` are reserved but not required
+or authored in this milestone.
+
+## Validate the fit
+
+Click **Validate Fitted Skeleton**. `READY_FOR_BINDING` means all current
+checks passed. `NEEDS_ARTIST_CORRECTION` means the rig is structurally valid
+but warnings or low-confidence landmarks require review. `FAILED` is blocking
+and identifies contract, transform, residual, or target-mutation errors.
+
+**Clean Rig Preview** removes only owned handles and fitted armatures. Saved
+corrections stay on the target so regenerated handles can reapply them.
+
+## Bind production weights
+
+Leave **Canonical + Proxy Fallback** selected for fragmented SPAR3D meshes and
+click **Bind Production Character**. The operation copies and rest-fits the
+canonical skinned donor, transfers deform weights with nearest-face
+barycentric interpolation, classifies every connected target component, and
+uses a temporary fitted bone-segment proxy where donor evidence is weak.
+
+Cleanup removes invalid, tiny, non-deform, opposite-side, and anatomically
+impossible influences; repairs unweighted and structurally empty deform
+groups; limits vertices to four influences; and normalizes again. The target's
+topology, vertex order, UVs, materials, textures, and source Actions are not
+changed. Failure restores the original target parent, transforms, modifiers,
+groups, metadata, selection, mode, frame, and animation state.
+
+Use **Validate Production Weights** to refresh the machine-readable report.
+`READY_FOR_POSE_TEST` requires zero unweighted or non-normalized vertices,
+zero invalid/non-deform weights, no vertices over the configured limit, all 21
+production deform groups populated, no removed finger groups, and exactly one
+owned Armature modifier.
+
+## Test and finalize
+
+Run **Run Pose Torture Tests** followed by **Test Canonical Actions**. The first
+operation evaluates 14 temporary poses and removes its owned test Action. The
+second exercises all five canonical fixtures through Blender 5 Action slots.
+Owned copies remove only channels targeting excluded finger bones, then scale
+remaining pose-bone location channels by fitted/source rest length. Frame
+ranges, markers, interpolation, non-finger channels, source Actions, and source
+NLA tracks remain unchanged.
+
+When both pass, use **Finalize Production Rig**. This removes landmark/preview
+helpers, names the armature `SBF_ProductionRig`, creates five owned
+production-compatible Actions/NLA tracks, and retains rigging metadata.
+
+## Export and compatibility acceptance
+
+Set **Rigged GLB**, leave **Export Filtered Actions** enabled when desired,
+and click **Export Rigged GLB**. The adjacent `.sbf.json` manifest records the
+fingerprint, binding/component statistics, pose/Action results, delivery
+results, and the deferred hand-aesthetics warning.
+
+Then run **Validate Clean Reimport**. It verifies the exact simplified bone
+list and hierarchy, 21 deform bones, no removed finger Action channels, one
+skinned mesh and Armature relationship, materials/textures, both UV maps, five
+Actions, height/bounds, and meaningful finite deformation.
+
+Finally set the local Dreadstone Animation Forge package directory and run
+**Run Animation Forge Acceptance**. The add-on launches a factory-clean Blender
+5.1.2 process, imports the GLB, loads Animation Forge without modifying it, and
+calls its actual `daf.analyze` operator. `ANIMATION_FORGE_ACCEPTED` requires
+the Animate Anything body/limb profile, a skinned mesh, resolved hierarchy,
+required body/arm/forearm/hand mappings, accepted filtered Actions, and the
+real mapping report. Finger equality is intentionally not required.
+
+**Clean Temporary Rigging Data** removes only owned donor, proxy, and temporary
+test data. It does not delete the finalized production rig.

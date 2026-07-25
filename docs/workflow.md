@@ -6,7 +6,7 @@ Open the SPAR3D `.blend` or import its GLB. Keep a source copy. The add-on
 works in memory and writes to new output paths by default, but source control
 is still good production hygiene.
 
-Select the primary production mesh. Version 0.2.1 expects:
+Select the primary production mesh. Version 0.5.0 expects:
 
 - A real mesh with renderable polygons.
 - An existing production UV map.
@@ -159,3 +159,14 @@ output settings.
 
 The clean output contains no temporary projection data and remains a
 boneless base asset for a separate rigging project.
+
+## Build the production Bones rig
+
+Version 0.5.0 fits, binds, tests, and exports the production rig. Keep the
+canonical rig and production target in the same file, expand **Bones —
+Automatic Humanoid Rig**, and follow the focused workflow in
+[rigging_workflow.md](rigging_workflow.md). Preview objects live in the owned
+`SBF_RigPreview` collection; donor/proxy data live only in
+`SBF_RiggingTemporary`. Production binding intentionally adds the exact 57
+deform groups, one Armature modifier, and safe armature parenting while
+preserving protected geometry, vertex order, UVs, materials, and textures.

@@ -30,6 +30,10 @@ def _mesh_object_poll(_self, obj):
     return obj is not None and obj.type == "MESH"
 
 
+def _armature_object_poll(_self, obj):
+    return obj is not None and obj.type == "ARMATURE"
+
+
 def _update_view_preview(view, context):
     """Push inexpensive source-view edits into an existing preview material."""
 
@@ -563,6 +567,187 @@ class SBFSettings(PropertyGroup):
     )
     last_baked_image: PointerProperty(name="Last Baked Image", type=Image)
     status_message: StringProperty(name="Status", default="Ready")
+
+    canonical_armature: PointerProperty(
+        name="Canonical Rig Source",
+        description="Known-good Animate Anything armature in the current file",
+        type=Object,
+        poll=_armature_object_poll,
+    )
+    canonical_report_path: StringProperty(
+        name="Rig Report",
+        subtype="FILE_PATH",
+        default="//sbf_output/canonical_rig_report.json",
+    )
+    canonical_contract_json: StringProperty(default="", options={"HIDDEN"})
+    canonical_fingerprint: StringProperty(
+        name="Canonical Fingerprint",
+        default="Not analyzed",
+    )
+    target_analysis_json: StringProperty(default="", options={"HIDDEN"})
+    target_height: FloatProperty(
+        name="Target Height",
+        default=0.0,
+        precision=4,
+        unit="LENGTH",
+    )
+    landmark_confidence_summary: StringProperty(
+        name="Landmark Confidence",
+        default="Not analyzed",
+    )
+    rig_validation_state: EnumProperty(
+        name="Rig Validation",
+        items=(
+            ("NOT_RUN", "Not Run", "No fitted-rig validation has run"),
+            ("READY_FOR_BINDING", "Ready for Binding", "Skeleton checks passed"),
+            (
+                "NEEDS_ARTIST_CORRECTION",
+                "Needs Artist Correction",
+                "Preview is structurally valid but uncertain landmarks need review",
+            ),
+            ("FAILED", "Failed", "Blocking fitted-rig validation errors"),
+        ),
+        default="NOT_RUN",
+    )
+    rig_blocking_warnings: StringProperty(default="", options={"HIDDEN"})
+    rig_validation_json: StringProperty(default="", options={"HIDDEN"})
+    rig_production_profile: StringProperty(
+        name="Simplified Production Profile",
+        default="DSB_SIMPLE_HANDS_V1",
+    )
+    rig_production_contract_json: StringProperty(
+        default="", options={"HIDDEN"}
+    )
+    rig_production_fingerprint: StringProperty(
+        name="Production Fingerprint",
+        default="Not generated",
+    )
+    rig_full_bone_count: IntProperty(name="Full Canonical Bones", default=0)
+    rig_full_deform_bone_count: IntProperty(
+        name="Full Canonical Deform Bones", default=0
+    )
+    rig_removed_finger_bone_count: IntProperty(
+        name="Removed Finger Bones", default=0
+    )
+    rig_production_bone_count: IntProperty(
+        name="Production Bones", default=0
+    )
+    rig_filtered_action_count: IntProperty(
+        name="Filtered Actions", default=0
+    )
+    rig_removed_finger_channel_count: IntProperty(
+        name="Removed Finger Channels", default=0
+    )
+    rig_hand_pose: EnumProperty(
+        name="Whole-Hand Alignment",
+        items=(
+            ("RELAXED", "Relaxed", "Neutral singular hand-bone alignment"),
+            (
+                "OPEN_MAGIC",
+                "Open Magic Direction",
+                "Aim the whole hand for casting; does not articulate fingers",
+            ),
+            (
+                "GRIP_SHAFT",
+                "Grip Shaft Alignment",
+                "Align the whole hand to a shaft; does not articulate fingers",
+            ),
+        ),
+        default="RELAXED",
+    )
+    rig_binding_method: EnumProperty(
+        name="Binding Method",
+        items=(
+            (
+                "CANONICAL_TRANSFER_WITH_PROXY_FALLBACK",
+                "Canonical + Proxy Fallback",
+                "Transfer canonical donor weights and repair low-confidence vertices",
+            ),
+            (
+                "CANONICAL_TRANSFER",
+                "Canonical Transfer",
+                "Canonical surface transfer with fallback only for unweighted vertices",
+            ),
+            (
+                "AUTOMATIC_WEIGHTS_DIAGNOSTIC",
+                "Automatic Diagnostic",
+                "Diagnostic anatomical proxy weights; not the production default",
+            ),
+        ),
+        default="CANONICAL_TRANSFER_WITH_PROXY_FALLBACK",
+    )
+    rig_weight_threshold: FloatProperty(
+        name="Tiny Weight Threshold",
+        default=0.0001,
+        min=0.0,
+        max=0.05,
+        precision=5,
+    )
+    rig_influence_limit: IntProperty(
+        name="Maximum Influences",
+        default=4,
+        min=1,
+        max=8,
+    )
+    rig_force_binding_failure: BoolProperty(
+        default=False,
+        options={"HIDDEN"},
+    )
+    rig_weight_status: EnumProperty(
+        name="Weight Status",
+        items=(
+            ("NOT_RUN", "Not Run", "Production binding has not run"),
+            ("READY_FOR_POSE_TEST", "Ready for Pose Test", "Weights passed"),
+            ("NEEDS_WEIGHT_REVIEW", "Needs Weight Review", "Review weight warnings"),
+            ("FAILED", "Failed", "Production weights failed"),
+        ),
+        default="NOT_RUN",
+    )
+    rig_weight_report_json: StringProperty(default="", options={"HIDDEN"})
+    rig_unweighted_count: IntProperty(name="Unweighted", default=0)
+    rig_maximum_influences: IntProperty(name="Maximum Influences", default=0)
+    rig_donor_confidence: FloatProperty(
+        name="Donor Confidence",
+        default=0.0,
+        subtype="FACTOR",
+    )
+    rig_proxy_fallback_count: IntProperty(name="Proxy Fallback", default=0)
+    rig_pose_test_status: StringProperty(
+        name="Pose Tests",
+        default="NOT_RUN",
+    )
+    rig_pose_test_json: StringProperty(default="", options={"HIDDEN"})
+    rig_action_test_status: StringProperty(
+        name="Canonical Actions",
+        default="NOT_RUN",
+    )
+    rig_action_test_json: StringProperty(default="", options={"HIDDEN"})
+    rigged_export_glb_path: StringProperty(
+        name="Rigged GLB",
+        subtype="FILE_PATH",
+        default="//sbf_output/character_sbf_rigged.glb",
+    )
+    rig_export_actions: BoolProperty(
+        name="Export Filtered Actions",
+        default=True,
+    )
+    rig_export_status: StringProperty(name="Rigged Export", default="NOT_RUN")
+    rig_reimport_status: StringProperty(name="Clean Reimport", default="NOT_RUN")
+    rig_reimport_json: StringProperty(default="", options={"HIDDEN"})
+    animation_forge_repository: StringProperty(
+        name="Animation Forge Repository",
+        subtype="DIR_PATH",
+        default="E:\\DeVForge\\dreadstone_animation_forge",
+    )
+    rig_animation_forge_status: StringProperty(
+        name="Animation Forge",
+        default="NOT_RUN",
+    )
+    rig_animation_forge_json: StringProperty(default="", options={"HIDDEN"})
+    rig_recommended_action: StringProperty(
+        name="Next Action",
+        default="Analyze the canonical rig.",
+    )
 
 
 PROPERTY_CLASSES = (SBFViewSettings, SBFSettings)
