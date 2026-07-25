@@ -15,6 +15,15 @@ from bpy.props import (
 )
 from bpy.types import Image, Material, Object, PropertyGroup
 
+from .constants import (
+    EXPORT_BLEND_DIR,
+    EXPORT_GLB_DIR,
+    EXPORT_PROOF_DIR,
+    EXPORT_REPORT_DIR,
+    EXPORT_RIGGED_GLB_DIR,
+    EXPORT_TEXTURE_DIR,
+)
+
 
 AXIS_ITEMS = (
     ("+X", "+X", "Positive X"),
@@ -536,22 +545,22 @@ class SBFSettings(PropertyGroup):
     output_image_path: StringProperty(
         name="Base Color Path",
         subtype="FILE_PATH",
-        default="//sbf_output/rebuilt_base_color.png",
+        default=rf"{EXPORT_TEXTURE_DIR}\rebuilt_base_color.png",
     )
     save_blend_path: StringProperty(
         name="New Blender File",
         subtype="FILE_PATH",
-        default="//sbf_output/character_sbf.blend",
+        default=rf"{EXPORT_BLEND_DIR}\character_sbf.blend",
     )
     export_glb_path: StringProperty(
         name="New GLB",
         subtype="FILE_PATH",
-        default="//sbf_output/character_sbf.glb",
+        default=rf"{EXPORT_GLB_DIR}\character_sbf.glb",
     )
     proof_render_dir: StringProperty(
         name="Proof Render Folder",
         subtype="DIR_PATH",
-        default="//sbf_output/proof_renders/",
+        default=EXPORT_PROOF_DIR + "\\",
     )
     proof_resolution: IntProperty(
         name="Proof Resolution",
@@ -577,7 +586,7 @@ class SBFSettings(PropertyGroup):
     canonical_report_path: StringProperty(
         name="Rig Report",
         subtype="FILE_PATH",
-        default="//sbf_output/canonical_rig_report.json",
+        default=rf"{EXPORT_REPORT_DIR}\canonical_rig_report.json",
     )
     canonical_contract_json: StringProperty(default="", options={"HIDDEN"})
     canonical_fingerprint: StringProperty(
@@ -697,7 +706,12 @@ class SBFSettings(PropertyGroup):
         name="Weight Status",
         items=(
             ("NOT_RUN", "Not Run", "Production binding has not run"),
-            ("READY_FOR_POSE_TEST", "Ready for Pose Test", "Weights passed"),
+            (
+                "READY_FOR_ANIMATION_TEST",
+                "Ready for Animation Test",
+                "Weights and bind-space checks passed",
+            ),
+            ("NEEDS_REBIND", "Needs Rebind", "Binding matrices or rig changed"),
             ("NEEDS_WEIGHT_REVIEW", "Needs Weight Review", "Review weight warnings"),
             ("FAILED", "Failed", "Production weights failed"),
         ),
@@ -725,7 +739,7 @@ class SBFSettings(PropertyGroup):
     rigged_export_glb_path: StringProperty(
         name="Rigged GLB",
         subtype="FILE_PATH",
-        default="//sbf_output/character_sbf_rigged.glb",
+        default=rf"{EXPORT_RIGGED_GLB_DIR}\character_sbf_rigged.glb",
     )
     rig_export_actions: BoolProperty(
         name="Export Filtered Actions",

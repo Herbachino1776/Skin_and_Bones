@@ -19,6 +19,10 @@ from ..constants import (
     RIG_PRODUCTION_PROPERTY,
 )
 from .analysis import evaluated_points
+from .deformation import (
+    run_isolated_bone_forensics,
+    scan_action_deformation,
+)
 from .fitting import OWNER
 from .poses import (
     PRODUCTION_TRACK_PREFIX,
@@ -389,33 +393,23 @@ def _validate_clean_reimport_in_process(
         action_safe = True
         action_meaningful = False
         action_test = None
+        action_forensics = None
         if new_actions:
-            animation = armature.animation_data_create()
-            prior = animation.action
-            try:
-                animation.action = new_actions[0]
-                suitable = list(
-                    getattr(animation, "action_suitable_slots", [])
-                )
-                if suitable:
-                    animation.action_slot = suitable[0]
-                context.scene.frame_set(
-                    int(round(sum(new_actions[0].frame_range) * 0.5))
-                )
-                context.view_layer.update()
-                points = evaluated_points(context, mesh)
-                action_safe = all(
-                    math.isfinite(float(value))
-                    for point in points
-                    for value in point
-                )
-                action_meaningful = any(
-                    (point - rest).length > expected_height * 1.0e-5
-                    for point, rest in zip(points, rest_points)
-                )
-                action_test = new_actions[0].name
-            finally:
-                animation.action = prior
+            action_forensics = scan_action_deformation(
+                context, mesh, armature, new_actions[0]
+            )
+            action_safe = (
+                action_forensics["status"] == "READY_FOR_ANIMATION_TEST"
+                and action_forensics["state_restored"]
+            )
+            action_meaningful = (
+                action_forensics["maximum_displacement"]
+                > expected_height * 1.0e-5
+            )
+            action_test = new_actions[0].name
+        isolated_forensics = run_isolated_bone_forensics(
+            context, mesh, armature
+        )
         images = [
             image.name for image in bpy.data.images if image not in before_images
         ]
@@ -456,6 +450,8 @@ def _validate_clean_reimport_in_process(
             <= max(expected_height * 0.02, 1.0e-4)
             and action_safe
             and action_meaningful
+            and isolated_forensics["status"] == "READY_FOR_ANIMATION_TEST"
+            and isolated_forensics["state_restored"]
         )
         report = {
             "status": (
@@ -484,6 +480,8 @@ def _validate_clean_reimport_in_process(
             "evaluated_action": action_test,
             "action_deformation_finite": action_safe,
             "action_deformation_meaningful": action_meaningful,
+            "action_deformation_forensics": action_forensics,
+            "isolated_bone_forensics": isolated_forensics,
             "hierarchy_scale_notes": [
                 {
                     "object": obj.name,

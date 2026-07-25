@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from functools import lru_cache
+import heapq
 import json
 import math
 
@@ -26,7 +28,36 @@ WEIGHT_TOLERANCE = 1.0e-4
 DEFAULT_WEIGHT_THRESHOLD = 1.0e-4
 DEFAULT_INFLUENCE_LIMIT = 4
 TRANSFER_METHOD = "NEAREST_DONOR_FACE_BARYCENTRIC"
-FALLBACK_METHOD = "NEAREST_OWNED_BONE_SEGMENT_PROXY_INVERSE_DISTANCE"
+FALLBACK_METHOD = "NEAREST_FITTED_BONE_SEGMENT_INVERSE_DISTANCE"
+SPATIAL_BONE_MARGIN_RATIO = 0.04
+SIDE_CENTER_TOLERANCE_RATIO = 0.02
+CONTINUITY_SMOOTHING_ITERATIONS = 128
+CONTINUITY_SMOOTHING_FACTOR = 0.65
+MAX_FALLBACK_HIERARCHY_STEPS = 3
+
+PRODUCTION_BONE_PARENTS = {
+    "root": None,
+    "body": "root",
+    "body_top0": "body",
+    "body_top1": "body_top0",
+    "body_top2": "body_top1",
+    "neck": "body_top2",
+    "head": "neck",
+    "shoulder_left": "body_top2",
+    "shoulder_right": "body_top2",
+    "arm_left_top": "shoulder_left",
+    "arm_right_top": "shoulder_right",
+    "arm_left_bot": "arm_left_top",
+    "arm_right_bot": "arm_right_top",
+    "arm_left_hand": "arm_left_bot",
+    "arm_right_hand": "arm_right_bot",
+    "leg_left_top": "body",
+    "leg_right_top": "body",
+    "leg_left_bot": "leg_left_top",
+    "leg_right_bot": "leg_right_top",
+    "leg_left_foot": "leg_left_bot",
+    "leg_right_foot": "leg_right_bot",
+}
 
 
 def _is_owned_armature_modifier(modifier):
@@ -466,6 +497,18 @@ def _bone_side(name):
     return "CENTER"
 
 
+def _bone_family(name):
+    if name.startswith(("shoulder_left", "arm_left_")):
+        return "LEFT_ARM"
+    if name.startswith(("shoulder_right", "arm_right_")):
+        return "RIGHT_ARM"
+    if name.startswith("leg_left_"):
+        return "LEFT_LEG"
+    if name.startswith("leg_right_"):
+        return "RIGHT_LEG"
+    return "AXIAL"
+
+
 def _region_allowed(name, region, side):
     bone_side = _bone_side(name)
     if side != "CENTER" and bone_side not in {"CENTER", side}:
@@ -501,6 +544,367 @@ def _point_segment_distance(point, head, tail):
         return (point - head).length
     factor = max(0.0, min(1.0, (point - head).dot(direction) / denominator))
     return (point - head.lerp(tail, factor)).length
+
+
+def _bone_segments(fitted):
+    return {
+        bone.name: (
+            fitted.matrix_world @ bone.head_local,
+            fitted.matrix_world @ bone.tail_local,
+        )
+        for bone in fitted.data.bones
+        if bone.use_deform
+    }
+
+
+def _spatial_context(point, analysis, segments):
+    lateral = Vector(analysis["lateral_axis_world"])
+    center = Vector(analysis["centerline_world"])
+    height = float(analysis["world_height"])
+    lateral_offset = (point - center).dot(lateral)
+    side = (
+        "CENTER"
+        if abs(lateral_offset) <= height * SIDE_CENTER_TOLERANCE_RATIO
+        else "LEFT"
+        if lateral_offset > 0.0
+        else "RIGHT"
+    )
+    distances = {
+        name: _point_segment_distance(point, head, tail)
+        for name, (head, tail) in segments.items()
+    }
+    nearest = min(distances.values(), default=float("inf"))
+    return side, distances, nearest
+
+
+def _topology_preferred_families(target, points, segments):
+    """Partition touching limbs by geodesic distance from confident bone seeds."""
+
+    adjacency = [[] for _vertex in target.data.vertices]
+    for edge in target.data.edges:
+        first, second = map(int, edge.vertices)
+        length = (points[second] - points[first]).length
+        adjacency[first].append((second, length))
+        adjacency[second].append((first, length))
+    height = max(point.z for point in points) - min(point.z for point in points)
+    initial = []
+    seeds = []
+    for point in points:
+        by_family = defaultdict(lambda: float("inf"))
+        for name, (head, tail) in segments.items():
+            family = _bone_family(name)
+            by_family[family] = min(
+                by_family[family], _point_segment_distance(point, head, tail)
+            )
+        ranked = sorted(by_family.items(), key=lambda item: (item[1], item[0]))
+        initial.append(ranked[0][0])
+        seeds.append(
+            ranked[0][0]
+            if ranked[0][1] <= height * 0.055
+            and ranked[1][1] - ranked[0][1] >= height * 0.012
+            else None
+        )
+    best_distance = [float("inf")] * len(points)
+    labels = [None] * len(points)
+    queue = []
+    for index, label in enumerate(seeds):
+        if label is not None:
+            heapq.heappush(queue, (0.0, label, index))
+    while queue:
+        distance, label, index = heapq.heappop(queue)
+        if distance >= best_distance[index]:
+            continue
+        best_distance[index] = distance
+        labels[index] = label
+        for neighbor, length in adjacency[index]:
+            candidate = distance + length
+            if candidate < best_distance[neighbor]:
+                heapq.heappush(queue, (candidate, label, neighbor))
+    labels = [label or initial[index] for index, label in enumerate(labels)]
+    return labels, sum(
+        before != after for before, after in zip(initial, labels)
+    )
+
+
+@lru_cache(maxsize=None)
+def _hierarchy_steps(first, second):
+    if first == second:
+        return 0
+    neighbors = defaultdict(set)
+    for child, parent in PRODUCTION_BONE_PARENTS.items():
+        if parent is None:
+            continue
+        neighbors[child].add(parent)
+        neighbors[parent].add(child)
+    frontier = {first}
+    visited = set()
+    for steps in range(1, len(PRODUCTION_BONE_PARENTS) + 1):
+        visited.update(frontier)
+        frontier = {
+            neighbor
+            for name in frontier
+            for neighbor in neighbors.get(name, ())
+            if neighbor not in visited
+        }
+        if second in frontier:
+            return steps
+        if not frontier:
+            break
+    return len(PRODUCTION_BONE_PARENTS) + 1
+
+
+def _family_reference_bone(distances, preferred_family):
+    names = [
+        name
+        for name in distances
+        if preferred_family is None or _bone_family(name) == preferred_family
+    ]
+    if not names:
+        names = list(distances)
+    return min(names, key=lambda name: (distances[name], name))
+
+
+def _spatially_plausible(
+    name,
+    side,
+    distances,
+    nearest,
+    height,
+    max_hierarchy_steps=MAX_FALLBACK_HIERARCHY_STEPS,
+    preferred_family=None,
+    margin_ratio=SPATIAL_BONE_MARGIN_RATIO,
+):
+    bone_side = _bone_side(name)
+    if side != "CENTER" and bone_side not in {"CENTER", side}:
+        return False
+    distance = distances.get(name, float("inf"))
+    nearest_name = _family_reference_bone(distances, preferred_family)
+    reference_distance = distances[nearest_name]
+    candidate_family = _bone_family(name)
+    family_compatible = (
+        preferred_family is None
+        or candidate_family == preferred_family
+        or (
+            "AXIAL" in {candidate_family, preferred_family}
+            and _hierarchy_steps(nearest_name, name)
+            <= MAX_FALLBACK_HIERARCHY_STEPS
+        )
+    )
+    return (
+        family_compatible
+        and distance
+        <= reference_distance + height * margin_ratio
+        and (
+            max_hierarchy_steps is None
+            or _hierarchy_steps(nearest_name, name) <= max_hierarchy_steps
+        )
+    )
+
+
+def _spatial_fallback_weights(
+    point,
+    analysis,
+    segments,
+    influence_limit,
+    rigid=False,
+    preferred_family=None,
+):
+    side, distances, nearest = _spatial_context(point, analysis, segments)
+    height = float(analysis["world_height"])
+    nearest_name = _family_reference_bone(distances, preferred_family)
+    reference_distance = distances[nearest_name]
+    candidates = [
+        (distance, name)
+        for name, distance in distances.items()
+        if side == "CENTER" or _bone_side(name) in {"CENTER", side}
+        if preferred_family is None
+        or _bone_family(name) == preferred_family
+        or (
+            "AXIAL" in {_bone_family(name), preferred_family}
+            and _hierarchy_steps(nearest_name, name)
+            <= MAX_FALLBACK_HIERARCHY_STEPS
+        )
+    ]
+    candidates = [
+        item
+        for item in candidates
+        if item[0]
+        <= reference_distance + height * SPATIAL_BONE_MARGIN_RATIO
+        and _hierarchy_steps(nearest_name, item[1])
+        <= MAX_FALLBACK_HIERARCHY_STEPS
+    ]
+    if not candidates:
+        candidates = [
+            (distance, name)
+            for name, distance in distances.items()
+            if preferred_family is None
+            or _bone_family(name) == preferred_family
+        ]
+    if not candidates:
+        candidates = [(distance, name) for name, distance in distances.items()]
+    candidates.sort(key=lambda item: (item[0], item[1]))
+    selected = candidates[: 1 if rigid else influence_limit]
+    values = {
+        name: 1.0 / max(distance, 0.002) ** 2 for distance, name in selected
+    }
+    total = sum(values.values())
+    return {name: value / total for name, value in values.items()}
+
+
+def _weight_edge_delta(first, second):
+    return sum(
+        abs(first.get(name, 0.0) - second.get(name, 0.0))
+        for name in set(first).union(second)
+    )
+
+
+def _regularize_weight_continuity(
+    target,
+    fitted,
+    analysis,
+    weights,
+    components,
+    membership,
+    preferred_families,
+    influence_limit,
+):
+    """Diffuse skin weights locally without crossing disconnected components."""
+
+    adjacency = [set() for _vertex in target.data.vertices]
+    edges = []
+    for edge in target.data.edges:
+        first, second = map(int, edge.vertices)
+        adjacency[first].add(second)
+        adjacency[second].add(first)
+        edges.append((first, second))
+    tiny_components = {
+        record["component"]
+        for record in components
+        if record["classification"] == "TINY_FLOATING_FRAGMENT"
+    }
+    points = [target.matrix_world @ vertex.co for vertex in target.data.vertices]
+    segments = _bone_segments(fitted)
+    height = float(analysis["world_height"])
+    contexts = [
+        _spatial_context(point, analysis, segments) for point in points
+    ]
+    def plausible(index, name):
+        side, distances, nearest = contexts[index]
+        return _spatially_plausible(
+            name,
+            side,
+            distances,
+            nearest,
+            height,
+            max_hierarchy_steps=None,
+        )
+    before_maximum = max(
+        (_weight_edge_delta(weights[first], weights[second]) for first, second in edges),
+        default=0.0,
+    )
+    current = [dict(values) for values in weights]
+    for _iteration in range(CONTINUITY_SMOOTHING_ITERATIONS):
+        updated = []
+        for index, values in enumerate(current):
+            neighbors = adjacency[index]
+            if not neighbors or membership[index] in tiny_components:
+                updated.append(dict(values))
+                continue
+            combined = defaultdict(float)
+            for name, value in values.items():
+                if plausible(index, name):
+                    combined[name] += value * (
+                        1.0 - CONTINUITY_SMOOTHING_FACTOR
+                    )
+            neighbor_factor = CONTINUITY_SMOOTHING_FACTOR / len(neighbors)
+            for neighbor in neighbors:
+                for name, value in current[neighbor].items():
+                    if plausible(index, name):
+                        combined[name] += value * neighbor_factor
+            combined = {
+                name: value
+                for name, value in combined.items()
+                if value >= DEFAULT_WEIGHT_THRESHOLD
+                and plausible(index, name)
+            }
+            total = sum(combined.values())
+            updated.append(
+                {name: value / total for name, value in combined.items()}
+                if total > 0.0
+                else dict(values)
+            )
+        current = updated
+    limited = []
+    for values in current:
+        ranked = sorted(values.items(), key=lambda item: (-item[1], item[0]))[
+            :influence_limit
+        ]
+        total = sum(value for _name, value in ranked)
+        limited.append({name: value / total for name, value in ranked})
+
+    palette_iterations = 48
+    palette_edge_limit = 0.10
+    for _iteration in range(palette_iterations):
+        proposals = [[] for _vertex in limited]
+        for first, second in edges:
+            if _weight_edge_delta(limited[first], limited[second]) <= (
+                palette_edge_limit
+            ):
+                continue
+            merged = defaultdict(float)
+            for name, value in limited[first].items():
+                merged[name] += value * 0.5
+            for name, value in limited[second].items():
+                merged[name] += value * 0.5
+            ranked = sorted(
+                merged.items(), key=lambda item: (-item[1], item[0])
+            )[:influence_limit]
+            total = sum(value for _name, value in ranked)
+            common = {name: value / total for name, value in ranked}
+            proposals[first].append(common)
+            proposals[second].append(common)
+        if not any(proposals):
+            break
+        reconciled = []
+        for index, vertex_proposals in enumerate(proposals):
+            if not vertex_proposals:
+                reconciled.append(limited[index])
+                continue
+            combined = defaultdict(float)
+            for name, value in limited[index].items():
+                combined[name] += value * 0.25
+            proposal_factor = 0.75 / len(vertex_proposals)
+            side, distances, nearest = contexts[index]
+            for proposal in vertex_proposals:
+                for name, value in proposal.items():
+                    if (
+                        (side == "CENTER" or _bone_side(name) in {"CENTER", side})
+                        and distances.get(name, float("inf"))
+                        <= nearest + height * 0.14
+                    ):
+                        combined[name] += value * proposal_factor
+            ranked = sorted(
+                combined.items(), key=lambda item: (-item[1], item[0])
+            )[:influence_limit]
+            total = sum(value for _name, value in ranked)
+            reconciled.append(
+                {name: value / total for name, value in ranked}
+                if total > 0.0
+                else limited[index]
+            )
+        limited = reconciled
+    after_maximum = max(
+        (_weight_edge_delta(limited[first], limited[second]) for first, second in edges),
+        default=0.0,
+    )
+    return limited, {
+        "continuity_smoothing_iterations": CONTINUITY_SMOOTHING_ITERATIONS,
+        "continuity_smoothing_factor": CONTINUITY_SMOOTHING_FACTOR,
+        "maximum_edge_weight_delta_before": round(before_maximum, 6),
+        "maximum_edge_weight_delta_after": round(after_maximum, 6),
+        "palette_reconciliation_iterations": palette_iterations,
+        "palette_edge_delta_limit": palette_edge_limit,
+    }
 
 
 def _fallback_weights(
@@ -558,17 +962,36 @@ def clean_weights(
     fallback_proxy=None,
 ):
     deform_names = {bone.name for bone in fitted.data.bones if bone.use_deform}
+    segments = _bone_segments(fitted)
+    height = float(analysis["world_height"])
     points = [target.matrix_world @ vertex.co for vertex in target.data.vertices]
+    preferred_families, branch_corrections = _topology_preferred_families(
+        target, points, segments
+    )
     cleaned = []
     stats = defaultdict(int)
     repaired_components = set()
+    component_indices = defaultdict(list)
+    for index, component_id in membership.items():
+        component_indices[component_id].append(index)
+    rigid_assignments = {}
+    for component in components:
+        if component["classification"] != "TINY_FLOATING_FRAGMENT":
+            continue
+        indices = component_indices[component["component"]]
+        centroid = sum((points[index] for index in indices), Vector()) / len(indices)
+        rigid_assignments[component["component"]] = _spatial_fallback_weights(
+            centroid,
+            analysis,
+            segments,
+            influence_limit,
+            rigid=True,
+        )
     for index, values in enumerate(raw_weights):
         component = components[membership[index]]
         rigid = component["classification"] == "TINY_FLOATING_FRAGMENT"
-        region, side = (
-            (component["nearest_body_region"], component["side"])
-            if rigid
-            else _point_anatomy(points[index], analysis)
+        side, distances_by_bone, nearest_distance = _spatial_context(
+            points[index], analysis, segments
         )
         filtered = {}
         for name, value in values.items():
@@ -581,7 +1004,14 @@ def clean_weights(
             if value < threshold:
                 stats["tiny_removed"] += 1
                 continue
-            if not _region_allowed(name, region, side):
+            if not _spatially_plausible(
+                name,
+                side,
+                distances_by_bone,
+                nearest_distance,
+                height,
+                preferred_family=preferred_families[index],
+            ):
                 if (
                     side != "CENTER"
                     and _bone_side(name) not in {"CENTER", side}
@@ -593,28 +1023,24 @@ def clean_weights(
             filtered[name] = value
         low_confidence = confidences[index] < 0.22
         if rigid:
-            filtered = _fallback_weights(
-                points[index],
-                fitted,
-                region,
-                side,
-                influence_limit,
-                rigid=True,
-                proxy=fallback_proxy,
-            )
+            filtered = rigid_assignments[component["component"]]
             stats["tiny_rigid_assignments"] += 1
             repaired_components.add(component["component"])
-        elif not filtered or (use_proxy_fallback and low_confidence):
-            filtered = _fallback_weights(
+        elif not filtered:
+            filtered = _spatial_fallback_weights(
                 points[index],
-                fitted,
-                region,
-                side,
+                analysis,
+                segments,
                 influence_limit,
-                proxy=fallback_proxy,
+                preferred_family=preferred_families[index],
             )
             stats["proxy_fallback_vertices"] += 1
             repaired_components.add(component["component"])
+        elif low_confidence:
+            # A low BVH confidence score does not invalidate a donor weight
+            # that agrees with the fitted skeleton. Replacing these wholesale
+            # created hard torso/limb boundaries and the anchored fan artifacts.
+            stats["low_confidence_spatially_preserved"] += 1
         limited = sorted(filtered.items(), key=lambda item: (-item[1], item[0]))
         if len(limited) > influence_limit:
             stats["limited_vertices"] += 1
@@ -626,13 +1052,12 @@ def clean_weights(
         limited = final_limited
         total = sum(value for _name, value in limited)
         if total <= 0.0:
-            fallback = _fallback_weights(
+            fallback = _spatial_fallback_weights(
                 points[index],
-                fitted,
-                region,
-                side,
+                analysis,
+                segments,
                 influence_limit,
-                proxy=fallback_proxy,
+                preferred_family=preferred_families[index],
             )
             limited = sorted(
                 fallback.items(), key=lambda item: (-item[1], item[0])
@@ -644,6 +1069,18 @@ def clean_weights(
             stats["unweighted_repairs"] += 1
             repaired_components.add(component["component"])
         cleaned.append({name: value / total for name, value in limited})
+    cleaned, continuity = _regularize_weight_continuity(
+        target,
+        fitted,
+        analysis,
+        cleaned,
+        components,
+        membership,
+        preferred_families,
+        influence_limit,
+    )
+    stats.update(continuity)
+    stats["topology_branch_label_corrections"] = branch_corrections
     stats["repaired_components"] = len(repaired_components)
     return cleaned, dict(stats)
 
@@ -776,16 +1213,24 @@ def validate_production_weights(
     opposite = 0
     impossible = 0
     impossible_components = set()
+    impossible_examples = []
+    maximum_spatial_excess = 0.0
     usage = defaultdict(int)
     region_summary = defaultdict(lambda: defaultdict(float))
     membership = transfer["component_membership"]
     points = [target.matrix_world @ vertex.co for vertex in target.data.vertices]
+    segments = _bone_segments(fitted)
+    height = float(analysis["world_height"])
+    preferred_families, _branch_corrections = _topology_preferred_families(
+        target, points, segments
+    )
     for vertex in target.data.vertices:
         component = components[membership[vertex.index]]
-        point_region, point_side = (
-            (component["nearest_body_region"], component["side"])
-            if component["classification"] == "TINY_FLOATING_FRAGMENT"
-            else _point_anatomy(points[vertex.index], analysis)
+        point_region, _coarse_side = _point_anatomy(
+            points[vertex.index], analysis
+        )
+        point_side, bone_distances, nearest_distance = _spatial_context(
+            points[vertex.index], analysis, segments
         )
         values = []
         for item in vertex.groups:
@@ -800,13 +1245,71 @@ def validate_production_weights(
                 usage[name] += 1
                 region = component["nearest_body_region"]
                 region_summary[region][name] += value
-                if not _region_allowed(name, point_region, point_side):
+                spatial_excess = max(
+                    0.0,
+                    bone_distances.get(name, float("inf"))
+                    - nearest_distance,
+                )
+                if math.isfinite(spatial_excess):
+                    maximum_spatial_excess = max(
+                        maximum_spatial_excess, spatial_excess
+                    )
+                strict_plausible = _spatially_plausible(
+                    name,
+                    point_side,
+                    bone_distances,
+                    nearest_distance,
+                    height,
+                    (
+                        None
+                        if component["classification"]
+                        == "TINY_FLOATING_FRAGMENT"
+                        else MAX_FALLBACK_HIERARCHY_STEPS
+                    ),
+                    preferred_family=(
+                        None
+                        if component["classification"]
+                        == "TINY_FLOATING_FRAGMENT"
+                        else preferred_families[vertex.index]
+                    ),
+                )
+                bridge_plausible = _spatially_plausible(
+                    name,
+                    point_side,
+                    bone_distances,
+                    nearest_distance,
+                    height,
+                    max_hierarchy_steps=None,
+                    margin_ratio=0.14,
+                )
+                if not (strict_plausible or bridge_plausible):
                     impossible += 1
                     impossible_components.add(membership[vertex.index])
+                    if len(impossible_examples) < 20:
+                        impossible_examples.append(
+                            {
+                                "vertex": vertex.index,
+                                "component": membership[vertex.index],
+                                "bone": name,
+                                "weight": round(value, 6),
+                                "side": point_side,
+                                "bone_side": _bone_side(name),
+                                "bone_distance": round(
+                                    bone_distances.get(name, float("inf")), 6
+                                ),
+                                "nearest_bone_distance": round(
+                                    nearest_distance, 6
+                                ),
+                                "position": [
+                                    round(float(item), 6)
+                                    for item in points[vertex.index]
+                                ],
+                            }
+                        )
                 if (
-                    component["side"] != "CENTER"
+                    point_side != "CENTER"
                     and _bone_side(name)
-                    not in {"CENTER", component["side"]}
+                    not in {"CENTER", point_side}
                 ):
                     opposite += 1
         count = len(values)
@@ -876,7 +1379,13 @@ def validate_production_weights(
         or left_right_inversion
     )
     review = bool(empty_groups or opposite)
-    status = "FAILED" if failures else "NEEDS_WEIGHT_REVIEW" if review else "READY_FOR_POSE_TEST"
+    status = (
+        "FAILED"
+        if failures
+        else "NEEDS_WEIGHT_REVIEW"
+        if review
+        else "READY_FOR_ANIMATION_TEST"
+    )
     confidence_values = transfer["confidences"]
     current_topology = topology_snapshot(target)
     protected_topology_unchanged = all(
@@ -917,6 +1426,9 @@ def validate_production_weights(
         "opposite_side_contamination": opposite,
         "anatomically_impossible_weights": impossible,
         "anatomically_impossible_components": sorted(impossible_components),
+        "anatomically_impossible_examples": impossible_examples,
+        "spatial_bone_margin_ratio": SPATIAL_BONE_MARGIN_RATIO,
+        "maximum_bone_distance_excess": round(maximum_spatial_excess, 6),
         "bind_matrices_consistent": bind_matrices_consistent,
         "left_right_inversion": left_right_inversion,
         "donor_transfer_confidence": {
@@ -1185,7 +1697,13 @@ def bind_production_character(
             raise RuntimeError(
                 "Production weight validation failed: "
                 f"{report['unweighted_vertices']} unweighted, "
-                f"{report['non_normalized_vertices']} non-normalized."
+                f"{report['non_normalized_vertices']} non-normalized, "
+                f"{report['anatomically_impossible_weights']} spatially "
+                f"impossible, {report['opposite_side_contamination']} "
+                f"opposite-side, {len(report['empty_deform_groups'])} empty "
+                f"deform groups; bind matrices consistent: "
+                f"{report['bind_matrices_consistent']}; examples: "
+                f"{report['anatomically_impossible_examples'][:3]}."
             )
         target[RIG_WEIGHT_REPORT_PROPERTY] = json.dumps(
             report, sort_keys=True, separators=(",", ":")

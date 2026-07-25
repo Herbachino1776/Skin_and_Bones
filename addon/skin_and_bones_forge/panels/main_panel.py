@@ -364,7 +364,8 @@ class SBF_PT_bones(_SBF_PT_section, Panel):
         binding.operator("sbf.bind_production_character", icon="LINKED")
         binding.operator("sbf.validate_production_weights", icon="CHECKMARK")
         weight_icon = {
-            "READY_FOR_POSE_TEST": "CHECKMARK",
+            "READY_FOR_ANIMATION_TEST": "CHECKMARK",
+            "NEEDS_REBIND": "ERROR",
             "NEEDS_WEIGHT_REVIEW": "ERROR",
             "FAILED": "CANCEL",
         }.get(settings.rig_weight_status, "QUESTION")

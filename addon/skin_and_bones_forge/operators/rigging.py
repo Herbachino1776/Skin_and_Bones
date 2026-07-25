@@ -17,7 +17,9 @@ from ..constants import (
 from ..rigging import (
     analyze_canonical_rig,
     analyze_target,
+    audit_bind_space,
     audit_production_weights,
+    audit_rest_orientation,
     apply_hand_pose,
     apply_saved_corrections,
     bind_production_character,
@@ -37,6 +39,7 @@ from ..rigging import (
     refresh_rigging_manifest,
     reset_corrections,
     run_animation_forge_acceptance,
+    run_isolated_bone_forensics,
     run_pose_torture_tests,
     save_corrections,
     test_canonical_actions,
@@ -598,7 +601,9 @@ class SBF_OT_bind_production_character(Operator):
                 f"max {report['maximum_influences']} influences."
             )
             self.report(
-                {"INFO"} if report["status"] == "READY_FOR_POSE_TEST" else {"WARNING"},
+                {"INFO"}
+                if report["status"] == "READY_FOR_ANIMATION_TEST"
+                else {"WARNING"},
                 settings.status_message,
             )
             return {"FINISHED"}
@@ -633,7 +638,7 @@ class SBF_OT_validate_production_weights(Operator):
             _store_weight_report(settings, report)
             settings.rig_recommended_action = (
                 "Run pose torture tests."
-                if report["status"] == "READY_FOR_POSE_TEST"
+                if report["status"] == "READY_FOR_ANIMATION_TEST"
                 else "Review the weight report before pose testing."
             )
             settings.status_message = (
@@ -641,7 +646,9 @@ class SBF_OT_validate_production_weights(Operator):
                 f"{report['weighted_vertices']}/{report['total_vertices']} weighted."
             )
             self.report(
-                {"INFO"} if report["status"] == "READY_FOR_POSE_TEST" else {"WARNING"},
+                {"INFO"}
+                if report["status"] == "READY_FOR_ANIMATION_TEST"
+                else {"WARNING"},
                 settings.status_message,
             )
             return {"FINISHED"}
@@ -664,6 +671,13 @@ class SBF_OT_run_pose_torture_tests(Operator):
                 report = run_pose_torture_tests(
                     context, target, armature, settings.target_height
                 )
+                analysis, _landmarks = _analysis(context, settings, target)
+                isolated = run_isolated_bone_forensics(
+                    context, target, armature, analysis
+                )
+                report["isolated_bone_forensics"] = isolated
+                if isolated["status"] != "READY_FOR_ANIMATION_TEST":
+                    report["status"] = "POSE_TESTS_FAILED"
             settings.rig_pose_test_json = json.dumps(
                 report, sort_keys=True, separators=(",", ":")
             )
@@ -694,13 +708,64 @@ class SBF_OT_test_canonical_actions(Operator):
         try:
             with _OperationState(context):
                 target = _target(context, settings)
+                armature = _fitted(target)
+                source = _canonical(settings)
+                contract = _production_contract(context, settings)
+                analysis, _landmarks = _analysis(context, settings, target)
+                weight_report = load_weight_report(target)
+                bind_audit = audit_bind_space(context, target, armature)
+                rest_audit = audit_rest_orientation(
+                    source, armature, contract, analysis
+                )
+                pose_report = _load_json(
+                    settings.rig_pose_test_json, "Pose test"
+                )
+                if weight_report is None:
+                    settings.rig_weight_status = "NEEDS_WEIGHT_REVIEW"
+                    raise RuntimeError(
+                        "Animation gate blocked: bind and validate weights first."
+                    )
+                if bind_audit["status"] != "READY_FOR_ANIMATION_TEST":
+                    settings.rig_weight_status = "NEEDS_REBIND"
+                    raise RuntimeError(
+                        "Animation gate blocked: mesh/armature bind space is stale."
+                    )
+                if rest_audit["status"] != "READY_FOR_ANIMATION_TEST":
+                    settings.rig_weight_status = "NEEDS_REBIND"
+                    raise RuntimeError(
+                        "Animation gate blocked: fitted rest orientation is incompatible."
+                    )
+                if weight_report["status"] != "READY_FOR_ANIMATION_TEST":
+                    settings.rig_weight_status = "NEEDS_WEIGHT_REVIEW"
+                    raise RuntimeError(
+                        "Animation gate blocked: production weights are not ready."
+                    )
+                if (
+                    pose_report.get("status") != "POSE_TESTS_PASSED"
+                    or pose_report.get("isolated_bone_forensics", {}).get(
+                        "status"
+                    )
+                    != "READY_FOR_ANIMATION_TEST"
+                ):
+                    raise RuntimeError(
+                        "Animation gate blocked: isolated-bone forensics must pass."
+                    )
                 report = test_canonical_actions(
                     context,
                     target,
-                    _fitted(target),
-                    _production_contract(context, settings),
+                    armature,
+                    contract,
                     settings.target_height,
                 )
+                report["pre_animation_gate"] = {
+                    "status": "READY_FOR_ANIMATION_TEST",
+                    "bind_space": bind_audit,
+                    "rest_orientation": rest_audit,
+                    "weights": weight_report["status"],
+                    "isolated_bones": pose_report[
+                        "isolated_bone_forensics"
+                    ]["status"],
+                }
             settings.rig_action_test_json = json.dumps(
                 report, sort_keys=True, separators=(",", ":")
             )

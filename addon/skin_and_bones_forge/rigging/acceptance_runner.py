@@ -12,6 +12,14 @@ import sys
 import bpy
 
 
+addon_root = Path(__file__).resolve().parents[2]
+if str(addon_root) not in sys.path:
+    sys.path.insert(0, str(addon_root))
+from skin_and_bones_forge.rigging.deformation import (  # noqa: E402
+    scan_action_deformation,
+)
+
+
 def _args():
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
@@ -106,13 +114,35 @@ try:
     filtered_actions_accepted = bool(action_inventory) and not unresolved_action_bones
     text = bpy.data.texts.get("DSB_Rig_Mapping.txt")
     mapping_report = text.as_string() if text else ""
+    walk_result = bpy.ops.daf.walk()
+    walk_action = bpy.data.actions.get("DSB_DRAFT_Walk")
+    walk_deformation = scan_action_deformation(
+        bpy.context,
+        mesh,
+        armature,
+        walk_action,
+    )
+    hurt_result = bpy.ops.daf.hurt_left()
+    hurt_action = bpy.data.actions.get("DSB_DRAFT_Hurt_LEFT")
+    hurt_deformation = scan_action_deformation(
+        bpy.context,
+        mesh,
+        armature,
+        hurt_action,
+    )
     accepted = (
         "FINISHED" in operator_result
+        and "FINISHED" in walk_result
+        and "FINISHED" in hurt_result
         and exact_profile
         and not missing
         and bool(mapping)
         and bool(mapping_report)
         and filtered_actions_accepted
+        and walk_deformation["status"] == "READY_FOR_ANIMATION_TEST"
+        and hurt_deformation["status"] == "READY_FOR_ANIMATION_TEST"
+        and walk_deformation["state_restored"]
+        and hurt_deformation["state_restored"]
     )
     report = {
         "status": (
@@ -124,6 +154,12 @@ try:
         "forge_version": list(module.bl_info["version"]),
         "actual_operator": "daf.analyze",
         "operator_result": sorted(operator_result),
+        "walk_operator": "daf.walk",
+        "walk_operator_result": sorted(walk_result),
+        "walk_deformation": walk_deformation,
+        "additional_draft_operator": "daf.hurt_left",
+        "additional_draft_operator_result": sorted(hurt_result),
+        "additional_draft_deformation": hurt_deformation,
         "armature": armature.name,
         "mesh": mesh.name,
         "mesh_skinned": True,

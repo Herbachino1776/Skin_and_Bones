@@ -7,6 +7,14 @@ from .contract import (
     canonical_fingerprint,
     write_contract_report,
 )
+from .deformation import (
+    analysis_from_points,
+    audit_bind_space,
+    audit_rest_orientation,
+    connected_components,
+    run_isolated_bone_forensics,
+    scan_action_deformation,
+)
 from .fitting import (
     clean_rig_preview,
     create_landmark_preview,
@@ -69,6 +77,9 @@ __all__ = (
     "SIMPLE_HANDS_PROFILE",
     "analyze_canonical_rig",
     "analyze_target",
+    "analysis_from_points",
+    "audit_bind_space",
+    "audit_rest_orientation",
     "audit_production_weights",
     "apply_saved_corrections",
     "apply_hand_pose",
@@ -78,6 +89,7 @@ __all__ = (
     "clean_owned_production_actions",
     "clean_weighting_temporary_data",
     "confidence_summary",
+    "connected_components",
     "create_landmark_preview",
     "create_production_actions",
     "derive_simplified_contract",
@@ -98,7 +110,9 @@ __all__ = (
     "save_corrections",
     "simplified_fingerprint",
     "run_animation_forge_acceptance",
+    "run_isolated_bone_forensics",
     "run_pose_torture_tests",
+    "scan_action_deformation",
     "test_canonical_actions",
     "topology_snapshot",
     "validate_fitted_rig",

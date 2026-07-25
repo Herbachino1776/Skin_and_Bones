@@ -11,6 +11,7 @@ from mathutils import Quaternion, Vector
 
 from ..constants import RIG_OWNER_PROPERTY
 from .analysis import evaluated_points
+from .deformation import scan_action_deformation
 from .fitting import OWNER
 from .hands import apply_hand_pose
 
@@ -470,6 +471,7 @@ def test_canonical_actions(
             frame_reports = []
             assignment_error = ""
             assigned_slot = None
+            deformation_forensics = None
             try:
                 assigned_slot = _assign_action(animation, evaluated_action)
                 for frame in samples:
@@ -487,6 +489,15 @@ def test_canonical_actions(
                             ),
                         }
                     )
+                deformation_forensics = scan_action_deformation(
+                    context,
+                    target,
+                    armature,
+                    evaluated_action,
+                    frames=range(
+                        math.floor(frame_start), math.ceil(frame_end) + 1
+                    ),
+                )
             except (RuntimeError, TypeError) as exc:
                 assignment_error = str(exc)
             safe = (
@@ -498,6 +509,10 @@ def test_canonical_actions(
                     for item in frame_reports
                 )
                 and all(item["safe"] for item in frame_reports)
+                and deformation_forensics is not None
+                and deformation_forensics["status"]
+                == "READY_FOR_ANIMATION_TEST"
+                and deformation_forensics["state_restored"]
             )
             reports.append(
                 {
@@ -527,6 +542,7 @@ def test_canonical_actions(
                         for item in frame_reports
                     ),
                     "deformation_safe": safe,
+                    "deformation_forensics": deformation_forensics,
                     "warnings": (
                         ["Action contains no pose-bone channels."] if not animated else []
                     ),

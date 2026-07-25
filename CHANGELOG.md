@@ -2,6 +2,28 @@
 
 All notable changes follow semantic versioning.
 
+## 0.5.1 - 2026-07-25
+
+### Added
+
+- Reusable all-frame deformation forensics with direct mesh-edge strain,
+  component, bounds, non-finite, and isolated-bone evidence.
+- Blocking bind/rest/weight/isolated-bone preflight for canonical Actions and
+  real Animation Forge walk/hurt acceptance, including clean GLB reimport.
+- Deterministic continuity and four-influence palette repair for fragmented
+  scans whose touching hand/thigh surfaces otherwise form anchored fans.
+- Default `E:\Skin_And_Bones_Exports` delivery tree for Blender, GLB, rigged
+  GLB, texture, proof-render, and machine-report outputs.
+
+### Fixed
+
+- Removed coarse anatomy-bin cleanup that reassigned neighboring vertices to
+  incompatible arm, leg, torso, and root transforms.
+- Corrected false-positive disconnected-component separation during coherent
+  collapse animation while retaining blocking edge/bounds explosion checks.
+- Canonical Action compatibility now evaluates every frame and reports the
+  first unsafe frame and exact vertices, edges, components, and weights.
+
 ## 0.5.0 - 2026-07-25
 
 ### Added

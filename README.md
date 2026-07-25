@@ -4,7 +4,7 @@ Skin & Bones Forge is a Blender 5.1.2 add-on for rebuilding the base-color
 texture of a SPAR3D human mesh and building a validated production rig from
 the canonical Animate Anything humanoid skeleton.
 
-Version 0.5.0 implements the Folsom visual workflow plus production **Bones**:
+Version 0.5.1 implements the Folsom visual workflow plus production **Bones**:
 
 - Preserve the target geometry, original UV map, material slot, and normal map.
 - Create axis-aware orthographic projection cameras and temporary camera UVs.
@@ -40,15 +40,15 @@ Version 0.5.0 implements the Folsom visual workflow plus production **Bones**:
   fallback, deterministic cleanup, and four-influence normalization.
 - Roll back failed binds, prevent duplicate deform groups/modifiers, and emit a
   machine-readable weight/component report.
-- Run 14 owned pose-torture checks and all five canonical Actions using
-  non-destructive Blender 5 Action-slot and translation-scale adaptation.
+- Run 63 isolated-bone stress checks and every frame of all five canonical
+  Actions using non-destructive Blender 5 Action-slot adaptation.
 - Finalize a clean 21-bone production hierarchy, export a skinned GLB with five
   filtered production Actions, validate a clean reimport, and call Dreadstone
   Animation Forge's actual rig analyzer in an isolated Blender process.
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v0.5.0.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v0.5.1.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -90,6 +90,9 @@ The source `.blend` is not overwritten unless **Allow Source Overwrite** is
 explicitly enabled. See [the complete workflow](docs/workflow.md) and
 [troubleshooting guide](docs/troubleshooting.md).
 
+All output paths default under `E:\Skin_And_Bones_Exports`, separated into
+`Textures`, `Blender`, `GLB`, `Rigged_GLB`, `Proof_Renders`, and `Reports`.
+
 ## Reference validation
 
 The repository includes a Blender-driven Folsom regression harness:
@@ -130,13 +133,13 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v0.5.0` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v0.5.1` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 
 ## Scope
 
-Version 0.5.0 completes the simplified-hand production contract and permanent
+Version 0.5.1 completes the simplified-hand production contract and permanent
 production-rigging slice. Optional hand shape-key authoring, animation polish,
 gore/damage authoring, batch processing, Rigify, paintable masks, and depth-map
 visibility remain downstream milestones.

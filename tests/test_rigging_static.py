@@ -17,6 +17,7 @@ class RiggingStaticTests(unittest.TestCase):
         required = {
             "__init__.py",
             "contract.py",
+            "deformation.py",
             "analysis.py",
             "landmarks.py",
             "fitting.py",
@@ -91,6 +92,48 @@ class RiggingStaticTests(unittest.TestCase):
         self.assertIn("bpy.ops.daf.analyze()", source)
         self.assertIn("module.map_bones", source)
         self.assertIn("module.detect_animate_anything_profile", source)
+
+    def test_animation_forge_generates_and_scans_real_drafts(self):
+        source = (RIGGING / "acceptance_runner.py").read_text(encoding="utf-8")
+        self.assertIn("bpy.ops.daf.walk()", source)
+        self.assertIn("bpy.ops.daf.hurt_left()", source)
+        self.assertIn("scan_action_deformation", source)
+
+    def test_weight_repair_uses_fitted_bone_distance_not_hard_bins(self):
+        source = (RIGGING / "weights.py").read_text(encoding="utf-8")
+        self.assertIn("_spatially_plausible", source)
+        self.assertIn("low_confidence_spatially_preserved", source)
+        tree = ast.parse(source)
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "clean_weights"
+        )
+        clean_source = ast.unparse(function)
+        self.assertNotIn("_region_allowed", clean_source)
+
+    def test_deformation_gate_uses_edges_and_palette_continuity(self):
+        deformation = (RIGGING / "deformation.py").read_text(encoding="utf-8")
+        weights = (RIGGING / "weights.py").read_text(encoding="utf-8")
+        self.assertIn("maximum_edge_stretch_ratio", deformation)
+        self.assertIn("blocking_separated_components", deformation)
+        self.assertIn("palette_reconciliation_iterations", weights)
+        self.assertIn("maximum_edge_weight_delta_after", weights)
+
+    def test_export_defaults_use_the_e_drive_delivery_tree(self):
+        constants = (PACKAGE / "constants.py").read_text(encoding="utf-8")
+        properties = (PACKAGE / "properties.py").read_text(encoding="utf-8")
+        self.assertIn(r'EXPORT_ROOT = r"E:\Skin_And_Bones_Exports"', constants)
+        for directory in (
+            "Textures",
+            "Blender",
+            "GLB",
+            "Rigged_GLB",
+            "Proof_Renders",
+            "Reports",
+        ):
+            self.assertIn(directory, constants)
+        self.assertNotIn("C:\\\\", constants + properties)
 
     def test_simplified_hand_profile_is_hierarchy_derived(self):
         profile = (RIGGING / "profile.py").read_text(encoding="utf-8")

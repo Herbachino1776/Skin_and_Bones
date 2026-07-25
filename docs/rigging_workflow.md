@@ -65,17 +65,20 @@ Leave **Canonical + Proxy Fallback** selected for fragmented SPAR3D meshes and
 click **Bind Production Character**. The operation copies and rest-fits the
 canonical skinned donor, transfers deform weights with nearest-face
 barycentric interpolation, classifies every connected target component, and
-uses a temporary fitted bone-segment proxy where donor evidence is weak.
+uses fitted bone-segment distance, topology branches, and deterministic local
+continuity where donor evidence is weak.
 
 Cleanup removes invalid, tiny, non-deform, opposite-side, and anatomically
-impossible influences; repairs unweighted and structurally empty deform
-groups; limits vertices to four influences; and normalizes again. The target's
+impossible influences; assigns tiny disconnected islands rigidly; reconciles
+neighboring four-influence palettes across touching scan surfaces; repairs
+unweighted and structurally empty deform groups; limits vertices to four
+influences; and normalizes again. The target's
 topology, vertex order, UVs, materials, textures, and source Actions are not
 changed. Failure restores the original target parent, transforms, modifiers,
 groups, metadata, selection, mode, frame, and animation state.
 
 Use **Validate Production Weights** to refresh the machine-readable report.
-`READY_FOR_POSE_TEST` requires zero unweighted or non-normalized vertices,
+`READY_FOR_ANIMATION_TEST` requires zero unweighted or non-normalized vertices,
 zero invalid/non-deform weights, no vertices over the configured limit, all 21
 production deform groups populated, no removed finger groups, and exactly one
 owned Armature modifier.
@@ -83,8 +86,9 @@ owned Armature modifier.
 ## Test and finalize
 
 Run **Run Pose Torture Tests** followed by **Test Canonical Actions**. The first
-operation evaluates 14 temporary poses and removes its owned test Action. The
-second exercises all five canonical fixtures through Blender 5 Action slots.
+operation evaluates every retained production bone around all three local axes
+and removes its owned test Action. The second evaluates every frame of all five
+canonical fixtures through Blender 5 Action slots.
 Owned copies remove only channels targeting excluded finger bones, then scale
 remaining pose-bone location channels by fitted/source rest length. Frame
 ranges, markers, interpolation, non-finger channels, source Actions, and source
@@ -95,6 +99,10 @@ helpers, names the armature `SBF_ProductionRig`, creates five owned
 production-compatible Actions/NLA tracks, and retains rigging metadata.
 
 ## Export and compatibility acceptance
+
+All output fields default under `E:\Skin_And_Bones_Exports`: `Textures`,
+`Blender`, `GLB`, `Rigged_GLB`, `Proof_Renders`, and `Reports`. Directories are
+created when an export is written; changing a field remains supported.
 
 Set **Rigged GLB**, leave **Export Filtered Actions** enabled when desired,
 and click **Export Rigged GLB**. The adjacent `.sbf.json` manifest records the
@@ -109,10 +117,11 @@ Actions, height/bounds, and meaningful finite deformation.
 Finally set the local Dreadstone Animation Forge package directory and run
 **Run Animation Forge Acceptance**. The add-on launches a factory-clean Blender
 5.1.2 process, imports the GLB, loads Animation Forge without modifying it, and
-calls its actual `daf.analyze` operator. `ANIMATION_FORGE_ACCEPTED` requires
-the Animate Anything body/limb profile, a skinned mesh, resolved hierarchy,
-required body/arm/forearm/hand mappings, accepted filtered Actions, and the
-real mapping report. Finger equality is intentionally not required.
+calls its actual `daf.analyze`, `daf.walk`, and `daf.hurt_left` operators.
+`ANIMATION_FORGE_ACCEPTED` requires the Animate Anything body/limb profile, a
+skinned mesh, resolved hierarchy, required body/arm/forearm/hand mappings,
+accepted filtered Actions, the real mapping report, and safe all-frame walk
+and hurt deformation. Finger equality is intentionally not required.
 
 **Clean Temporary Rigging Data** removes only owned donor, proxy, and temporary
 test data. It does not delete the finalized production rig.

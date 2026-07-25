@@ -20,7 +20,8 @@ from mathutils import Vector
 def _args():
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
-    parser.add_argument("--target", type=Path, required=True)
+    parser.add_argument("--target", type=Path)
+    parser.add_argument("--target-object")
     parser.add_argument("--addon", type=Path, required=True)
     parser.add_argument("--reference-glb", type=Path)
     parser.add_argument(
@@ -28,7 +29,10 @@ def _args():
         type=Path,
         default=Path(r"E:\DeVForge\dreadstone_animation_forge"),
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if not args.target and not args.target_object:
+        parser.error("provide --target or --target-object")
+    return args
 
 
 def _animation_snapshot(armature):
@@ -241,15 +245,19 @@ assert source.data.pose_position == animated_state["pose_position"]
 assert list(pose_bone.location) == animated_state["pose_location"]
 assert _animation_snapshot(source) == animated_state["animation"]
 
-before_objects = set(bpy.data.objects)
-bpy.ops.import_scene.gltf(filepath=str(args.target.resolve()))
-new_meshes = [
-    obj
-    for obj in bpy.data.objects
-    if obj not in before_objects and obj.type == "MESH"
-]
-assert len(new_meshes) == 1, f"Expected one imported target, found {len(new_meshes)}"
-target = new_meshes[0]
+if args.target_object:
+    target = bpy.data.objects.get(args.target_object)
+    assert target is not None and target.type == "MESH"
+else:
+    before_objects = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=str(args.target.resolve()))
+    new_meshes = [
+        obj
+        for obj in bpy.data.objects
+        if obj not in before_objects and obj.type == "MESH"
+    ]
+    assert new_meshes, "Expected at least one imported target mesh."
+    target = max(new_meshes, key=lambda obj: len(obj.data.vertices))
 target_before = topology_snapshot(target)
 target_modifier_count = len(target.modifiers)
 target_group_count = len(target.vertex_groups)
@@ -501,7 +509,7 @@ try:
         bpy.ops.sbf.validate_production_weights(), "weight validation"
     )
     weight_report = json.loads(settings.rig_weight_report_json)
-    assert settings.rig_weight_status == "READY_FOR_POSE_TEST"
+    assert settings.rig_weight_status == "READY_FOR_ANIMATION_TEST"
     assert weight_report["unweighted_vertices"] == 0
     assert weight_report["non_normalized_vertices"] == 0
     assert weight_report["maximum_influences"] <= 4
