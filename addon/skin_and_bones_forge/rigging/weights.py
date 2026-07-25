@@ -346,6 +346,28 @@ def _region_for(fraction, lateral_fraction):
     return "TORSO"
 
 
+def _point_anatomy(point, analysis):
+    up = Vector(analysis["up_axis_world"])
+    lateral = Vector(analysis["lateral_axis_world"])
+    center = Vector(analysis["centerline_world"])
+    height = float(analysis["world_height"])
+    ground = float(analysis["ground"])
+    lateral_offset = (point - center).dot(lateral)
+    return (
+        _region_for(
+            (point.dot(up) - ground) / max(height, 1.0e-8),
+            abs(lateral_offset) / max(height, 1.0e-8),
+        ),
+        (
+            "CENTER"
+            if abs(lateral_offset) <= height * 0.01
+            else "LEFT"
+            if lateral_offset > 0.0
+            else "RIGHT"
+        ),
+    )
+
+
 def classify_components(target, analysis, raw_weights, distances):
     points = [target.matrix_world @ vertex.co for vertex in target.data.vertices]
     up = Vector(analysis["up_axis_world"])
@@ -461,9 +483,15 @@ def _region_allowed(name, region, side):
         return name.startswith(("shoulder_", "arm_"))
     if region == "LEG":
         return name.startswith("leg_") or name in {"body", "root"}
-    return not name.startswith(
-        ("ring_", "index_", "middle_", "little_", "thumb_", "leg_")
-    )
+    return name in {
+        "root",
+        "body",
+        "body_top0",
+        "body_top1",
+        "body_top2",
+        "neck",
+        "head",
+    }
 
 
 def _point_segment_distance(point, head, tail):
@@ -536,8 +564,12 @@ def clean_weights(
     repaired_components = set()
     for index, values in enumerate(raw_weights):
         component = components[membership[index]]
-        side = component["side"]
-        region = component["nearest_body_region"]
+        rigid = component["classification"] == "TINY_FLOATING_FRAGMENT"
+        region, side = (
+            (component["nearest_body_region"], component["side"])
+            if rigid
+            else _point_anatomy(points[index], analysis)
+        )
         filtered = {}
         for name, value in values.items():
             if name not in deform_names:
@@ -559,7 +591,6 @@ def clean_weights(
                 repaired_components.add(component["component"])
                 continue
             filtered[name] = value
-        rigid = component["classification"] == "TINY_FLOATING_FRAGMENT"
         low_confidence = confidences[index] < 0.22
         if rigid:
             filtered = _fallback_weights(
@@ -743,10 +774,19 @@ def validate_production_weights(
     invalid = 0
     non_deform = 0
     opposite = 0
+    impossible = 0
+    impossible_components = set()
     usage = defaultdict(int)
     region_summary = defaultdict(lambda: defaultdict(float))
     membership = transfer["component_membership"]
+    points = [target.matrix_world @ vertex.co for vertex in target.data.vertices]
     for vertex in target.data.vertices:
+        component = components[membership[vertex.index]]
+        point_region, point_side = (
+            (component["nearest_body_region"], component["side"])
+            if component["classification"] == "TINY_FLOATING_FRAGMENT"
+            else _point_anatomy(points[vertex.index], analysis)
+        )
         values = []
         for item in vertex.groups:
             name = group_by_index.get(item.group)
@@ -758,9 +798,11 @@ def validate_production_weights(
             if value >= threshold:
                 values.append((name, value))
                 usage[name] += 1
-                component = components[membership[vertex.index]]
                 region = component["nearest_body_region"]
                 region_summary[region][name] += value
+                if not _region_allowed(name, point_region, point_side):
+                    impossible += 1
+                    impossible_components.add(membership[vertex.index])
                 if (
                     component["side"] != "CENTER"
                     and _bone_side(name)
@@ -790,6 +832,37 @@ def validate_production_weights(
         for modifier in target.modifiers
         if _is_owned_armature_modifier(modifier) and modifier.object == fitted
     ]
+    bind_matrices_consistent = (
+        target.parent == fitted
+        and target.parent_type == "OBJECT"
+        and max(
+            abs(float(value))
+            for row in (
+                target.matrix_parent_inverse
+                - fitted.matrix_world.inverted_safe()
+            )
+            for value in row
+        )
+        <= 1.0e-5
+    )
+    lateral = Vector(analysis["lateral_axis_world"])
+    left_right_inversion = [
+        base
+        for base in ("shoulder", "arm", "leg")
+        if (
+            fitted.data.bones[
+                "shoulder_left"
+                if base == "shoulder"
+                else f"{base}_left_top"
+            ].head_local
+            - fitted.data.bones[
+                "shoulder_right"
+                if base == "shoulder"
+                else f"{base}_right_top"
+            ].head_local
+        ).dot(lateral)
+        <= 0.0
+    ]
     failures = (
         unweighted
         or non_normalized
@@ -798,6 +871,9 @@ def validate_production_weights(
         or above_limit
         or missing_groups
         or len(armature_modifiers) != 1
+        or impossible
+        or not bind_matrices_consistent
+        or left_right_inversion
     )
     review = bool(empty_groups or opposite)
     status = "FAILED" if failures else "NEEDS_WEIGHT_REVIEW" if review else "READY_FOR_POSE_TEST"
@@ -839,6 +915,10 @@ def validate_production_weights(
         "missing_required_deform_groups": missing_groups,
         "empty_deform_groups": empty_groups,
         "opposite_side_contamination": opposite,
+        "anatomically_impossible_weights": impossible,
+        "anatomically_impossible_components": sorted(impossible_components),
+        "bind_matrices_consistent": bind_matrices_consistent,
+        "left_right_inversion": left_right_inversion,
         "donor_transfer_confidence": {
             "minimum": round(min(confidence_values, default=0.0), 6),
             "mean": round(

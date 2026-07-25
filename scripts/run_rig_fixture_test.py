@@ -312,7 +312,50 @@ try:
     _assert_operator(bpy.ops.sbf.refit_from_corrections(), "correction reapply")
     assert target[RIG_CORRECTIONS_PROPERTY] == correction_json
 
+    # Automatic side convention: anatomical left is up x forward (viewer-right
+    # for a front-facing character). Reset corrections so every assertion below
+    # exercises automatic landmarks only.
+    _assert_operator(bpy.ops.sbf.reset_rig_landmarks(), "landmark reset")
+    assert RIG_CORRECTIONS_PROPERTY not in target
+    collection = bpy.data.collections[RIG_PREVIEW_COLLECTION]
+    analysis = json.loads(settings.target_analysis_json)["analysis"]
+    anatomical_left = Vector(analysis["up_axis_world"]).cross(
+        Vector(analysis["forward_axis_world"])
+    ).normalized()
+    lateral = Vector(analysis["lateral_axis_world"]).normalized()
+    assert lateral.dot(anatomical_left) > 0.999999
+    handles = {
+        obj["sbf_landmark_name"]: obj
+        for obj in collection.objects
+        if obj.type == "EMPTY" and "sbf_landmark_name" in obj
+    }
+    side_joints = ("shoulder", "elbow", "wrist", "hip", "knee", "ankle")
+    for joint in side_joints:
+        assert (
+            handles[f"{joint}_left"].location
+            - handles[f"{joint}_right"].location
+        ).dot(anatomical_left) > 0.0
+
+    _assert_operator(bpy.ops.sbf.fit_skeleton_preview(), "automatic side fit")
     fitted = next(obj for obj in collection.objects if obj.type == "ARMATURE")
+    fitted_joints = {
+        "shoulder": ("shoulder_left", "shoulder_right", "tail_local"),
+        "elbow": ("arm_left_top", "arm_right_top", "tail_local"),
+        "wrist": ("arm_left_bot", "arm_right_bot", "tail_local"),
+        "hip": ("leg_left_top", "leg_right_top", "head_local"),
+        "knee": ("leg_left_top", "leg_right_top", "tail_local"),
+        "ankle": ("leg_left_bot", "leg_right_bot", "tail_local"),
+    }
+    for joint, (left_name, right_name, endpoint) in fitted_joints.items():
+        left = fitted.matrix_world @ getattr(fitted.data.bones[left_name], endpoint)
+        right = fitted.matrix_world @ getattr(fitted.data.bones[right_name], endpoint)
+        assert (left - right).dot(anatomical_left) > 0.0, joint
+    _assert_operator(
+        bpy.ops.sbf.validate_fitted_skeleton(), "automatic side validation"
+    )
+    side_validation = json.loads(settings.rig_validation_json)
+    assert not side_validation["left_right_inversion"]
+
     assert fitted.get("sbf_hand_pose") == "RELAXED"
     pose_metrics = {}
     pose_signatures = {}
@@ -402,6 +445,10 @@ try:
     assert first_weight_report["vertices_exceeding_influence_limit"] == 0
     assert first_weight_report["non_deform_weights"] == 0
     assert first_weight_report["non_finite_or_negative_weights"] == 0
+    assert first_weight_report["anatomically_impossible_weights"] == 0
+    assert not first_weight_report["anatomically_impossible_components"]
+    assert first_weight_report["bind_matrices_consistent"]
+    assert not first_weight_report["left_right_inversion"]
     assert not first_weight_report["empty_deform_groups"]
     assert first_weight_report["topology_unchanged"]
     assert first_weight_report["component_count"] == 2360

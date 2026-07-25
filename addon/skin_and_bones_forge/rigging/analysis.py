@@ -128,7 +128,7 @@ def analyze_target(context, obj, forward_axis="+Y", up_axis="+Z"):
     up = axis_vector(up_axis)
     if abs(forward.dot(up)) > 1e-5:
         raise ValueError("Forward Axis and Up Axis must be perpendicular.")
-    lateral = forward.cross(up).normalized()
+    lateral = up.cross(forward).normalized()
     points = evaluated_points(context, obj)
     if not points:
         raise ValueError("The evaluated target has no vertices.")
@@ -201,4 +201,3 @@ def analyze_target(context, obj, forward_axis="+Y", up_axis="+Z"):
 
 def encode_analysis(analysis):
     return json.dumps(analysis, sort_keys=True, separators=(",", ":"))
-

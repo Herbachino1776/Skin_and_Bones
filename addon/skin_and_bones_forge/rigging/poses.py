@@ -21,6 +21,18 @@ PRODUCTION_TRACK_PREFIX = "SBF_ProductionTrack_"
 
 
 POSE_TESTS = {
+    "ISOLATED_PELVIS": (("body", "X", 35.0),),
+    "ISOLATED_SPINE_LOWER": (("body_top0", "Y", 30.0),),
+    "ISOLATED_SPINE_MIDDLE": (("body_top1", "Y", 30.0),),
+    "ISOLATED_SPINE_UPPER": (("body_top2", "Y", 30.0),),
+    "ISOLATED_UPPER_ARM_LEFT": (("arm_left_top", "Z", -45.0),),
+    "ISOLATED_UPPER_ARM_RIGHT": (("arm_right_top", "Z", 45.0),),
+    "ISOLATED_FOREARM_LEFT": (("arm_left_bot", "X", 45.0),),
+    "ISOLATED_FOREARM_RIGHT": (("arm_right_bot", "X", 45.0),),
+    "ISOLATED_THIGH_LEFT": (("leg_left_top", "X", 45.0),),
+    "ISOLATED_THIGH_RIGHT": (("leg_right_top", "X", 45.0),),
+    "ISOLATED_SHIN_LEFT": (("leg_left_bot", "X", 45.0),),
+    "ISOLATED_SHIN_RIGHT": (("leg_right_bot", "X", 45.0),),
     "ELBOW_LEFT": (("arm_left_bot", "X", 82.0),),
     "ELBOW_RIGHT": (("arm_right_bot", "X", 82.0),),
     "ARMS_RAISED": (
