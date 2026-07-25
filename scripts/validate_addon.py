@@ -10,12 +10,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "addon" / "skin_and_bones_forge"
-EXPECTED_VERSION = (0, 5, 1)
+EXPECTED_VERSION = (0, 6, 0)
 EXPECTED_BLENDER = (5, 1, 2)
 REQUIRED_FILES = (
     PACKAGE / "__init__.py",
     PACKAGE / "constants.py",
     PACKAGE / "properties.py",
+    PACKAGE / "intake" / "analysis.py",
+    PACKAGE / "intake" / "weld.py",
+    PACKAGE / "intake" / "core.py",
+    PACKAGE / "operators" / "intake.py",
     PACKAGE / "baking" / "core.py",
     PACKAGE / "export" / "core.py",
     PACKAGE / "operators" / "workflow.py",

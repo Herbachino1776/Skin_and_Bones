@@ -2,6 +2,28 @@
 
 All notable changes follow semantic versioning.
 
+## 0.6.0 - 2026-07-25
+
+### Added
+
+- One-click raw SPAR3D GLB import, target resolution, exact-position seam weld,
+  proof-driven cleanup, transform/height normalization, and automatic pipeline
+  target assignment.
+- Protected raw-source and clean-character collections with explicit ownership,
+  deterministic fingerprints, machine-readable intake reports, restore/removal
+  controls, idempotent replacement, and transactional rollback.
+- Complete raw topology, attribute, material, texture, manifold, winding,
+  component, duplicate-position, and diagnostic near-position analysis.
+- Blender 5.1.2 fixture-matrix coverage for UV/corner-normal preservation,
+  watertightness, normalization, target validation, rigging analysis, rollback,
+  restore, idempotence, and release registration.
+
+### Changed
+
+- The sidebar now begins with **0. SPAR3D Intake & Mesh Prep**, followed by the
+  unchanged texture workflow, Bones, and delivery stages.
+- Version advanced to 0.6.0.
+
 ## 0.5.1 - 2026-07-25
 
 ### Added

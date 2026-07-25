@@ -112,6 +112,66 @@ class _SBF_PT_section:
     bl_parent_id = "SBF_PT_main"
 
 
+class SBF_PT_spar3d_intake(_SBF_PT_section, Panel):
+    bl_label = "0. SPAR3D Intake & Mesh Prep"
+    bl_idname = "SBF_PT_spar3d_intake"
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.sbf_settings
+        primary = layout.column(align=True)
+        primary.scale_y = 1.15
+        primary.operator(
+            "sbf.import_and_prepare_spar3d",
+            text="IMPORT + PREPARE SPAR3D CHARACTER",
+            icon="IMPORT",
+        )
+        primary.operator(
+            "sbf.prepare_selected_spar3d",
+            text="PREPARE SELECTED SPAR3D CHARACTER",
+            icon="MOD_WELD",
+        )
+        options = layout.box()
+        options.prop(settings, "intake_target_height")
+        options.prop(settings, "intake_preserve_raw", icon="LOCKED")
+        status = layout.box()
+        icon = {
+            "READY_FOR_SKIN": "CHECKMARK",
+            "NEEDS_GEOMETRY_REVIEW": "ERROR",
+            "ORIENTATION_REVIEW_REQUIRED": "ORIENTATION_GIMBAL",
+            "FAILED": "CANCEL",
+        }.get(settings.intake_readiness, "QUESTION")
+        status.label(
+            text=settings.intake_readiness.replace("_", " ").title(),
+            icon=icon,
+        )
+        status.label(text=settings.intake_status_summary)
+        status.label(text=settings.intake_validation_summary)
+        status.separator()
+        status.label(text=settings.intake_recommended_action, icon="LIGHT")
+
+
+class SBF_PT_spar3d_intake_advanced(_SBF_PT_section, Panel):
+    bl_label = "Advanced Intake Diagnostics"
+    bl_idname = "SBF_PT_spar3d_intake_advanced"
+    bl_parent_id = "SBF_PT_spar3d_intake"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("sbf.analyze_spar3d", icon="VIEWZOOM")
+        layout.operator("sbf.preview_exact_weld", icon="MOD_WELD")
+        layout.operator("sbf.write_intake_report", icon="TEXT")
+        layout.operator("sbf.compare_raw_clean", icon="ARROW_LEFTRIGHT")
+        rollback = layout.box()
+        rollback.label(text="Source & Rollback", icon="RECOVER_LAST")
+        rollback.operator("sbf.restore_raw_spar3d", icon="LOOP_BACK")
+        rollback.operator("sbf.remove_raw_spar3d", icon="TRASH")
+        details = layout.box()
+        details.label(text="Diagnostic merge thresholds are report-only.")
+        details.label(text=context.scene.sbf_settings.intake_validation_summary)
+
+
 class SBF_PT_target(_SBF_PT_section, Panel):
     bl_label = "1. Target Character"
     bl_idname = "SBF_PT_target"
@@ -252,7 +312,7 @@ class SBF_PT_output(_SBF_PT_section, Panel):
 
 
 class SBF_PT_delivery(_SBF_PT_section, Panel):
-    bl_label = "6. Delivery & Verification"
+    bl_label = "7. Delivery & Verification"
     bl_idname = "SBF_PT_delivery"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -272,7 +332,7 @@ class SBF_PT_delivery(_SBF_PT_section, Panel):
 
 
 class SBF_PT_bones(_SBF_PT_section, Panel):
-    bl_label = "Bones — Automatic Humanoid Rig"
+    bl_label = "6. Bones — Automatic Humanoid Rig"
     bl_idname = "SBF_PT_bones"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -417,6 +477,8 @@ class SBF_PT_bones(_SBF_PT_section, Panel):
 
 PANEL_CLASSES = (
     SBF_PT_main,
+    SBF_PT_spar3d_intake,
+    SBF_PT_spar3d_intake_advanced,
     SBF_PT_target,
     SBF_PT_sources,
     SBF_PT_preview,
@@ -424,6 +486,6 @@ PANEL_CLASSES = (
     SBF_PT_blending,
     SBF_PT_occlusion,
     SBF_PT_output,
-    SBF_PT_delivery,
     SBF_PT_bones,
+    SBF_PT_delivery,
 )

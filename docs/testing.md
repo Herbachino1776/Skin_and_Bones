@@ -55,7 +55,17 @@ The release ZIP must contain a single top-level `skin_and_bones_forge/`
 package and no `__pycache__` or fixture assets.
 
 Every push to `main` runs these static checks on GitHub Actions and uploads
-`Skin_and_Bones_Forge_v0.5.1` as a 30-day workflow artifact.
+`Skin_and_Bones_Forge_v0.6.0` as a 30-day workflow artifact.
+
+To exercise texture projection and baking on the exact-welded production mesh,
+run the Blender harness directly with `--prepare-spar3d`. The ordinary wrapper
+retains its historical no-intake baseline.
+
+The local-only intake matrix is driven by
+`scripts/run_spar3d_intake_fixture_test.py`. Pass each raw GLB with a repeated
+`--fixture` argument; the harness checks exact-weld proof, normalization,
+protected-source integrity, idempotence, rollback, restore, target validation,
+and rigging component analysis without copying the ignored assets into Git.
 
 ## Local Bones fixture test
 

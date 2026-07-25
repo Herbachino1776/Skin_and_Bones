@@ -2,7 +2,7 @@
 
 ADDON_NAME = "Skin & Bones Forge"
 ADDON_MODULE = "skin_and_bones_forge"
-ADDON_VERSION = (0, 5, 1)
+ADDON_VERSION = (0, 6, 0)
 ADDON_VERSION_STRING = ".".join(str(part) for part in ADDON_VERSION)
 
 EXPORT_ROOT = r"E:\Skin_And_Bones_Exports"

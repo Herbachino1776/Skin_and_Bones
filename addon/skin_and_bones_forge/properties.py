@@ -296,6 +296,57 @@ class SBFViewSettings(PropertyGroup):
 
 
 class SBFSettings(PropertyGroup):
+    intake_target_height: FloatProperty(
+        name="Target Height",
+        description="Normalized production-character height in meters",
+        default=1.50,
+        min=0.10,
+        max=20.0,
+        precision=3,
+        unit="LENGTH",
+    )
+    intake_preserve_raw: BoolProperty(
+        name="Preserve Raw Source",
+        description=(
+            "Keep the untouched imported hierarchy in a protected hidden collection"
+        ),
+        default=True,
+    )
+    intake_readiness: EnumProperty(
+        name="Readiness",
+        items=(
+            ("NOT_RUN", "Not Run", "SPAR3D intake has not run"),
+            ("READY_FOR_SKIN", "Ready for Skin", "All preparation checks passed"),
+            (
+                "NEEDS_GEOMETRY_REVIEW",
+                "Needs Geometry Review",
+                "Exact welding succeeded but the surface needs review",
+            ),
+            (
+                "ORIENTATION_REVIEW_REQUIRED",
+                "Orientation Review Required",
+                "The imported vertical orientation is not confident",
+            ),
+            ("FAILED", "Failed", "Preparation failed and was rolled back"),
+        ),
+        default="NOT_RUN",
+    )
+    intake_status_summary: StringProperty(
+        name="Intake Summary",
+        default="No SPAR3D character has been prepared.",
+    )
+    intake_validation_summary: StringProperty(
+        name="Validation Summary",
+        default="Readiness has not been evaluated.",
+    )
+    intake_recommended_action: StringProperty(
+        name="Recommended Next Action",
+        default="Import and prepare a raw SPAR3D character.",
+    )
+    intake_source_path: StringProperty(default="", options={"HIDDEN"})
+    intake_report_json: StringProperty(default="", options={"HIDDEN"})
+    intake_test_failure_stage: StringProperty(default="", options={"HIDDEN"})
+
     target_object: PointerProperty(
         name="Target Mesh",
         description="SPAR3D mesh to process",

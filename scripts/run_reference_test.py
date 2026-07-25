@@ -43,6 +43,11 @@ def _parse_args():
     parser.add_argument("--source-edge-padding", type=float)
     parser.add_argument("--disable-black-key", action="store_true")
     parser.add_argument("--proof-resolution", type=int, default=512)
+    parser.add_argument(
+        "--prepare-spar3d",
+        action="store_true",
+        help="Run exact-weld intake on the selected fixture before projection.",
+    )
     return parser.parse_args(argv)
 
 
@@ -102,6 +107,30 @@ mesh_objects = [obj for obj in bpy.data.objects if obj.type == "MESH"]
 if len(mesh_objects) != 1:
     raise RuntimeError(f"Expected one reference mesh, found {len(mesh_objects)}")
 target = mesh_objects[0]
+intake_result = None
+if args.prepare_spar3d:
+    from skin_and_bones_forge.intake.core import prepare_selected_spar3d
+
+    settings.intake_target_height = 1.50
+    # The dedicated intake matrix proves protected-source behavior. Avoid
+    # carrying a second hidden mesh into this texture-delivery regression.
+    settings.intake_preserve_raw = False
+    intake_report, target = prepare_selected_spar3d(bpy.context, target)
+    if intake_report["readiness"] != "READY_FOR_SKIN":
+        raise RuntimeError(
+            f"SPAR3D preparation was not ready: {intake_report['readiness']}"
+        )
+    intake_result = {
+        "readiness": intake_report["readiness"],
+        "raw_vertices": intake_report["raw"]["counts"]["vertices"],
+        "clean_vertices": intake_report["welded"]["counts"]["vertices"],
+        "raw_components": intake_report["raw"]["connected_components"],
+        "clean_components": intake_report["welded"]["connected_components"],
+        "uv_preserved": intake_report["proof"]["uv_values_preserved"],
+        "normal_preserved": intake_report["proof"]["corner_normals_preserved"],
+        "watertight": intake_report["welded"]["watertight"],
+        "final_height": intake_report["normalization"]["final_height"],
+    }
 mesh = target.data
 
 original = {
@@ -473,6 +502,7 @@ result = {
     "elapsed_seconds": round(time.perf_counter() - started, 3),
     "texture_size": int(args.size),
     "target": target.name,
+    "spar3d_intake": intake_result,
     "geometry": {
         "vertices": len(mesh.vertices),
         "polygons": len(mesh.polygons),
