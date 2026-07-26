@@ -2,6 +2,13 @@
 
 All notable changes follow semantic versioning.
 
+## 0.6.1 - 2026-07-25
+
+### Fixed
+
+- Replaced the unavailable `MOD_WELD` panel icon with Blender 5.1.2's valid
+  `AUTOMERGE_ON` icon so both SPAR3D intake panels draw without a Python error.
+
 ## 0.6.0 - 2026-07-25
 
 ### Added

@@ -34,6 +34,8 @@ class IntakeStaticTests(unittest.TestCase):
         ):
             self.assertIn(identifier, operators)
         self.assertIn('bl_label = "0. SPAR3D Intake & Mesh Prep"', panel)
+        self.assertNotIn("MOD_WELD", panel)
+        self.assertIn('icon="AUTOMERGE_ON"', panel)
         classes = ast.parse(panel)
         tuple_assignment = next(
             node

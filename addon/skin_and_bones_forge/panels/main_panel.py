@@ -129,7 +129,7 @@ class SBF_PT_spar3d_intake(_SBF_PT_section, Panel):
         primary.operator(
             "sbf.prepare_selected_spar3d",
             text="PREPARE SELECTED SPAR3D CHARACTER",
-            icon="MOD_WELD",
+            icon="AUTOMERGE_ON",
         )
         options = layout.box()
         options.prop(settings, "intake_target_height")
@@ -160,7 +160,7 @@ class SBF_PT_spar3d_intake_advanced(_SBF_PT_section, Panel):
     def draw(self, context):
         layout = self.layout
         layout.operator("sbf.analyze_spar3d", icon="VIEWZOOM")
-        layout.operator("sbf.preview_exact_weld", icon="MOD_WELD")
+        layout.operator("sbf.preview_exact_weld", icon="AUTOMERGE_ON")
         layout.operator("sbf.write_intake_report", icon="TEXT")
         layout.operator("sbf.compare_raw_clean", icon="ARROW_LEFTRIGHT")
         rollback = layout.box()

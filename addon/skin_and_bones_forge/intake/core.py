@@ -18,7 +18,7 @@ from .weld import copy_vertex_groups, exact_position_weld
 
 
 INTAKE_SCHEMA = 1
-PREPARATION_VERSION = "0.6.0"
+PREPARATION_VERSION = "0.6.1"
 OWNER_PROPERTY = "sbf_intake_owner"
 OWNER_VALUE = "skin_and_bones_forge"
 ROLE_PROPERTY = "sbf_intake_role"
