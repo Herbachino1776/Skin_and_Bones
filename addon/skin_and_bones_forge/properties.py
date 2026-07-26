@@ -719,6 +719,12 @@ class SBFSettings(PropertyGroup):
         name="Binding Method",
         items=(
             (
+                "VOXEL_HEAT_PROXY",
+                "Universal Voxel Auto-Skin",
+                "Bone-heat a temporary watertight proxy and transfer weights "
+                "back to the unchanged production mesh",
+            ),
+            (
                 "CANONICAL_TRANSFER_WITH_PROXY_FALLBACK",
                 "Canonical + Proxy Fallback",
                 "Transfer canonical donor weights and repair low-confidence vertices",
@@ -734,7 +740,7 @@ class SBFSettings(PropertyGroup):
                 "Diagnostic anatomical proxy weights; not the production default",
             ),
         ),
-        default="CANONICAL_TRANSFER_WITH_PROXY_FALLBACK",
+        default="VOXEL_HEAT_PROXY",
     )
     rig_weight_threshold: FloatProperty(
         name="Tiny Weight Threshold",

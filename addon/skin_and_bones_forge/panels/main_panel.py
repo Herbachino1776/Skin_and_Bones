@@ -417,7 +417,7 @@ class SBF_PT_bones(_SBF_PT_section, Panel):
 
         binding = layout.box()
         binding.label(text="Production Binding", icon="MOD_ARMATURE")
-        binding.prop(settings, "rig_binding_method")
+        binding.label(text="Universal Voxel Auto-Skin", icon="MOD_REMESH")
         advanced = binding.column(align=True)
         advanced.prop(settings, "rig_weight_threshold")
         advanced.prop(settings, "rig_influence_limit")

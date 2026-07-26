@@ -470,12 +470,19 @@ try:
         hand_summary = first_weight_report["hand_summary"][side]
         assert hand_summary["retained_bone"] == f"arm_{side}_hand"
         assert hand_summary["weighted_vertices"] > 0
-        merge = first_weight_report["donor_hand_weight_merge"][side]
-        assert merge["retained_hand_bone"] == f"arm_{side}_hand"
-        assert merge["vertices_merged"] > 0
-        assert merge["summed_weight"] > 0.0
-        assert merge["removed_groups"]
-        assert set(merge["removed_groups"]) <= removed_bones
+        if first_weight_report["binding_method"] == "VOXEL_HEAT_PROXY":
+            assert not first_weight_report["donor_hand_weight_merge"]
+            assert (
+                first_weight_report["voxel_heat_proxy"]["empty_proxy_vertices"]
+                == 0
+            )
+        else:
+            merge = first_weight_report["donor_hand_weight_merge"][side]
+            assert merge["retained_hand_bone"] == f"arm_{side}_hand"
+            assert merge["vertices_merged"] > 0
+            assert merge["summed_weight"] > 0.0
+            assert merge["removed_groups"]
+            assert set(merge["removed_groups"]) <= removed_bones
     assert len(target.vertex_groups) == 21
     assert not (removed_bones & {group.name for group in target.vertex_groups})
     owned_armature_modifiers = [

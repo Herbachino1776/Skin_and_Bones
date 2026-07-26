@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_SCRIPT = ROOT / "scripts" / "build_release.py"
-OUTPUT = ROOT / "dist" / "Skin_and_Bones_Forge_v0.6.2.zip"
+OUTPUT = ROOT / "dist" / "Skin_and_Bones_Forge_v0.6.3.zip"
 
 
 class ReleasePackageTests(unittest.TestCase):

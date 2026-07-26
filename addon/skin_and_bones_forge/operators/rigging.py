@@ -582,11 +582,14 @@ class SBF_OT_bind_production_character(Operator):
                     fitted,
                     contract,
                     analysis,
-                    mode=settings.rig_binding_method,
+                    mode="VOXEL_HEAT_PROXY",
                     threshold=settings.rig_weight_threshold,
                     influence_limit=settings.rig_influence_limit,
                     force_failure=settings.rig_force_binding_failure,
                 )
+                # Existing .blend files may persist the pre-0.6.3 donor mode.
+                # Record the method only after the transactional bind succeeds.
+                settings.rig_binding_method = "VOXEL_HEAT_PROXY"
             _store_weight_report(settings, report)
             settings.rig_pose_test_status = "NOT_RUN"
             settings.rig_action_test_status = "NOT_RUN"

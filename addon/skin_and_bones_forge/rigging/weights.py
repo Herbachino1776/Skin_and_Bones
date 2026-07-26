@@ -8,6 +8,7 @@ import heapq
 import json
 import math
 
+import bmesh
 import bpy
 from mathutils import Vector, geometry
 from mathutils.bvhtree import BVHTree
@@ -34,6 +35,10 @@ SIDE_CENTER_TOLERANCE_RATIO = 0.02
 CONTINUITY_SMOOTHING_ITERATIONS = 128
 CONTINUITY_SMOOTHING_FACTOR = 0.65
 MAX_FALLBACK_HIERARCHY_STEPS = 3
+VOXEL_HEAT_RESOLUTION = 224
+VOXEL_HEAT_SMOOTHING_ITERATIONS = 16
+VOXEL_HEAT_SMOOTHING_FACTOR = 0.5
+VOXEL_HEAT_INTERMEDIATE_INFLUENCES = 8
 
 PRODUCTION_BONE_PARENTS = {
     "root": None,
@@ -281,6 +286,224 @@ def create_fallback_proxy(context, fitted_armature):
             "REPLACE",
         )
     return proxy
+
+
+def create_voxel_heat_proxy(
+    context,
+    target,
+    fitted_armature,
+    deform_names,
+    target_height,
+    resolution=VOXEL_HEAT_RESOLUTION,
+):
+    """Create and bone-heat a temporary watertight copy of the target surface."""
+
+    source_mesh = target.data.copy()
+    source_mesh.transform(target.matrix_world)
+    proxy = bpy.data.objects.new(RIG_PROXY_OBJECT, source_mesh)
+    proxy[RIG_OWNER_PROPERTY] = OWNER
+    proxy["sbf_weight_proxy"] = True
+    proxy["sbf_proxy_kind"] = "VOXEL_HEAT_SURFACE"
+    _temp_collection(context.scene).objects.link(proxy)
+    proxy.matrix_world.identity()
+    proxy.vertex_groups.clear()
+    for modifier in list(proxy.modifiers):
+        proxy.modifiers.remove(modifier)
+
+    remesh = proxy.modifiers.new("SBF_VoxelHeatSurface", "REMESH")
+    remesh.mode = "VOXEL"
+    voxel_size = float(target_height) / max(int(resolution), 32)
+    remesh.voxel_size = voxel_size
+    remesh.use_remove_disconnected = False
+    depsgraph = context.evaluated_depsgraph_get()
+    evaluated = proxy.evaluated_get(depsgraph)
+    remeshed = bpy.data.meshes.new_from_object(evaluated, depsgraph=depsgraph)
+    proxy.modifiers.clear()
+    proxy.data = remeshed
+    if source_mesh.users == 0:
+        bpy.data.meshes.remove(source_mesh)
+
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(remeshed)
+        bmesh.ops.triangulate(bm, faces=list(bm.faces))
+        bm.to_mesh(remeshed)
+    finally:
+        bm.free()
+    remeshed.update()
+    if not remeshed.vertices or not remeshed.polygons:
+        raise RuntimeError("Voxel heat proxy generation produced no surface geometry.")
+
+    if context.object is not None and context.object.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.select_all(action="DESELECT")
+    proxy.select_set(True)
+    fitted_armature.select_set(True)
+    context.view_layer.objects.active = fitted_armature
+    result = bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+    if "FINISHED" not in result:
+        raise RuntimeError("Blender automatic weights failed on the voxel heat proxy.")
+    weights = _vertex_group_weights(proxy, set(deform_names))
+    empty_vertices = sum(not values for values in weights)
+    if empty_vertices:
+        raise RuntimeError(
+            "Blender bone heat left "
+            f"{empty_vertices} voxel proxy vertices unweighted."
+        )
+    missing_groups = sorted(
+        name
+        for name in deform_names
+        if proxy.vertex_groups.get(name) is None
+    )
+    if missing_groups:
+        raise RuntimeError(
+            "Voxel heat proxy is missing deform groups: " + ", ".join(missing_groups)
+        )
+    return proxy, weights, {
+        "method": "BLENDER_AUTOMATIC_WEIGHTS_ON_VOXEL_PROXY",
+        "resolution": int(resolution),
+        "voxel_size": voxel_size,
+        "proxy_vertices": len(remeshed.vertices),
+        "proxy_triangles": len(remeshed.polygons),
+        "empty_proxy_vertices": empty_vertices,
+    }
+
+
+def smooth_surface_weights(
+    target,
+    weights,
+    iterations=VOXEL_HEAT_SMOOTHING_ITERATIONS,
+    factor=VOXEL_HEAT_SMOOTHING_FACTOR,
+    intermediate_limit=VOXEL_HEAT_INTERMEDIATE_INFLUENCES,
+):
+    """Diffuse transferred weights only across real production mesh edges."""
+
+    adjacency = [[] for _vertex in target.data.vertices]
+    for edge in target.data.edges:
+        first, second = map(int, edge.vertices)
+        adjacency[first].append(second)
+        adjacency[second].append(first)
+    current = [dict(values) for values in weights]
+    blend = min(max(float(factor), 0.0), 1.0)
+    for _iteration in range(max(int(iterations), 0)):
+        updated = []
+        for index, values in enumerate(current):
+            neighbors = adjacency[index]
+            if not neighbors:
+                updated.append(dict(values))
+                continue
+            combined = defaultdict(float)
+            for name, value in values.items():
+                combined[name] += value * (1.0 - blend)
+            neighbor_factor = blend / len(neighbors)
+            for neighbor in neighbors:
+                for name, value in current[neighbor].items():
+                    combined[name] += value * neighbor_factor
+            ranked = sorted(
+                (
+                    (name, value)
+                    for name, value in combined.items()
+                    if math.isfinite(value) and value >= 1.0e-6
+                ),
+                key=lambda item: (-item[1], item[0]),
+            )[: max(int(intermediate_limit), 1)]
+            total = math.fsum(value for _name, value in ranked)
+            updated.append(
+                {name: value / total for name, value in ranked}
+                if total > 0.0
+                else {}
+            )
+        current = updated
+    return current
+
+
+def enforce_anatomical_sides(target, analysis, weights):
+    """Remove cross-body influences away from the anatomical centerline."""
+
+    corrected = []
+    removed_influences = 0
+    corrected_vertices = 0
+    for vertex, values in zip(target.data.vertices, weights):
+        world = target.matrix_world @ vertex.co
+        lateral = Vector(analysis["lateral_axis_world"])
+        center = Vector(analysis["centerline_world"])
+        height = float(analysis["world_height"])
+        offset = (world - center).dot(lateral)
+        point_side = (
+            "CENTER"
+            if abs(offset) <= height * SIDE_CENTER_TOLERANCE_RATIO
+            else "LEFT"
+            if offset > 0.0
+            else "RIGHT"
+        )
+        if point_side == "CENTER":
+            corrected.append(dict(values))
+            continue
+        retained = {
+            name: value
+            for name, value in values.items()
+            if _bone_side(name) in {"CENTER", point_side}
+        }
+        removed = len(values) - len(retained)
+        if removed:
+            removed_influences += removed
+            corrected_vertices += 1
+        total = math.fsum(retained.values())
+        corrected.append(
+            {name: value / total for name, value in retained.items()}
+            if total > 0.0
+            else dict(values)
+        )
+    return corrected, {
+        "anatomical_side_corrected_vertices": corrected_vertices,
+        "anatomical_side_removed_influences": removed_influences,
+    }
+
+
+def attenuate_remote_limb_weights(target, fitted, analysis, weights):
+    """Taper arm influence out of lower leg branches without a hard seam."""
+
+    points = [target.matrix_world @ vertex.co for vertex in target.data.vertices]
+    preferred_families, branch_corrections = _topology_preferred_families(
+        target, points, _bone_segments(fitted)
+    )
+    corrected = []
+    corrected_vertices = 0
+    removed_influences = 0
+    up = Vector(analysis["up_axis_world"])
+    ground = float(analysis["ground"])
+    height = float(analysis["world_height"])
+    for index, values in enumerate(weights):
+        preferred = preferred_families[index]
+        fraction = (points[index].dot(up) - ground) / max(height, 1.0e-8)
+        transition = min(max((fraction - 0.46) / 0.16, 0.0), 1.0)
+        arm_factor = transition * transition * (3.0 - 2.0 * transition)
+        retained = dict(values)
+        vertex_corrected = False
+        if preferred.endswith("_LEG") and arm_factor < 1.0:
+            for name in list(retained):
+                if _bone_family(name).endswith("_ARM"):
+                    original = retained[name]
+                    retained[name] *= arm_factor
+                    if retained[name] < 1.0e-6:
+                        del retained[name]
+                        removed_influences += 1
+                    if retained.get(name, 0.0) != original:
+                        vertex_corrected = True
+        if vertex_corrected:
+            corrected_vertices += 1
+        total = math.fsum(retained.values())
+        if total <= 0.0:
+            retained = dict(values)
+            total = math.fsum(retained.values())
+        corrected.append(
+            {name: value / total for name, value in retained.items()}
+        )
+    return corrected, {
+        "remote_limb_tapered_vertices": corrected_vertices,
+        "remote_limb_zeroed_influences": removed_influences,
+        "topology_branch_label_corrections": branch_corrections,
+    }
 
 
 def _barycentric_weights(point, triangle):
@@ -1559,6 +1782,7 @@ def audit_production_weights(
         "production_fingerprint",
         "removed_finger_bones",
         "donor_hand_weight_merge",
+        "voxel_heat_proxy",
         "proxy_fallback_vertex_count",
         "repaired_component_count",
         "tiny_rigid_component_assignments",
@@ -1585,7 +1809,7 @@ def bind_production_character(
     fitted,
     contract,
     analysis,
-    mode="CANONICAL_TRANSFER_WITH_PROXY_FALLBACK",
+    mode="VOXEL_HEAT_PROXY",
     threshold=DEFAULT_WEIGHT_THRESHOLD,
     influence_limit=DEFAULT_INFLUENCE_LIMIT,
     force_failure=False,
@@ -1625,51 +1849,98 @@ def bind_production_character(
     }
     donor = None
     proxy = None
+    donor_source = ""
+    donor_merge_report = {}
+    voxel_heat_report = None
     try:
         clean_weighting_temporary_data()
-        donor, donor_weights, donor_merge_report = create_aligned_donor(
-            context, source_armature, fitted, contract
-        )
-        proxy = create_fallback_proxy(context, fitted)
-        raw, distances, confidences, _bvh = transfer_donor_weights(
-            target, donor, donor_weights, float(analysis["world_height"])
-        )
-        components, membership = classify_components(
-            target, analysis, raw, distances
-        )
-        if mode == "AUTOMATIC_WEIGHTS_DIAGNOSTIC":
-            cleaned, cleanup = clean_weights(
-                target,
-                fitted,
-                analysis,
-                [{} for _ in raw],
-                components,
-                membership,
-                [0.0 for _ in raw],
-                threshold,
-                influence_limit,
-                use_proxy_fallback=True,
-                fallback_proxy=proxy,
-            )
-        else:
-            cleaned, cleanup = clean_weights(
-                target,
-                fitted,
-                analysis,
-                raw,
-                components,
-                membership,
-                confidences,
-                threshold,
-                influence_limit,
-                use_proxy_fallback=(
-                    mode == "CANONICAL_TRANSFER_WITH_PROXY_FALLBACK"
-                ),
-                fallback_proxy=proxy,
-            )
         deform_names = [
             bone["name"] for bone in contract["bones"] if bone["deform"]
         ]
+        if mode == "VOXEL_HEAT_PROXY":
+            proxy, proxy_weights, voxel_heat_report = create_voxel_heat_proxy(
+                context,
+                target,
+                fitted,
+                deform_names,
+                float(analysis["world_height"]),
+            )
+            raw, distances, confidences, _bvh = transfer_donor_weights(
+                target,
+                proxy,
+                proxy_weights,
+                float(analysis["world_height"]),
+            )
+            components, membership = classify_components(
+                target, analysis, raw, distances
+            )
+            cleaned, first_side_cleanup = enforce_anatomical_sides(
+                target, analysis, raw
+            )
+            cleaned = smooth_surface_weights(target, cleaned)
+            cleaned, final_side_cleanup = enforce_anatomical_sides(
+                target, analysis, cleaned
+            )
+            cleaned, remote_limb_cleanup = attenuate_remote_limb_weights(
+                target, fitted, analysis, cleaned
+            )
+            cleanup = {
+                "voxel_heat_proxy_vertices": voxel_heat_report["proxy_vertices"],
+                "voxel_heat_proxy_triangles": voxel_heat_report["proxy_triangles"],
+                "voxel_heat_smoothing_iterations": VOXEL_HEAT_SMOOTHING_ITERATIONS,
+                "anatomical_side_corrected_vertices": (
+                    first_side_cleanup["anatomical_side_corrected_vertices"]
+                    + final_side_cleanup["anatomical_side_corrected_vertices"]
+                ),
+                "anatomical_side_removed_influences": (
+                    first_side_cleanup["anatomical_side_removed_influences"]
+                    + final_side_cleanup["anatomical_side_removed_influences"]
+                ),
+                **remote_limb_cleanup,
+            }
+            donor_source = voxel_heat_report["method"]
+        else:
+            donor, donor_weights, donor_merge_report = create_aligned_donor(
+                context, source_armature, fitted, contract
+            )
+            proxy = create_fallback_proxy(context, fitted)
+            raw, distances, confidences, _bvh = transfer_donor_weights(
+                target, donor, donor_weights, float(analysis["world_height"])
+            )
+            components, membership = classify_components(
+                target, analysis, raw, distances
+            )
+            if mode == "AUTOMATIC_WEIGHTS_DIAGNOSTIC":
+                cleaned, cleanup = clean_weights(
+                    target,
+                    fitted,
+                    analysis,
+                    [{} for _ in raw],
+                    components,
+                    membership,
+                    [0.0 for _ in raw],
+                    threshold,
+                    influence_limit,
+                    use_proxy_fallback=True,
+                    fallback_proxy=proxy,
+                )
+            else:
+                cleaned, cleanup = clean_weights(
+                    target,
+                    fitted,
+                    analysis,
+                    raw,
+                    components,
+                    membership,
+                    confidences,
+                    threshold,
+                    influence_limit,
+                    use_proxy_fallback=(
+                        mode == "CANONICAL_TRANSFER_WITH_PROXY_FALLBACK"
+                    ),
+                    fallback_proxy=proxy,
+                )
+            donor_source = donor.get("sbf_donor_source", "")
         coverage_repairs = _ensure_deform_group_coverage(
             target,
             fitted,
@@ -1729,8 +2000,10 @@ def bind_production_character(
             threshold,
             influence_limit,
         )
-        report["donor_source"] = donor.get("sbf_donor_source", "")
+        report["donor_source"] = donor_source
         report["binding_method"] = mode
+        if voxel_heat_report is not None:
+            report["voxel_heat_proxy"] = voxel_heat_report
         report["production_profile"] = contract.get("profile_id", "")
         report["source_canonical_fingerprint"] = contract.get(
             "source_fingerprint", ""

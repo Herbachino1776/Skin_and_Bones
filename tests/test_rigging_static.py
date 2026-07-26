@@ -78,15 +78,34 @@ class RiggingStaticTests(unittest.TestCase):
         ):
             self.assertIn(identifier, source)
 
-    def test_binding_is_donor_first_and_transactional(self):
+    def test_binding_is_proxy_heat_first_and_transactional(self):
         source = (RIGGING / "weights.py").read_text(encoding="utf-8")
         self.assertIn("NEAREST_DONOR_FACE_BARYCENTRIC", source)
         self.assertIn("create_aligned_donor", source)
+        self.assertIn("create_voxel_heat_proxy", source)
+        self.assertIn("BLENDER_AUTOMATIC_WEIGHTS_ON_VOXEL_PROXY", source)
+        self.assertIn("smooth_surface_weights", source)
+        self.assertIn("attenuate_remote_limb_weights", source)
         self.assertIn("classify_components", source)
         self.assertIn("clean_weighting_temporary_data", source)
         self.assertIn("except Exception:", source)
         self.assertIn("_restore_vertex_groups", source)
-        self.assertNotIn("parent_set", source)
+        tree = ast.parse(source)
+        binder = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "bind_production_character"
+        )
+        self.assertNotIn("parent_set", ast.unparse(binder))
+
+    def test_universal_auto_skin_is_the_one_click_default(self):
+        properties = (PACKAGE / "properties.py").read_text(encoding="utf-8")
+        operators = (PACKAGE / "operators" / "rigging.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('default="VOXEL_HEAT_PROXY"', properties)
+        self.assertIn('mode="VOXEL_HEAT_PROXY"', operators)
 
     def test_animation_forge_uses_actual_analyzer_operator(self):
         source = (RIGGING / "acceptance_runner.py").read_text(encoding="utf-8")

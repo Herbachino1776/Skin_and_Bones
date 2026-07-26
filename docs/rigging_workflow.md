@@ -61,18 +61,17 @@ corrections stay on the target so regenerated handles can reapply them.
 
 ## Bind production weights
 
-Leave **Canonical + Proxy Fallback** selected for fragmented SPAR3D meshes and
-click **Bind Production Character**. The operation copies and rest-fits the
-canonical skinned donor, transfers deform weights with nearest-face
-barycentric interpolation, classifies every connected target component, and
-uses fitted bone-segment distance, topology branches, and deterministic local
-continuity where donor evidence is weak.
+Click **Bind Production Character** to run **Universal Voxel Auto-Skin**. The
+operation voxelizes a temporary world-space copy, runs Blender automatic bone
+heat on that watertight proxy, transfers the proxy weights back to the original
+production vertices, and deletes the proxy. The production surface itself is
+never remeshed. A topology-aware limb-contact taper prevents a lowered hand
+from dragging the nearby thigh or robe when the arm is raised.
 
 Cleanup removes invalid, tiny, non-deform, opposite-side, and anatomically
-impossible influences; assigns tiny disconnected islands rigidly; reconciles
-neighboring four-influence palettes across touching scan surfaces; repairs
-unweighted and structurally empty deform groups; limits vertices to four
-influences; and normalizes again. The target's
+impossible influences; smooths transfer only across real production edges;
+repairs structurally empty deform groups; limits vertices to four influences;
+and normalizes again. The target's
 topology, vertex order, UVs, materials, textures, and source Actions are not
 changed. Failure restores the original target parent, transforms, modifiers,
 groups, metadata, selection, mode, frame, and animation state.

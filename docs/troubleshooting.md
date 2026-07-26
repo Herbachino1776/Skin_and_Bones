@@ -126,12 +126,17 @@ Corrections** removes the saved overrides and regenerates automatic handles.
 
 ## Bone-heat risk is high
 
-The production Folsom target contains many disconnected surface components.
-The warning is advisory during preview fitting. For production, keep
-**Canonical + Proxy Fallback** selected: it classifies every component and
-uses canonical donor evidence first, then a temporary fitted bone-segment
-proxy for low-confidence vertices. Do not join, weld, remesh, or retopologize
-the production target to silence the warning.
+The warning is advisory during preview fitting. **Bind Production Character**
+uses **Universal Voxel Auto-Skin**: Blender bone heat runs on an owned temporary
+voxel proxy and the weights are transferred to the unchanged production mesh.
+Do not remesh or retopologize the production target to silence the warning.
+
+When a relaxed hand physically touches the thigh or robe, the prepared surface
+can contain contact edges between the two anatomical branches. The binder
+tapers whole-hand influence out of the lower leg branch to stop the leg-fan
+artifact. Pose torture tests can still report a contact-seam stretch because a
+single connected edge cannot move as both hand and leg without topology
+separation; the binder does not silently split the accepted production mesh.
 
 ## Production weights need review
 
