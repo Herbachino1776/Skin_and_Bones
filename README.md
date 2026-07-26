@@ -68,7 +68,9 @@ required top-level `skin_and_bones_forge` module.
 
 1. Click **Import + Prepare SPAR3D Character** and choose the raw GLB.
 2. Confirm **READY FOR SKIN**, then click **Validate Character**.
-3. Load the four matching source images.
+3. Click **Select Character Perspective Folder** to load the four matching
+   `front`, `back`, `left`, and `right` images from their filenames. The picker
+   starts in `D:\AI aRt\Skin and Bones Projection packs`.
 4. Click **One-Click Best Preview**. This applies the exact tested preset,
    auto-fits the loaded silhouettes, and builds the preview.
    The two 45-degree views are optional.

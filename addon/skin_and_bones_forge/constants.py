@@ -12,6 +12,7 @@ EXPORT_GLB_DIR = rf"{EXPORT_ROOT}\GLB"
 EXPORT_RIGGED_GLB_DIR = rf"{EXPORT_ROOT}\Rigged_GLB"
 EXPORT_PROOF_DIR = rf"{EXPORT_ROOT}\Proof_Renders"
 EXPORT_REPORT_DIR = rf"{EXPORT_ROOT}\Reports"
+DEFAULT_PROJECTION_PACKS_DIR = r"D:\AI aRt\Skin and Bones Projection packs"
 
 CARDINAL_VIEW_NAMES = ("front", "back", "left", "right")
 DIAGONAL_VIEW_NAMES = ("front_left", "front_right")

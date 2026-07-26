@@ -24,6 +24,13 @@ material, UV, base-color node, and normal-map node.
 
 ## Prepare the sources
 
+Click **Select Character Perspective Folder** and choose a character folder.
+The browser opens at `D:\AI aRt\Skin and Bones Projection packs`. The add-on
+loads exactly one image whose filename contains each separate view key:
+`front`, `back`, `left`, and `right`. Other files, including the source image,
+manifest, and mesh, are ignored. Missing or duplicate view matches cancel the
+operation without replacing the currently assigned images.
+
 Expand each source header, click **Open Image from Disk...**, and select the
 front, back, character-left, or character-right image. Optional front-left and
 front-right 45-degree cards improve coverage when those plates are genuinely

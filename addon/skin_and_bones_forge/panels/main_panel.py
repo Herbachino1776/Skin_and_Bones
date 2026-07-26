@@ -195,6 +195,13 @@ class SBF_PT_sources(_SBF_PT_section, Panel):
     def draw(self, context):
         layout = self.layout
         settings = context.scene.sbf_settings
+        load_folder = layout.column(align=True)
+        load_folder.scale_y = 1.15
+        load_folder.operator(
+            "sbf.load_perspective_folder",
+            text="Select Character Perspective Folder",
+            icon="FILE_FOLDER",
+        )
         layout.prop(settings, "auto_fit_source_images")
         layout.operator("sbf.auto_fit_sources", icon="FULLSCREEN_ENTER")
         layout.label(

@@ -5,12 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import bpy
-from bpy.props import EnumProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, StringProperty
 from bpy.types import Operator
 
 from ..baking import bake_final_texture
 from ..constants import (
     CARDINAL_VIEW_NAMES,
+    DEFAULT_PROJECTION_PACKS_DIR,
     PROCESSING_PRESET,
     VIEW_LABELS,
     VIEW_NAMES,
@@ -22,6 +23,7 @@ from ..projection import (
     create_projection_state,
 )
 from ..projection.alignment import auto_fit_loaded_images
+from ..projection.source_files import find_cardinal_view_images
 from ..validation import ValidationError, validate_target
 
 
@@ -157,6 +159,64 @@ class SBF_OT_load_view_image(Operator):
 
         label = self.view_name.replace("_", " ").title()
         settings.status_message = f"Loaded {label} image: {path.name}"
+        self.report({"INFO"}, settings.status_message)
+        return {"FINISHED"}
+
+
+class SBF_OT_load_perspective_folder(Operator):
+    bl_idname = "sbf.load_perspective_folder"
+    bl_label = "Select Character Perspective Folder"
+    bl_description = (
+        "Load front, back, character-left, and character-right images from "
+        "their filename keys"
+    )
+    bl_options = {"REGISTER", "UNDO"}
+
+    directory: StringProperty(name="Perspective Folder", subtype="DIR_PATH")
+    filter_folder: BoolProperty(default=True, options={"HIDDEN"})
+
+    def invoke(self, context, _event):
+        root = Path(DEFAULT_PROJECTION_PACKS_DIR)
+        self.directory = str(root.resolve() if root.is_dir() else root)
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        settings = _settings(context)
+        folder = Path(bpy.path.abspath(self.directory)).resolve()
+        try:
+            paths = find_cardinal_view_images(folder)
+        except (OSError, ValueError) as exc:
+            return _fail(self, settings, exc)
+
+        images_before = set(bpy.data.images)
+        loaded = {}
+        try:
+            for name in CARDINAL_VIEW_NAMES:
+                image = bpy.data.images.load(str(paths[name]), check_existing=True)
+                image.colorspace_settings.name = "sRGB"
+                image.alpha_mode = "STRAIGHT"
+                loaded[name] = image
+        except (RuntimeError, TypeError, ValueError) as exc:
+            for image in [item for item in bpy.data.images if item not in images_before]:
+                if image.users == 0:
+                    bpy.data.images.remove(image)
+            return _fail(self, settings, f"Could not load perspective folder: {exc}")
+
+        for name in CARDINAL_VIEW_NAMES:
+            view = getattr(settings, name)
+            image = loaded[name]
+            if view.image != image:
+                view.facial_landmarks_set = (False, False, False, False)
+                view.facial_landmarks_skipped = (False, False, False, False)
+                view.facial_calibration_valid = False
+                view.landmark_image_name = ""
+            view.enabled = True
+            view.image = image
+
+        settings.status_message = (
+            f"Loaded 4 perspective images from: {folder.name}"
+        )
         self.report({"INFO"}, settings.status_message)
         return {"FINISHED"}
 
@@ -379,6 +439,7 @@ class SBF_OT_render_verification(Operator):
 
 OPERATOR_CLASSES = (
     SBF_OT_load_view_image,
+    SBF_OT_load_perspective_folder,
     SBF_OT_load_preset,
     SBF_OT_auto_fit_sources,
     SBF_OT_validate,
