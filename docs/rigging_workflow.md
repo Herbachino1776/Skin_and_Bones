@@ -75,12 +75,16 @@ operation voxelizes a temporary world-space copy, runs Blender automatic bone
 heat on that watertight proxy, transfers the proxy weights back to the original
 production vertices, and deletes the proxy. The production surface itself is
 never remeshed. A topology-aware limb-contact taper prevents a lowered hand
-from dragging the nearby thigh or robe when the arm is raised.
+from dragging the nearby thigh or robe when the arm is raised. A final
+topology-only palette reconciliation keeps adjacent pelvis and robe vertices
+on compatible four-bone palettes so collapse Actions cannot fan open a seam.
 
 Cleanup removes invalid, tiny, non-deform, opposite-side, and anatomically
 impossible influences; smooths transfer only across real production edges;
 repairs structurally empty deform groups; limits vertices to four influences;
-and normalizes again. The target's
+and normalizes again. The reconciliation intentionally prioritizes deformation
+quality over a quick bind and may take about one to two minutes on a detailed
+character. The target's
 topology, vertex order, UVs, materials, textures, and source Actions are not
 changed. Failure restores the original target parent, transforms, modifiers,
 groups, metadata, selection, mode, frame, and animation state.

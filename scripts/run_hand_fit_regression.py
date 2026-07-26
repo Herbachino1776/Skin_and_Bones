@@ -55,7 +55,35 @@ for side in ("left", "right"):
 full_results = {}
 if os.environ.get("SBF_FULL_RIG_REGRESSION") == "1":
     bind_result = bpy.ops.sbf.bind_production_character()
-    pose_result = bpy.ops.sbf.run_pose_torture_tests()
+    try:
+        pose_result = bpy.ops.sbf.run_pose_torture_tests()
+    except RuntimeError:
+        pose_result = {"CANCELLED"}
+    pose_report = json.loads(settings.rig_pose_test_json)
+    if settings.rig_pose_test_status != "POSE_TESTS_PASSED":
+        isolated = pose_report.get("isolated_bone_forensics", {})
+        print(
+            "SBF_HAND_FIT_POSE_FAILURE",
+            json.dumps(
+                {
+                    "status": pose_report.get("status"),
+                    "unsafe": [
+                        {
+                            "bone": item.get("bone"),
+                            "axis": item.get("axis"),
+                            "maximum_edge_stretch_ratio": item.get(
+                                "maximum_edge_stretch_ratio"
+                            ),
+                            "worst_edges": item.get("worst_edges", [])[:5],
+                        }
+                        for item in isolated.get("tests", [])
+                        if not item.get("safe", False)
+                    ],
+                },
+                sort_keys=True,
+            ),
+        )
+        raise RuntimeError("Pose regression failed before canonical Actions.")
     try:
         action_result = bpy.ops.sbf.test_canonical_actions()
     except RuntimeError:
@@ -67,6 +95,8 @@ if os.environ.get("SBF_FULL_RIG_REGRESSION") == "1":
     assert "FINISHED" in pose_result
     assert settings.rig_pose_test_status == "POSE_TESTS_PASSED"
     assert gate.get("status") == "READY_FOR_ANIMATION_TEST", gate
+    if os.environ.get("SBF_REQUIRE_ACTION_PASS") == "1":
+        assert action_report.get("status") == "CANONICAL_ACTIONS_PASSED"
     full_results = {
         "bind": sorted(bind_result),
         "weights": settings.rig_weight_status,
@@ -75,6 +105,30 @@ if os.environ.get("SBF_FULL_RIG_REGRESSION") == "1":
         "action": sorted(action_result),
         "action_status": settings.rig_action_test_status,
         "action_gate": gate.get("status"),
+        "missing_actions": action_report.get("missing_actions", []),
+        "filtered_action_count": action_report.get("filtered_action_count", 0),
+        "action_failures": [
+            {
+                "action": item.get("action"),
+                "first_unsafe_frame": item.get(
+                    "deformation_forensics", {}
+                ).get("first_unsafe_frame"),
+                "worst_frame": item.get("deformation_forensics", {}).get(
+                    "worst_frame"
+                ),
+                "maximum_edge_stretch_ratio": item.get(
+                    "deformation_forensics", {}
+                ).get("maximum_edge_stretch_ratio"),
+                "worst_edges": item.get("deformation_forensics", {}).get(
+                    "worst_edges", []
+                )[:5],
+                "worst_vertices": item.get(
+                    "deformation_forensics", {}
+                ).get("worst_vertices", [])[:5],
+            }
+            for item in action_report.get("actions", [])
+            if not item.get("deformation_safe", False)
+        ],
     }
 
 print(

@@ -26,6 +26,7 @@ from .deformation import (
 from .fitting import OWNER
 from .poses import (
     PRODUCTION_TRACK_PREFIX,
+    canonical_source_actions,
     create_production_actions,
     iter_action_fcurves,
 )
@@ -425,9 +426,7 @@ def _validate_clean_reimport_in_process(
             modifier.type == "ARMATURE" for modifier in mesh.modifiers
         )
         uv_maps = [layer.name for layer in mesh.data.uv_layers]
-        expected_action_count = len(
-            contract["animation_inventory"]["actions"]
-        )
+        expected_action_count = len(canonical_source_actions(contract)[0])
         profile_metadata_match = (
             armature.get("sbf_production_profile")
             == contract.get("profile_id")

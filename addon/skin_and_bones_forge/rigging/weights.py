@@ -1056,6 +1056,14 @@ def _weight_edge_delta(first, second):
     )
 
 
+def _crosses_arm_leg_family(first_family, second_family):
+    return (
+        first_family.endswith("_ARM") and second_family.endswith("_LEG")
+    ) or (
+        first_family.endswith("_LEG") and second_family.endswith("_ARM")
+    )
+
+
 def _regularize_weight_continuity(
     target,
     fitted,
@@ -1065,6 +1073,9 @@ def _regularize_weight_continuity(
     membership,
     preferred_families,
     influence_limit,
+    smoothing_iterations=CONTINUITY_SMOOTHING_ITERATIONS,
+    palette_iterations=48,
+    palette_edge_limit=0.10,
 ):
     """Diffuse skin weights locally without crossing disconnected components."""
 
@@ -1083,6 +1094,11 @@ def _regularize_weight_continuity(
     points = [target.matrix_world @ vertex.co for vertex in target.data.vertices]
     segments = _bone_segments(fitted)
     height = float(analysis["world_height"])
+    up = Vector(analysis["up_axis_world"])
+    ground = float(analysis["ground"])
+    height_fractions = [
+        (point.dot(up) - ground) / height for point in points
+    ]
     contexts = [
         _spatial_context(point, analysis, segments) for point in points
     ]
@@ -1101,7 +1117,7 @@ def _regularize_weight_continuity(
         default=0.0,
     )
     current = [dict(values) for values in weights]
-    for _iteration in range(CONTINUITY_SMOOTHING_ITERATIONS):
+    for _iteration in range(max(int(smoothing_iterations), 0)):
         updated = []
         for index, values in enumerate(current):
             neighbors = adjacency[index]
@@ -1140,11 +1156,16 @@ def _regularize_weight_continuity(
         total = sum(value for _name, value in ranked)
         limited.append({name: value / total for name, value in ranked})
 
-    palette_iterations = 48
-    palette_edge_limit = 0.10
-    for _iteration in range(palette_iterations):
+    for _iteration in range(max(int(palette_iterations), 0)):
         proposals = [[] for _vertex in limited]
         for first, second in edges:
+            if (
+                min(height_fractions[first], height_fractions[second]) <= 0.50
+                and _crosses_arm_leg_family(
+                    preferred_families[first], preferred_families[second]
+                )
+            ):
+                continue
             if _weight_edge_delta(limited[first], limited[second]) <= (
                 palette_edge_limit
             ):
@@ -1176,6 +1197,13 @@ def _regularize_weight_continuity(
             for proposal in vertex_proposals:
                 for name, value in proposal.items():
                     if (
+                        height_fractions[index] <= 0.50
+                        and _crosses_arm_leg_family(
+                            preferred_families[index], _bone_family(name)
+                        )
+                    ):
+                        continue
+                    if (
                         (side == "CENTER" or _bone_side(name) in {"CENTER", side})
                         and distances.get(name, float("inf"))
                         <= nearest + height * 0.14
@@ -1196,7 +1224,7 @@ def _regularize_weight_continuity(
         default=0.0,
     )
     return limited, {
-        "continuity_smoothing_iterations": CONTINUITY_SMOOTHING_ITERATIONS,
+        "continuity_smoothing_iterations": int(smoothing_iterations),
         "continuity_smoothing_factor": CONTINUITY_SMOOTHING_FACTOR,
         "maximum_edge_weight_delta_before": round(before_maximum, 6),
         "maximum_edge_weight_delta_after": round(after_maximum, 6),
@@ -1968,6 +1996,28 @@ def bind_production_character(
                 membership,
                 influence_limit,
             )
+            points = [
+                target.matrix_world @ vertex.co
+                for vertex in target.data.vertices
+            ]
+            preferred_families, _branch_corrections = (
+                _topology_preferred_families(
+                    target, points, _bone_segments(fitted)
+                )
+            )
+            cleaned, continuity_cleanup = _regularize_weight_continuity(
+                target,
+                fitted,
+                analysis,
+                cleaned,
+                components,
+                membership,
+                preferred_families,
+                influence_limit,
+                smoothing_iterations=0,
+                palette_iterations=128,
+                palette_edge_limit=0.015,
+            )
             cleanup = {
                 "voxel_heat_proxy_vertices": voxel_heat_report["proxy_vertices"],
                 "voxel_heat_proxy_triangles": voxel_heat_report["proxy_triangles"],
@@ -1982,6 +2032,7 @@ def bind_production_character(
                 ),
                 **remote_limb_cleanup,
                 **spatial_cleanup,
+                **continuity_cleanup,
             }
             donor_source = voxel_heat_report["method"]
         else:

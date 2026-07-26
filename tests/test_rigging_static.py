@@ -110,6 +110,10 @@ class RiggingStaticTests(unittest.TestCase):
         self.assertIn("VOXEL_HEAT_NOISE_THRESHOLD = 0.002", weights)
         self.assertIn("max(float(threshold), VOXEL_HEAT_NOISE_THRESHOLD)", weights)
         self.assertIn("remove_spatially_impossible_weights", weights)
+        self.assertIn("_regularize_weight_continuity", weights)
+        self.assertIn("smoothing_iterations=0", weights)
+        self.assertIn("palette_iterations=128", weights)
+        self.assertIn("palette_edge_limit=0.015", weights)
         self.assertIn("strict_plausible or bridge_plausible", weights)
 
     def test_hand_fit_uses_forearm_corridor_and_editable_landmarks(self):
@@ -142,6 +146,12 @@ class RiggingStaticTests(unittest.TestCase):
         self.assertIn("bpy.ops.daf.walk()", source)
         self.assertIn("bpy.ops.daf.hurt_left()", source)
         self.assertIn("scan_action_deformation", source)
+
+    def test_canonical_actions_deduplicate_blender_numeric_suffixes(self):
+        source = (RIGGING / "poses.py").read_text(encoding="utf-8")
+        self.assertIn("def canonical_source_actions", source)
+        self.assertIn(r'(?:\.\d{3})+$', source)
+        self.assertIn("actions, missing_actions = canonical_source_actions", source)
 
     def test_weight_repair_uses_fitted_bone_distance_not_hard_bins(self):
         source = (RIGGING / "weights.py").read_text(encoding="utf-8")

@@ -166,6 +166,13 @@ scales only location channels by each fitted/source rest-bone length ratio.
 **Finalize Production Rig** creates the five owned export Actions without
 editing the originals.
 
+If only pelvis or robe vertices fan outward during a collapse, re-run **Bind
+Production Character** with version 0.6.7 or later. The binder now reconciles
+abrupt four-influence palette changes across short production-mesh edges after
+voxel transfer. Do not repair this by moving hand bones, splitting the mesh, or
+assigning the affected region rigidly to root; those approaches introduce new
+rest-orientation or deformation seams.
+
 ## Animation Forge rejects the GLB
 
 First run **Validate Clean Reimport**. Then verify **Animation Forge

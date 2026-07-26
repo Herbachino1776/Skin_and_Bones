@@ -386,17 +386,40 @@ def clean_owned_production_actions(armature=None):
     return removed
 
 
+def canonical_source_actions(contract):
+    """Resolve one live Action per canonical semantic name.
+
+    Blender appends numeric suffixes when an Action is duplicated. Canonical
+    analysis may therefore inventory both a source name and its transient
+    duplicate even though they represent one animation fixture.
+    """
+
+    def semantic_name(name):
+        return re.sub(r"(?:\.\d{3})+$", "", name)
+
+    expected = {
+        semantic_name(item["name"])
+        for item in contract["animation_inventory"]["actions"]
+    }
+    available = {}
+    for action in sorted(bpy.data.actions, key=lambda item: item.name):
+        base = semantic_name(action.name)
+        if base not in expected:
+            continue
+        current = available.get(base)
+        if current is None or action.name == base:
+            available[base] = action
+    return [available[name] for name in sorted(available)], sorted(
+        expected - set(available)
+    )
+
+
 def create_production_actions(armature, contract):
     animation = armature.animation_data_create()
     clean_owned_production_actions(armature)
-    inventory = {
-        item["name"] for item in contract["animation_inventory"]["actions"]
-    }
+    sources, _missing = canonical_source_actions(contract)
     created = []
-    for source in sorted(
-        (action for action in bpy.data.actions if action.name in inventory),
-        key=lambda item: item.name,
-    ):
+    for source in sources:
         action = _scaled_action_copy(
             source,
             armature,
@@ -429,10 +452,7 @@ def test_canonical_actions(
 ):
     scene = context.scene
     snapshot = _pose_snapshot(armature, scene)
-    inventory = {
-        item["name"] for item in contract["animation_inventory"]["actions"]
-    }
-    actions = [action for action in bpy.data.actions if action.name in inventory]
+    actions, missing_actions = canonical_source_actions(contract)
     animation = armature.animation_data_create()
     reports = []
     temporary_actions = []
@@ -548,7 +568,6 @@ def test_canonical_actions(
                     ),
                 }
             )
-        missing_actions = sorted(inventory - {action.name for action in actions})
         status = (
             "CANONICAL_ACTIONS_PASSED"
             if not missing_actions
@@ -559,7 +578,9 @@ def test_canonical_actions(
         return {
             "status": status,
             "production_profile": contract.get("profile_id", ""),
-            "expected_actions": sorted(inventory),
+            "expected_actions": sorted(
+                [action.name for action in actions] + missing_actions
+            ),
             "missing_actions": missing_actions,
             "filtered_action_count": len(reports),
             "removed_finger_channel_count": sum(

@@ -4,7 +4,7 @@ Skin & Bones Forge is a Blender 5.1.2 add-on for rebuilding the base-color
 texture of a SPAR3D human mesh and building a validated production rig from
 the canonical Animate Anything humanoid skeleton.
 
-Version 0.6.6 implements one-click SPAR3D production-mesh intake, the Folsom
+Version 0.6.7 implements one-click SPAR3D production-mesh intake, the Folsom
 visual workflow, and production **Bones**:
 
 - Import a raw SPAR3D GLB, weld only exactly coincident seam vertices, prove
@@ -12,7 +12,8 @@ visual workflow, and production **Bones**:
   production copy to 1.50 m without remeshing or changing its silhouette.
 - Preserve the target geometry, original UV map, material slot, and normal map.
 - Auto-skin through a temporary voxel heat proxy, transfer four-influence
-  weights back to the untouched mesh, and suppress hand-to-leg contact drag.
+  weights back to the untouched mesh, suppress hand-to-leg contact drag, and
+  reconcile adjacent pelvis palettes for stable collapse animation.
 - Create axis-aware orthographic projection cameras and temporary camera UVs.
 - Prefer front/back identity detail on the upper body and head.
 - Reject arm, hand, and other foreground pixels on surfaces hidden behind them.
@@ -54,7 +55,7 @@ visual workflow, and production **Bones**:
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v0.6.6.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v0.6.7.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -140,13 +141,13 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v0.6.6` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v0.6.7` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 
 ## Scope
 
-Version 0.6.6 completes the simplified-hand production contract and permanent
+Version 0.6.7 completes the simplified-hand production contract and permanent
 production-rigging slice. Optional hand shape-key authoring, animation polish,
 gore/damage authoring, batch processing, Rigify, paintable masks, and depth-map
 visibility remain downstream milestones.
