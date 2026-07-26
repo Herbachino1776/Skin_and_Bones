@@ -1093,14 +1093,16 @@ def _ensure_deform_group_coverage(
     membership,
     weights,
     influence_limit,
+    threshold=DEFAULT_WEIGHT_THRESHOLD,
     vertices_per_group=3,
 ):
     """Seed structurally empty deform groups on nearby anatomical vertices."""
 
     usage = defaultdict(int)
     for values in weights:
-        for name in values:
-            usage[name] += 1
+        for name, value in values.items():
+            if value >= threshold:
+                usage[name] += 1
     points = [target.matrix_world @ vertex.co for vertex in target.data.vertices]
     used_vertices = set()
     repaired = {}
@@ -1147,6 +1149,49 @@ def _ensure_deform_group_coverage(
         if selected:
             repaired[name] = selected
     return repaired
+
+
+def _canonicalize_final_weights(
+    weights,
+    threshold=DEFAULT_WEIGHT_THRESHOLD,
+    influence_limit=DEFAULT_INFLUENCE_LIMIT,
+):
+    """Make the written weights obey the validator's exact visibility rules."""
+
+    cutoff = max(float(threshold), 0.0)
+    limit = max(int(influence_limit), 1)
+    canonical = []
+    pruned_influences = 0
+    pruned_vertices = 0
+    renormalized_vertices = 0
+    for values in weights:
+        valid = [
+            (name, float(value))
+            for name, value in values.items()
+            if math.isfinite(value) and value > 0.0
+        ]
+        ranked = sorted(valid, key=lambda item: (-item[1], item[0]))[:limit]
+        retained = [item for item in ranked if item[1] >= cutoff]
+        if not retained and ranked:
+            retained = [ranked[0]]
+        removed = len(valid) - len(retained)
+        if removed:
+            pruned_influences += removed
+            pruned_vertices += 1
+        total = math.fsum(value for _name, value in retained)
+        if total <= 0.0:
+            canonical.append({})
+            continue
+        if abs(total - 1.0) > WEIGHT_TOLERANCE:
+            renormalized_vertices += 1
+        canonical.append(
+            {name: value / total for name, value in retained}
+        )
+    return canonical, {
+        "final_threshold_pruned_influences": pruned_influences,
+        "final_threshold_pruned_vertices": pruned_vertices,
+        "final_renormalized_vertices": renormalized_vertices,
+    }
 
 
 def _snapshot_vertex_groups(target):
@@ -1633,12 +1678,19 @@ def bind_production_character(
             membership,
             cleaned,
             influence_limit,
+            threshold=threshold,
         )
         cleanup["empty_group_repairs"] = len(coverage_repairs)
         cleanup["empty_group_repair_vertices"] = sum(
             len(indices) for indices in coverage_repairs.values()
         )
         cleanup["empty_group_repair_groups"] = sorted(coverage_repairs)
+        cleaned, final_cleanup = _canonicalize_final_weights(
+            cleaned,
+            threshold,
+            influence_limit,
+        )
+        cleanup.update(final_cleanup)
         for modifier in list(target.modifiers):
             if _is_owned_armature_modifier(modifier):
                 target.modifiers.remove(modifier)

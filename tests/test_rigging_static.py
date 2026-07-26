@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import math
 import unittest
 from pathlib import Path
 
@@ -119,6 +120,48 @@ class RiggingStaticTests(unittest.TestCase):
         self.assertIn("blocking_separated_components", deformation)
         self.assertIn("palette_reconciliation_iterations", weights)
         self.assertIn("maximum_edge_weight_delta_after", weights)
+
+    def test_final_weight_cleanup_matches_validator_threshold(self):
+        source = (RIGGING / "weights.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_canonicalize_final_weights"
+        )
+        namespace = {
+            "math": math,
+            "DEFAULT_WEIGHT_THRESHOLD": 1.0e-4,
+            "DEFAULT_INFLUENCE_LIMIT": 4,
+            "WEIGHT_TOLERANCE": 1.0e-4,
+        }
+        isolated = ast.Module(body=[function], type_ignores=[])
+        exec(compile(isolated, str(RIGGING / "weights.py"), "exec"), namespace)
+        canonicalize = namespace["_canonicalize_final_weights"]
+
+        failing_weights = [
+            {"body": 0.99984, "neck": 0.00008, "root": 0.00008}
+            for _index in range(25)
+        ]
+        cleaned, stats = canonicalize(failing_weights, 0.0001, 4)
+
+        self.assertEqual([{"body": 1.0}] * 25, cleaned)
+        self.assertEqual(50, stats["final_threshold_pruned_influences"])
+        self.assertEqual(25, stats["final_threshold_pruned_vertices"])
+        self.assertEqual(25, stats["final_renormalized_vertices"])
+
+        bind = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "bind_production_character"
+        )
+        bind_source = ast.unparse(bind)
+        self.assertLess(
+            bind_source.index("_ensure_deform_group_coverage"),
+            bind_source.index("_canonicalize_final_weights"),
+        )
 
     def test_export_defaults_use_the_e_drive_delivery_tree(self):
         constants = (PACKAGE / "constants.py").read_text(encoding="utf-8")
