@@ -124,6 +124,17 @@ Corrections**, and validate again. Corrections are serialized on the target
 mesh and survive preview cleanup and file reload. **Reset Landmark
 Corrections** removes the saved overrides and regenerates automatic handles.
 
+## A whole-hand bone points into the leg
+
+Click **Fit Skeleton Preview** again. Whole-hand endpoints are detected by
+continuing each forearm into a side-confined palm corridor, so the retained
+hand bones cannot use a thigh-height surface slice. If a palm still needs
+adjustment, move its cyan hand handle and click **Refit From Corrections**.
+Do not rotate the bone itself in Armature Edit Mode: that changes its local rest
+roll, which can make the pose test look better while correctly causing the
+canonical Action compatibility gate to fail. Revalidate, rebind, then rerun
+the pose and canonical Action tests.
+
 ## Bone-heat risk is high
 
 The warning is advisory during preview fitting. **Bind Production Character**

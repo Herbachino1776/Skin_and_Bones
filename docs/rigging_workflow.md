@@ -23,7 +23,7 @@ rest heads, tails, matrices, hierarchy, or bone names.
 
 ## Preview and correct
 
-1. Click **Generate Landmark Preview** to create 16 cyan editable handles in
+1. Click **Generate Landmark Preview** to create 18 cyan editable handles in
    `SBF_RigPreview`.
 2. Click **Fit Skeleton Preview**. The add-on duplicates the armature object
    and data, removes animation/constraints from the duplicate, derives
@@ -34,6 +34,11 @@ rest heads, tails, matrices, hierarchy, or bone names.
    serialize their world positions on the target and rebuild the preview.
 4. Use **Reset Landmark Corrections** to discard saved overrides and return to
    deterministic automatic landmarks.
+
+The two whole-hand handles continue the elbow-to-wrist direction into each
+palm. Correct these cyan handles and refit; do not rotate fitted rest bones in
+Edit Mode. Direct rest-bone edits cannot preserve the canonical local roll used
+by rotation Actions and are intentionally blocked by the animation gate.
 
 ## Simplified production hands
 
@@ -55,6 +60,10 @@ Click **Validate Fitted Skeleton**. `READY_FOR_BINDING` means all current
 checks passed. `NEEDS_ARTIST_CORRECTION` means the rig is structurally valid
 but warnings or low-confidence landmarks require review. `FAILED` is blocking
 and identifies contract, transform, residual, or target-mutation errors.
+After repairing an already-bound character, the validator permits only the
+expected Skin & Bones deform groups and owned Armature modifier from that old
+bind. It still marks weights stale and requires **Bind Production Character**
+again before pose or Action tests.
 
 **Clean Rig Preview** removes only owned handles and fitted armatures. Saved
 corrections stay on the target so regenerated handles can reapply them.

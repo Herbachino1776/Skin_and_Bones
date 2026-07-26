@@ -36,6 +36,7 @@ from ..rigging import (
     landmark_objects,
     load_weight_report,
     production_armature,
+    refresh_hand_landmarks,
     refresh_rigging_manifest,
     reset_corrections,
     run_animation_forge_acceptance,
@@ -68,8 +69,9 @@ class _OperationState(AbstractContextManager):
 
     def __init__(self, context):
         self.context = context
-        self.active = context.view_layer.objects.active
-        self.selected = list(context.selected_objects)
+        active = context.view_layer.objects.active
+        self.active_name = active.name if active is not None else None
+        self.selected_names = [obj.name for obj in context.selected_objects]
         self.mode = context.mode
         self.frame = context.scene.frame_current
         self.cursor = context.scene.cursor.location.copy()
@@ -85,11 +87,13 @@ class _OperationState(AbstractContextManager):
         scene.cursor.location = self.cursor
         for obj in list(self.context.selected_objects):
             obj.select_set(False)
-        for obj in self.selected:
-            if obj.name in self.context.view_layer.objects:
+        for name in self.selected_names:
+            obj = bpy.data.objects.get(name)
+            if obj is not None and name in self.context.view_layer.objects:
                 obj.select_set(True)
-        if self.active is not None and self.active.name in self.context.view_layer.objects:
-            self.context.view_layer.objects.active = self.active
+        active = bpy.data.objects.get(self.active_name) if self.active_name else None
+        if active is not None and active.name in self.context.view_layer.objects:
+            self.context.view_layer.objects.active = active
             restore_mode = self.MODE_MAP.get(self.mode)
             if restore_mode:
                 try:
@@ -177,6 +181,7 @@ def _analyze(context, settings, target):
     )
     landmarks = estimate_landmarks(context, target, analysis)
     apply_saved_corrections(target, landmarks)
+    refresh_hand_landmarks(context, target, analysis, landmarks)
     payload = {"analysis": analysis, "landmarks": landmarks}
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     settings.target_analysis_json = encoded
@@ -197,6 +202,9 @@ def _analysis(context, settings, target, refresh=False):
             if payload["analysis"]["target_data"] == target.data.name:
                 landmarks = apply_saved_corrections(
                     target, payload["landmarks"]
+                )
+                refresh_hand_landmarks(
+                    context, target, payload["analysis"], landmarks
                 )
                 return payload["analysis"], landmarks
         except (KeyError, TypeError, json.JSONDecodeError):
@@ -236,6 +244,17 @@ def _store_weight_report(settings, report):
     settings.rig_maximum_influences = report["maximum_influences"]
     settings.rig_donor_confidence = report["donor_transfer_confidence"]["mean"]
     settings.rig_proxy_fallback_count = report["proxy_fallback_vertex_count"]
+
+
+def _invalidate_binding_results(settings, target):
+    """Mark an earlier bind and all deformation tests stale after a refit."""
+
+    if target.get("sbf_bound", False):
+        settings.rig_weight_status = "NEEDS_REBIND"
+    settings.rig_pose_test_status = "NOT_RUN"
+    settings.rig_action_test_status = "NOT_RUN"
+    settings.rig_pose_test_json = ""
+    settings.rig_action_test_json = ""
 
 
 def _load_json(value, label):
@@ -371,6 +390,7 @@ class SBF_OT_fit_skeleton_preview(Operator):
                     landmarks,
                 )
                 settings.rig_hand_pose = "RELAXED"
+                _invalidate_binding_results(settings, target)
             settings.rig_validation_state = "NOT_RUN"
             settings.rig_recommended_action = (
                 "Inspect handles and skeleton, then validate the fitted skeleton."
@@ -414,6 +434,7 @@ class SBF_OT_refit_from_corrections(Operator):
                     landmarks,
                 )
                 settings.rig_hand_pose = "RELAXED"
+                _invalidate_binding_results(settings, target)
                 settings.target_analysis_json = json.dumps(
                     {"analysis": analysis, "landmarks": landmarks},
                     sort_keys=True,

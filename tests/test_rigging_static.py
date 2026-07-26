@@ -112,6 +112,25 @@ class RiggingStaticTests(unittest.TestCase):
         self.assertIn("remove_spatially_impossible_weights", weights)
         self.assertIn("strict_plausible or bridge_plausible", weights)
 
+    def test_hand_fit_uses_forearm_corridor_and_editable_landmarks(self):
+        landmarks = (RIGGING / "landmarks.py").read_text(encoding="utf-8")
+        operators = (PACKAGE / "operators" / "rigging.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("def _hand_endpoint", landmarks)
+        self.assertIn("forearm continuation through side-confined hand corridor", landmarks)
+        self.assertIn('"hand_left",\n    "hand_right",\n    "hip_left"', landmarks)
+        self.assertIn("_rest_surface_points(obj)", landmarks)
+        self.assertIn("refresh_hand_landmarks", operators)
+        self.assertIn("_invalidate_binding_results(settings, target)", operators)
+
+    def test_fitted_validation_allows_only_owned_post_bind_state(self):
+        source = (RIGGING / "validation.py").read_text(encoding="utf-8")
+        self.assertIn("def _expected_binding_state_change", source)
+        self.assertIn('target.get("sbf_bound", False)', source)
+        self.assertIn("RIG_ARMATURE_MODIFIER", source)
+        self.assertIn("and not expected_binding_change", source)
+
     def test_animation_forge_uses_actual_analyzer_operator(self):
         source = (RIGGING / "acceptance_runner.py").read_text(encoding="utf-8")
         self.assertIn("bpy.ops.daf.analyze()", source)

@@ -4,7 +4,7 @@ Skin & Bones Forge is a Blender 5.1.2 add-on for rebuilding the base-color
 texture of a SPAR3D human mesh and building a validated production rig from
 the canonical Animate Anything humanoid skeleton.
 
-Version 0.6.5 implements one-click SPAR3D production-mesh intake, the Folsom
+Version 0.6.6 implements one-click SPAR3D production-mesh intake, the Folsom
 visual workflow, and production **Bones**:
 
 - Import a raw SPAR3D GLB, weld only exactly coincident seam vertices, prove
@@ -54,7 +54,7 @@ visual workflow, and production **Bones**:
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v0.6.5.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v0.6.6.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -86,8 +86,9 @@ For Bones, open/import the production target alongside the canonical rig,
 choose both objects, then use **Bones — Automatic Humanoid Rig** in order:
 **Analyze Canonical Rig**, **Analyze Target Humanoid**, **Generate Landmark
 Preview**, **Fit Skeleton Preview**, and **Validate Fitted Skeleton**. Move
-cyan handles and use **Refit From Corrections** when validation requests artist
-correction. Then choose the binding method and continue through **Bind
+cyan handles—including the two whole-hand endpoints—and use **Refit From
+Corrections** when validation requests artist correction. Do not rotate fitted
+rest bones directly in Edit Mode. Then continue through **Bind
 Production Character**, weight validation, pose tests, canonical Action tests,
 finalization, rigged GLB export, clean reimport, and Animation Forge
 acceptance. See [the rigging workflow](docs/rigging_workflow.md).
@@ -139,13 +140,13 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v0.6.5` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v0.6.6` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 
 ## Scope
 
-Version 0.6.5 completes the simplified-hand production contract and permanent
+Version 0.6.6 completes the simplified-hand production contract and permanent
 production-rigging slice. Optional hand shape-key authoring, animation polish,
 gore/damage authoring, batch processing, Rigify, paintable masks, and depth-map
 visibility remain downstream milestones.

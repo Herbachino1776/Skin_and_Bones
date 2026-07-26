@@ -6,7 +6,7 @@ import math
 
 from mathutils import Vector
 
-from ..constants import RIG_CONTRACT_PROPERTY
+from ..constants import RIG_ARMATURE_MODIFIER, RIG_CONTRACT_PROPERTY
 from .analysis import topology_snapshot
 from .fitting import bone_endpoint_map
 from .hands import hand_metrics
@@ -19,6 +19,31 @@ def _finite_vector(vector):
 
 def _diff(before, after, key):
     return before.get(key) == after.get(key)
+
+
+def _expected_binding_state_change(target, before, after, production_names):
+    """Accept only binding-owned group/modifier changes after an earlier bind."""
+
+    if not target.get("sbf_bound", False):
+        return False
+    production_names = set(production_names)
+    before_groups = [
+        name for name in before.get("vertex_groups", [])
+        if name not in production_names
+    ]
+    after_groups = [
+        name for name in after.get("vertex_groups", [])
+        if name not in production_names
+    ]
+    before_modifiers = [
+        name for name in before.get("armature_modifiers", [])
+        if name != RIG_ARMATURE_MODIFIER
+    ]
+    after_modifiers = [
+        name for name in after.get("armature_modifiers", [])
+        if name != RIG_ARMATURE_MODIFIER
+    ]
+    return before_groups == after_groups and before_modifiers == after_modifiers
 
 
 def validate_fitted_rig(target, canonical, fitted, contract, analysis, landmarks):
@@ -191,6 +216,12 @@ def validate_fitted_rig(target, canonical, fitted, contract, analysis, landmarks
     materials_unchanged = _diff(before, after, "materials")
     groups_unchanged = _diff(before, after, "vertex_groups")
     modifiers_unchanged = _diff(before, after, "armature_modifiers")
+    expected_binding_change = _expected_binding_state_change(
+        target,
+        before,
+        after,
+        production_names + contract.get("removed_bones", []),
+    )
     if not topology_unchanged:
         errors.append("Production target topology changed.")
     if not vertex_order_unchanged:
@@ -199,9 +230,9 @@ def validate_fitted_rig(target, canonical, fitted, contract, analysis, landmarks
         errors.append("Production target UV data changed.")
     if not materials_unchanged:
         errors.append("Production target material slots changed.")
-    if not groups_unchanged:
+    if not groups_unchanged and not expected_binding_change:
         errors.append("Production target vertex groups changed.")
-    if not modifiers_unchanged:
+    if not modifiers_unchanged and not expected_binding_change:
         errors.append("Production target armature modifiers changed.")
 
     confidence = confidence_summary(landmarks)
@@ -260,6 +291,7 @@ def validate_fitted_rig(target, canonical, fitted, contract, analysis, landmarks
         "materials_unchanged": materials_unchanged,
         "vertex_groups_unchanged": groups_unchanged,
         "armature_modifiers_unchanged": modifiers_unchanged,
+        "expected_binding_state_change": expected_binding_change,
         "errors": errors,
         "warnings": warnings,
     }

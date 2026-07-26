@@ -34,6 +34,7 @@ from .landmarks import (
     apply_saved_corrections,
     confidence_summary,
     estimate_landmarks,
+    refresh_hand_landmarks,
     reset_corrections,
     save_corrections,
 )
@@ -95,6 +96,7 @@ __all__ = (
     "derive_simplified_contract",
     "encode_analysis",
     "estimate_landmarks",
+    "refresh_hand_landmarks",
     "export_rigged_glb",
     "fit_skeleton_preview",
     "finalize_production_rig",

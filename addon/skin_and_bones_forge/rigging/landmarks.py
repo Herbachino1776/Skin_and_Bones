@@ -6,7 +6,7 @@ import json
 
 from mathutils import Vector
 
-from .analysis import axis_vector, evaluated_points
+from .analysis import axis_vector
 from ..constants import RIG_CORRECTIONS_PROPERTY
 
 
@@ -50,6 +50,8 @@ EDITABLE_LANDMARKS = (
     "elbow_right",
     "wrist_left",
     "wrist_right",
+    "hand_left",
+    "hand_right",
     "hip_left",
     "hip_right",
     "knee_left",
@@ -61,6 +63,12 @@ EDITABLE_LANDMARKS = (
 
 def _rounded(vector):
     return [round(float(value), 6) for value in vector]
+
+
+def _rest_surface_points(obj):
+    """Return authoritative undeformed production vertices in world space."""
+
+    return [obj.matrix_world @ vertex.co for vertex in obj.data.vertices]
 
 
 def _slice(points, up, height, fraction, radius=0.025):
@@ -109,8 +117,45 @@ def _side_point(
     )
 
 
+def _hand_endpoint(points, center, lateral, elbow, wrist, height, side):
+    """Continue the forearm through a side-confined hand surface corridor."""
+
+    forearm = wrist - elbow
+    if forearm.length <= 1.0e-8:
+        return wrist, 0.4, "degenerate forearm fallback"
+    direction = forearm.normalized()
+    wrist_lateral = (wrist - center).dot(lateral) * side
+    candidates = []
+    for point in points:
+        offset = point - wrist
+        projection = offset.dot(direction)
+        radial = (offset - direction * projection).length
+        point_lateral = (point - center).dot(lateral) * side
+        if (
+            0.0 < projection <= height * 0.14
+            and radial <= height * 0.05
+            and point_lateral >= wrist_lateral * 0.70
+        ):
+            candidates.append(projection)
+    if len(candidates) >= 8:
+        candidates.sort()
+        projection = candidates[int((len(candidates) - 1) * 0.90)]
+        length = min(max(projection, height * 0.055), height * 0.095)
+        return (
+            wrist + direction * length,
+            0.88,
+            "forearm continuation through side-confined hand corridor",
+        )
+    length = min(max(forearm.length * 0.52, height * 0.055), height * 0.09)
+    return (
+        wrist + direction * length,
+        0.68,
+        "forearm-proportion hand fallback",
+    )
+
+
 def estimate_landmarks(context, obj, analysis):
-    points = evaluated_points(context, obj)
+    points = _rest_surface_points(obj)
     up = axis_vector(analysis["up_axis"])
     forward = axis_vector(analysis["forward_axis"])
     lateral = Vector(analysis["lateral_axis_world"])
@@ -157,7 +202,6 @@ def estimate_landmarks(context, obj, analysis):
         "shoulder": (0.775, 0.72, 0.84),
         "elbow": (0.655, 0.58, 0.92),
         "wrist": (0.535, 0.50, 0.90),
-        "hand": (0.49, 0.46, 0.78),
         "hip": (0.505, 0.72, 0.82),
         "knee": (0.285, 0.64, 0.88),
         "ankle": (0.065, 0.58, 0.86),
@@ -188,6 +232,26 @@ def estimate_landmarks(context, obj, analysis):
                 f"evaluated mesh slice at {fraction:.3f} height",
                 warning,
             )
+
+    for suffix, side in (("left", 1.0), ("right", -1.0)):
+        elbow = Vector(landmarks[f"elbow_{suffix}"]["world"])
+        wrist = Vector(landmarks[f"wrist_{suffix}"]["world"])
+        hand, confidence, method = _hand_endpoint(
+            points,
+            center,
+            lateral,
+            elbow,
+            wrist,
+            height,
+            side,
+        )
+        add(
+            f"hand_{suffix}",
+            hand,
+            confidence,
+            method,
+            "Inspect palm direction before binding." if confidence < 0.75 else "",
+        )
 
     for suffix, side in (("left", 1.0), ("right", -1.0)):
         ankle = Vector(landmarks[f"ankle_{suffix}"]["world"])
@@ -239,6 +303,43 @@ def apply_saved_corrections(obj, landmarks):
     return landmarks
 
 
+def refresh_hand_landmarks(context, obj, analysis, landmarks):
+    """Recompute automatic hand endpoints after elbow/wrist corrections."""
+
+    points = _rest_surface_points(obj)
+    center = Vector(analysis["centerline_world"])
+    lateral = Vector(analysis["lateral_axis_world"])
+    height = float(analysis["world_height"])
+    inverse = obj.matrix_world.inverted_safe()
+    for suffix, side in (("left", 1.0), ("right", -1.0)):
+        name = f"hand_{suffix}"
+        if landmarks[name].get("method") == "artist correction":
+            continue
+        elbow = Vector(landmarks[f"elbow_{suffix}"]["world"])
+        wrist = Vector(landmarks[f"wrist_{suffix}"]["world"])
+        hand, confidence, method = _hand_endpoint(
+            points,
+            center,
+            lateral,
+            elbow,
+            wrist,
+            height,
+            side,
+        )
+        landmarks[name] = {
+            "object": _rounded(inverse @ hand),
+            "world": _rounded(hand),
+            "confidence": round(float(confidence), 3),
+            "method": method,
+            "warning": (
+                "Inspect palm direction before binding."
+                if confidence < 0.75
+                else ""
+            ),
+        }
+    return landmarks
+
+
 def save_corrections(obj, corrections):
     stable = {
         name: _rounded(Vector(position))
@@ -265,4 +366,3 @@ def confidence_summary(landmarks):
         "low_count": len(low),
         "low_landmarks": low,
     }
-
