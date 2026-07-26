@@ -12,7 +12,7 @@ bl_info = {
     "name": "Skin & Bones Forge",
     "author": "Skin & Bones Forge contributors",
     # Blender's add-on scanner parses bl_info with ast.literal_eval.
-    "version": (0, 6, 4),
+    "version": (0, 6, 5),
     "blender": (5, 1, 2),
     "location": "3D Viewport > Sidebar > Skin & Bones Forge",
     "description": (

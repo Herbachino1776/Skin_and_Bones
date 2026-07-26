@@ -109,6 +109,8 @@ class RiggingStaticTests(unittest.TestCase):
         weights = (RIGGING / "weights.py").read_text(encoding="utf-8")
         self.assertIn("VOXEL_HEAT_NOISE_THRESHOLD = 0.002", weights)
         self.assertIn("max(float(threshold), VOXEL_HEAT_NOISE_THRESHOLD)", weights)
+        self.assertIn("remove_spatially_impossible_weights", weights)
+        self.assertIn("strict_plausible or bridge_plausible", weights)
 
     def test_animation_forge_uses_actual_analyzer_operator(self):
         source = (RIGGING / "acceptance_runner.py").read_text(encoding="utf-8")

@@ -6,7 +6,7 @@ Open the SPAR3D `.blend` or import its GLB. Keep a source copy. The add-on
 works in memory and writes to new output paths by default, but source control
 is still good production hygiene.
 
-Start with **0. SPAR3D Intake & Mesh Prep**. Version 0.6.4 imports the raw GLB,
+Start with **0. SPAR3D Intake & Mesh Prep**. Version 0.6.5 imports the raw GLB,
 selects the plausible production mesh, exact-welds duplicated seam positions,
 preserves face-corner UVs and normals, and normalizes the clean target to 1.50 m.
 The downstream target contract expects:
@@ -165,7 +165,7 @@ boneless base asset for a separate rigging project.
 
 ## Build the production Bones rig
 
-Version 0.6.4 fits, binds, tests, and exports the production rig. Keep the
+Version 0.6.5 fits, binds, tests, and exports the production rig. Keep the
 canonical rig and production target in the same file, expand **Bones —
 Automatic Humanoid Rig**, and follow the focused workflow in
 [rigging_workflow.md](rigging_workflow.md). Preview objects live in the owned

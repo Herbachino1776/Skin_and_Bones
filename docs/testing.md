@@ -55,7 +55,7 @@ The release ZIP must contain a single top-level `skin_and_bones_forge/`
 package and no `__pycache__` or fixture assets.
 
 Every push to `main` runs these static checks on GitHub Actions and uploads
-`Skin_and_Bones_Forge_v0.6.4` as a 30-day workflow artifact.
+`Skin_and_Bones_Forge_v0.6.5` as a 30-day workflow artifact.
 
 To exercise texture projection and baking on the exact-welded production mesh,
 run the Blender harness directly with `--prepare-spar3d`. The ordinary wrapper

@@ -507,6 +507,80 @@ def attenuate_remote_limb_weights(target, fitted, analysis, weights):
     }
 
 
+def remove_spatially_impossible_weights(
+    target,
+    fitted,
+    analysis,
+    weights,
+    components,
+    membership,
+    influence_limit,
+):
+    """Remove exactly the influences that production validation would reject."""
+
+    points = [target.matrix_world @ vertex.co for vertex in target.data.vertices]
+    segments = _bone_segments(fitted)
+    height = float(analysis["world_height"])
+    preferred_families, _branch_corrections = _topology_preferred_families(
+        target, points, segments
+    )
+    cleaned = []
+    corrected_vertices = 0
+    removed_influences = 0
+    fallback_vertices = 0
+    for index, values in enumerate(weights):
+        component = components[membership[index]]
+        tiny = component["classification"] == "TINY_FLOATING_FRAGMENT"
+        side, distances, nearest = _spatial_context(
+            points[index], analysis, segments
+        )
+        retained = {}
+        for name, value in values.items():
+            strict_plausible = _spatially_plausible(
+                name,
+                side,
+                distances,
+                nearest,
+                height,
+                max_hierarchy_steps=(None if tiny else MAX_FALLBACK_HIERARCHY_STEPS),
+                preferred_family=(None if tiny else preferred_families[index]),
+            )
+            bridge_plausible = _spatially_plausible(
+                name,
+                side,
+                distances,
+                nearest,
+                height,
+                max_hierarchy_steps=None,
+                margin_ratio=0.14,
+            )
+            if strict_plausible or bridge_plausible:
+                retained[name] = value
+            else:
+                removed_influences += 1
+        if len(retained) != len(values):
+            corrected_vertices += 1
+        if not retained:
+            retained = _spatial_fallback_weights(
+                points[index],
+                analysis,
+                segments,
+                influence_limit,
+                rigid=tiny,
+                preferred_family=(None if tiny else preferred_families[index]),
+            )
+            fallback_vertices += 1
+        total = math.fsum(retained.values())
+        cleaned.append(
+            {name: value / total for name, value in retained.items()}
+        )
+    return cleaned, {
+        "spatial_validation_corrected_vertices": corrected_vertices,
+        "spatial_validation_removed_influences": removed_influences,
+        "spatial_validation_fallback_vertices": fallback_vertices,
+    }
+
+
 def _barycentric_weights(point, triangle):
     a, b, c = triangle
     result = geometry.barycentric_transform(
@@ -1885,6 +1959,15 @@ def bind_production_character(
             cleaned, remote_limb_cleanup = attenuate_remote_limb_weights(
                 target, fitted, analysis, cleaned
             )
+            cleaned, spatial_cleanup = remove_spatially_impossible_weights(
+                target,
+                fitted,
+                analysis,
+                cleaned,
+                components,
+                membership,
+                influence_limit,
+            )
             cleanup = {
                 "voxel_heat_proxy_vertices": voxel_heat_report["proxy_vertices"],
                 "voxel_heat_proxy_triangles": voxel_heat_report["proxy_triangles"],
@@ -1898,6 +1981,7 @@ def bind_production_character(
                     + final_side_cleanup["anatomical_side_removed_influences"]
                 ),
                 **remote_limb_cleanup,
+                **spatial_cleanup,
             }
             donor_source = voxel_heat_report["method"]
         else:
