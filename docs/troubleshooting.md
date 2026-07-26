@@ -173,6 +173,12 @@ voxel transfer. Do not repair this by moving hand bones, splitting the mesh, or
 assigning the affected region rigidly to root; those approaches introduce new
 rest-orientation or deformation seams.
 
+Version 0.6.8 also prevents millimeter-scale rest edges from failing solely on
+a large ratio during an otherwise coherent collapse. An edge is blocking only
+when it exceeds both the 4.5x stretch ratio and 4% of character height after
+deformation. Large pelvis fans remain blocking; short, visually coherent robe
+or shoulder folds do not.
+
 ## Animation Forge rejects the GLB
 
 First run **Validate Clean Reimport**. Then verify **Animation Forge

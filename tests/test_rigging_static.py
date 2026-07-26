@@ -171,6 +171,9 @@ class RiggingStaticTests(unittest.TestCase):
         weights = (RIGGING / "weights.py").read_text(encoding="utf-8")
         self.assertIn("maximum_edge_stretch_ratio", deformation)
         self.assertIn("blocking_separated_components", deformation)
+        self.assertIn("DEFAULT_EDGE_DEFORMED_LENGTH_RATIO = 0.04", deformation)
+        self.assertIn('item["deformed_length"]', deformation)
+        self.assertIn('height * edge_deformed_length_limit', deformation)
         self.assertIn("palette_reconciliation_iterations", weights)
         self.assertIn("maximum_edge_weight_delta_after", weights)
 

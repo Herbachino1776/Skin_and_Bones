@@ -20,6 +20,10 @@ DEFAULT_SEPARATION_BOUNDS_RATIO = 1.35
 # broken fixture produces 18x walk edges and 20-30x isolated-bone fans, so this
 # remains a conservative detector for anchored/ghosting deformation.
 DEFAULT_EDGE_STRETCH_RATIO = 4.5
+# A ratio alone is unstable on millimeter-scale edges. Require the deformed
+# edge to also span a material fraction of character height; the known pelvis
+# fan reaches 8% height while the accepted collapse fold remains below 4%.
+DEFAULT_EDGE_DEFORMED_LENGTH_RATIO = 0.04
 MEANINGFUL_WEIGHT = 0.0001
 
 ISOLATED_BONES = (
@@ -380,6 +384,7 @@ def _frame_metrics(
     displacement_limit,
     separation_limit,
     edge_stretch_limit,
+    edge_deformed_length_limit=DEFAULT_EDGE_DEFORMED_LENGTH_RATIO,
 ):
     rest_minimum, rest_maximum = _bounds(rest_points)
     minimum, maximum = _bounds(points)
@@ -458,7 +463,11 @@ def _frame_metrics(
         item
         for item in edge_strain
         if not math.isfinite(item["stretch_ratio"])
-        or item["stretch_ratio"] > edge_stretch_limit
+        or (
+            item["stretch_ratio"] > edge_stretch_limit
+            and item["deformed_length"]
+            > height * edge_deformed_length_limit
+        )
     ]
     safe = (
         not non_finite
@@ -575,6 +584,7 @@ def scan_action_deformation(
     displacement_limit=DEFAULT_VERTEX_DISPLACEMENT_RATIO,
     separation_limit=DEFAULT_COMPONENT_SEPARATION_RATIO,
     edge_stretch_limit=DEFAULT_EDGE_STRETCH_RATIO,
+    edge_deformed_length_limit=DEFAULT_EDGE_DEFORMED_LENGTH_RATIO,
 ):
     """Evaluate every requested Action frame and restore all touched state."""
 
@@ -624,6 +634,7 @@ def scan_action_deformation(
                 displacement_limit,
                 separation_limit,
                 edge_stretch_limit,
+                edge_deformed_length_limit,
             )
             score = max(
                 metrics["bounds_ratio"],
@@ -701,6 +712,9 @@ def scan_action_deformation(
                 "component_separation_height_ratio": separation_limit,
                 "separation_bounds_ratio": DEFAULT_SEPARATION_BOUNDS_RATIO,
                 "edge_stretch_ratio": edge_stretch_limit,
+                "edge_deformed_length_height_ratio": (
+                    edge_deformed_length_limit
+                ),
             },
             "first_unsafe_frame": first_unsafe,
             "worst_frame": worst_frame,
