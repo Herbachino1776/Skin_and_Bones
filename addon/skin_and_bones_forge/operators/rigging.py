@@ -587,7 +587,7 @@ class SBF_OT_bind_production_character(Operator):
                     influence_limit=settings.rig_influence_limit,
                     force_failure=settings.rig_force_binding_failure,
                 )
-                # Existing .blend files may persist the pre-0.6.3 donor mode.
+                # Existing .blend files may persist the legacy donor mode.
                 # Record the method only after the transactional bind succeeds.
                 settings.rig_binding_method = "VOXEL_HEAT_PROXY"
             _store_weight_report(settings, report)

@@ -39,6 +39,7 @@ VOXEL_HEAT_RESOLUTION = 224
 VOXEL_HEAT_SMOOTHING_ITERATIONS = 16
 VOXEL_HEAT_SMOOTHING_FACTOR = 0.5
 VOXEL_HEAT_INTERMEDIATE_INFLUENCES = 8
+VOXEL_HEAT_NOISE_THRESHOLD = 0.002
 
 PRODUCTION_BONE_PARENTS = {
     "root": None,
@@ -1941,6 +1942,11 @@ def bind_production_character(
                     fallback_proxy=proxy,
                 )
             donor_source = donor.get("sbf_donor_source", "")
+        final_threshold = (
+            max(float(threshold), VOXEL_HEAT_NOISE_THRESHOLD)
+            if mode == "VOXEL_HEAT_PROXY"
+            else threshold
+        )
         coverage_repairs = _ensure_deform_group_coverage(
             target,
             fitted,
@@ -1949,7 +1955,7 @@ def bind_production_character(
             membership,
             cleaned,
             influence_limit,
-            threshold=threshold,
+            threshold=final_threshold,
         )
         cleanup["empty_group_repairs"] = len(coverage_repairs)
         cleanup["empty_group_repair_vertices"] = sum(
@@ -1958,9 +1964,10 @@ def bind_production_character(
         cleanup["empty_group_repair_groups"] = sorted(coverage_repairs)
         cleaned, final_cleanup = _canonicalize_final_weights(
             cleaned,
-            threshold,
+            final_threshold,
             influence_limit,
         )
+        cleanup["final_weight_threshold"] = final_threshold
         cleanup.update(final_cleanup)
         for modifier in list(target.modifiers):
             if _is_owned_armature_modifier(modifier):
