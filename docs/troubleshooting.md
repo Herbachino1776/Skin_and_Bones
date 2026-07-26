@@ -157,6 +157,12 @@ non-normalized, invalid, non-deform, over-limit, missing, or empty deform
 groups. Re-run binding after changing the method or tiny-weight threshold;
 repeated binding replaces owned groups and the owned Armature modifier.
 
+Version 1.0.0 retains the canonical `root` bone but forbids it from directly
+weighting production-surface vertices. Root-motion Actions and hierarchy remain
+intact because child bones inherit root transforms. Any transferred root weight
+is redistributed before final normalization, preventing pelvis or groin cloth
+from remaining near the origin while the body collapses.
+
 ## Canonical Actions explode on the fitted rig
 
 Do not apply the original source Actions directly to the identity-space fitted

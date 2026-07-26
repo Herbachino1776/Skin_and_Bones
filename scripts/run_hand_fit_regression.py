@@ -55,6 +55,26 @@ for side in ("left", "right"):
 full_results = {}
 if os.environ.get("SBF_FULL_RIG_REGRESSION") == "1":
     bind_result = bpy.ops.sbf.bind_production_character()
+    target = settings.target_object
+    root_group = target.vertex_groups.get("root")
+    assert root_group is not None
+    root_surface_vertices = (
+        sum(
+            1
+            for vertex in target.data.vertices
+            if root_group is not None
+            and any(
+                item.group == root_group.index and item.weight >= 1.0e-4
+                for item in vertex.groups
+            )
+        )
+        if root_group is not None
+        else 0
+    )
+    assert root_surface_vertices == 0, root_surface_vertices
+    audit_result = bpy.ops.sbf.validate_production_weights()
+    assert "FINISHED" in audit_result
+    assert settings.rig_weight_status == "READY_FOR_ANIMATION_TEST"
     try:
         pose_result = bpy.ops.sbf.run_pose_torture_tests()
     except RuntimeError:
@@ -99,7 +119,9 @@ if os.environ.get("SBF_FULL_RIG_REGRESSION") == "1":
         assert action_report.get("status") == "CANONICAL_ACTIONS_PASSED"
     full_results = {
         "bind": sorted(bind_result),
+        "weight_audit": sorted(audit_result),
         "weights": settings.rig_weight_status,
+        "root_surface_vertices": root_surface_vertices,
         "pose": sorted(pose_result),
         "pose_status": settings.rig_pose_test_status,
         "action": sorted(action_result),

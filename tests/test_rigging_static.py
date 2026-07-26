@@ -166,6 +166,13 @@ class RiggingStaticTests(unittest.TestCase):
         clean_source = ast.unparse(function)
         self.assertNotIn("_region_allowed", clean_source)
 
+    def test_root_is_retained_but_cannot_anchor_surface_weights(self):
+        source = (RIGGING / "weights.py").read_text(encoding="utf-8")
+        self.assertIn('NON_SURFACE_DEFORM_BONES = frozenset({"root"})', source)
+        self.assertIn("def remove_root_surface_weights", source)
+        self.assertIn('"prohibited_surface_weight_vertices"', source)
+        self.assertIn("deform_names - NON_SURFACE_DEFORM_BONES", source)
+
     def test_deformation_gate_uses_edges_and_palette_continuity(self):
         deformation = (RIGGING / "deformation.py").read_text(encoding="utf-8")
         weights = (RIGGING / "weights.py").read_text(encoding="utf-8")

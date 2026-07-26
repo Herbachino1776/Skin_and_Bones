@@ -40,6 +40,7 @@ VOXEL_HEAT_SMOOTHING_ITERATIONS = 16
 VOXEL_HEAT_SMOOTHING_FACTOR = 0.5
 VOXEL_HEAT_INTERMEDIATE_INFLUENCES = 8
 VOXEL_HEAT_NOISE_THRESHOLD = 0.002
+NON_SURFACE_DEFORM_BONES = frozenset({"root"})
 
 PRODUCTION_BONE_PARENTS = {
     "root": None,
@@ -1274,6 +1275,70 @@ def _fallback_weights(
     return {name: value / total for name, value in values.items()}
 
 
+def remove_root_surface_weights(
+    target,
+    fitted,
+    analysis,
+    weights,
+    influence_limit,
+    preferred_families=None,
+):
+    """Keep the root bone for hierarchy while removing direct surface anchoring."""
+
+    points = [target.matrix_world @ vertex.co for vertex in target.data.vertices]
+    segments = {
+        name: segment
+        for name, segment in _bone_segments(fitted).items()
+        if name not in NON_SURFACE_DEFORM_BONES
+    }
+    if preferred_families is None:
+        preferred_families, _corrections = _topology_preferred_families(
+            target, points, segments
+        )
+    cleaned = []
+    affected_vertices = 0
+    affected_indices = []
+    fallback_vertices = 0
+    removed_weight = 0.0
+    for index, source_values in enumerate(weights):
+        values = {
+            name: float(value)
+            for name, value in source_values.items()
+            if name not in NON_SURFACE_DEFORM_BONES and value > 0.0
+        }
+        root_weight = sum(
+            float(value)
+            for name, value in source_values.items()
+            if name in NON_SURFACE_DEFORM_BONES and value > 0.0
+        )
+        if root_weight > 0.0:
+            affected_vertices += 1
+            affected_indices.append(index)
+            removed_weight += root_weight
+            values["body"] = values.get("body", 0.0) + root_weight
+        if not values:
+            values = _spatial_fallback_weights(
+                points[index],
+                analysis,
+                segments,
+                influence_limit,
+                preferred_family=preferred_families[index],
+            )
+            fallback_vertices += 1
+        ranked = sorted(values.items(), key=lambda item: (-item[1], item[0]))[
+            :influence_limit
+        ]
+        total = math.fsum(value for _name, value in ranked)
+        cleaned.append({name: value / total for name, value in ranked})
+    return cleaned, {
+        "root_surface_vertices_cleared": affected_vertices,
+        "root_surface_weight_removed": round(removed_weight, 6),
+        "root_surface_fallback_vertices": fallback_vertices,
+        "non_surface_deform_bones": sorted(NON_SURFACE_DEFORM_BONES),
+        "_root_surface_successor_vertices": affected_indices,
+    }
+
+
 def clean_weights(
     target,
     fitted,
@@ -1405,7 +1470,16 @@ def clean_weights(
         preferred_families,
         influence_limit,
     )
+    cleaned, root_cleanup = remove_root_surface_weights(
+        target,
+        fitted,
+        analysis,
+        cleaned,
+        influence_limit,
+        preferred_families,
+    )
     stats.update(continuity)
+    stats.update(root_cleanup)
     stats["topology_branch_label_corrections"] = branch_corrections
     stats["repaired_components"] = len(repaired_components)
     return cleaned, dict(stats)
@@ -1569,6 +1643,7 @@ def validate_production_weights(
     components,
     threshold=DEFAULT_WEIGHT_THRESHOLD,
     influence_limit=DEFAULT_INFLUENCE_LIMIT,
+    root_successor_vertices=(),
 ):
     deform_names = {bone.name for bone in fitted.data.bones if bone.use_deform}
     group_by_index = {group.index: group.name for group in target.vertex_groups}
@@ -1595,6 +1670,7 @@ def validate_production_weights(
     preferred_families, _branch_corrections = _topology_preferred_families(
         target, points, segments
     )
+    root_successor_vertices = set(root_successor_vertices)
     for vertex in target.data.vertices:
         component = components[membership[vertex.index]]
         point_region, _coarse_side = _point_anatomy(
@@ -1653,7 +1729,14 @@ def validate_production_weights(
                     max_hierarchy_steps=None,
                     margin_ratio=0.14,
                 )
-                if not (strict_plausible or bridge_plausible):
+                intentional_root_successor = (
+                    name == "body" and vertex.index in root_successor_vertices
+                )
+                if not (
+                    strict_plausible
+                    or bridge_plausible
+                    or intentional_root_successor
+                ):
                     impossible += 1
                     impossible_components.add(membership[vertex.index])
                     if len(impossible_examples) < 20:
@@ -1700,7 +1783,20 @@ def validate_production_weights(
     missing_groups = sorted(
         name for name in deform_names if target.vertex_groups.get(name) is None
     )
-    empty_groups = sorted(name for name in deform_names if usage[name] == 0)
+    empty_groups = sorted(
+        name
+        for name in deform_names - NON_SURFACE_DEFORM_BONES
+        if usage[name] == 0
+    )
+    prohibited_surface_weight_vertices = sum(
+        1
+        for vertex in target.data.vertices
+        if any(
+            group_by_index.get(item.group) in NON_SURFACE_DEFORM_BONES
+            and float(item.weight) >= threshold
+            for item in vertex.groups
+        )
+    )
     armature_modifiers = [
         modifier
         for modifier in target.modifiers
@@ -1748,6 +1844,7 @@ def validate_production_weights(
         or impossible
         or not bind_matrices_consistent
         or left_right_inversion
+        or prohibited_surface_weight_vertices
     )
     review = bool(empty_groups or opposite)
     status = (
@@ -1794,6 +1891,14 @@ def validate_production_weights(
         "non_deform_weights": non_deform,
         "missing_required_deform_groups": missing_groups,
         "empty_deform_groups": empty_groups,
+        "non_surface_deform_bones": sorted(NON_SURFACE_DEFORM_BONES),
+        "prohibited_surface_weight_vertices": (
+            prohibited_surface_weight_vertices
+        ),
+        "root_surface_successor_vertices": len(root_successor_vertices),
+        "root_surface_successor_vertex_indices": sorted(
+            root_successor_vertices
+        ),
         "opposite_side_contamination": opposite,
         "anatomically_impossible_weights": impossible,
         "anatomically_impossible_components": sorted(impossible_components),
@@ -1875,6 +1980,7 @@ def audit_production_weights(
         components,
         threshold,
         influence_limit,
+        prior_report.get("root_surface_successor_vertex_indices") or [],
     )
     for key in (
         "donor_source",
@@ -2018,6 +2124,14 @@ def bind_production_character(
                 palette_iterations=128,
                 palette_edge_limit=0.015,
             )
+            cleaned, root_cleanup = remove_root_surface_weights(
+                target,
+                fitted,
+                analysis,
+                cleaned,
+                influence_limit,
+                preferred_families,
+            )
             cleanup = {
                 "voxel_heat_proxy_vertices": voxel_heat_report["proxy_vertices"],
                 "voxel_heat_proxy_triangles": voxel_heat_report["proxy_triangles"],
@@ -2032,6 +2146,7 @@ def bind_production_character(
                 ),
                 **remote_limb_cleanup,
                 **spatial_cleanup,
+                **root_cleanup,
                 **continuity_cleanup,
             }
             donor_source = voxel_heat_report["method"]
@@ -2077,6 +2192,9 @@ def bind_production_character(
                     fallback_proxy=proxy,
                 )
             donor_source = donor.get("sbf_donor_source", "")
+        root_successor_vertices = cleanup.pop(
+            "_root_surface_successor_vertices", []
+        )
         final_threshold = (
             max(float(threshold), VOXEL_HEAT_NOISE_THRESHOLD)
             if mode == "VOXEL_HEAT_PROXY"
@@ -2085,7 +2203,11 @@ def bind_production_character(
         coverage_repairs = _ensure_deform_group_coverage(
             target,
             fitted,
-            deform_names,
+            [
+                name
+                for name in deform_names
+                if name not in NON_SURFACE_DEFORM_BONES
+            ],
             components,
             membership,
             cleaned,
@@ -2141,6 +2263,7 @@ def bind_production_character(
             components,
             threshold,
             influence_limit,
+            root_successor_vertices,
         )
         report["donor_source"] = donor_source
         report["binding_method"] = mode

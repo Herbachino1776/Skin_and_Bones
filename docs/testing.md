@@ -55,7 +55,7 @@ The release ZIP must contain a single top-level `skin_and_bones_forge/`
 package and no `__pycache__` or fixture assets.
 
 Every push to `main` runs these static checks on GitHub Actions and uploads
-`Skin_and_Bones_Forge_v0.6.8` as a 30-day workflow artifact.
+`Skin_and_Bones_Forge_v1.0.0` as a 30-day workflow artifact.
 
 To exercise texture projection and baking on the exact-welded production mesh,
 run the Blender harness directly with `--prepare-spar3d`. The ordinary wrapper
@@ -89,7 +89,8 @@ slots. It also proves deterministic `DSB_SIMPLE_HANDS_V1` generation, exact
 36-bone descendant exclusion, both retained hand bones and parents, donor
 finger-weight merging, no removed deform groups, and unchanged source
 Actions/NLA. Production coverage includes forced transaction rollback,
-idempotent rebinding, all 21 production deform groups, one Armature modifier,
+idempotent rebinding, all 20 surface deform groups plus an intentionally empty
+root group, one Armature modifier,
 zero unweighted or non-normalized vertices, four maximum influences,
 component/proxy cleanup, 14 pose tests, five filtered production Actions,
 clean GLB reimport with no removed channels, and Dreadstone Animation Forge's

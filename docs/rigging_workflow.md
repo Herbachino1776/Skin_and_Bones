@@ -81,7 +81,8 @@ on compatible four-bone palettes so collapse Actions cannot fan open a seam.
 
 Cleanup removes invalid, tiny, non-deform, opposite-side, and anatomically
 impossible influences; smooths transfer only across real production edges;
-repairs structurally empty deform groups; limits vertices to four influences;
+redistributes direct root influence to compatible body or limb bones; repairs
+other structurally empty deform groups; limits vertices to four influences;
 and normalizes again. The reconciliation intentionally prioritizes deformation
 quality over a quick bind and may take about one to two minutes on a detailed
 character. The target's
@@ -91,9 +92,10 @@ groups, metadata, selection, mode, frame, and animation state.
 
 Use **Validate Production Weights** to refresh the machine-readable report.
 `READY_FOR_ANIMATION_TEST` requires zero unweighted or non-normalized vertices,
-zero invalid/non-deform weights, no vertices over the configured limit, all 21
-production deform groups populated, no removed finger groups, and exactly one
-owned Armature modifier.
+zero invalid/non-deform weights, no vertices over the configured limit, all 20
+surface-deforming groups populated, an empty `root` surface group, no removed
+finger groups, and exactly one owned Armature modifier. The retained `root`
+bone still drives hierarchy and root motion through its children.
 
 ## Test and finalize
 

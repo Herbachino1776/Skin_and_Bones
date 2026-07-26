@@ -75,6 +75,13 @@ deform = {bone.name for bone in armature.data.bones if bone.use_deform}
 assert len(deform) == 21
 assert not (removed & groups)
 assert not (removed & deform)
+root_group = target.vertex_groups.get("root")
+assert root_group is not None
+assert not any(
+    item.group == root_group.index and item.weight >= 1.0e-4
+    for vertex in target.data.vertices
+    for item in vertex.groups
+)
 
 analysis = json.loads(settings.target_analysis_json)["analysis"]
 up = Vector(analysis["up_axis_world"])
