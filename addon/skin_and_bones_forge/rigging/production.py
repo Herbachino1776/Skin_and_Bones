@@ -26,9 +26,11 @@ from .deformation import (
 from .fitting import OWNER
 from .poses import (
     PRODUCTION_TRACK_PREFIX,
+    canonical_expected_action_names,
     canonical_source_actions,
     create_production_actions,
     iter_action_fcurves,
+    production_action_semantic_name,
 )
 from .weights import clean_weighting_temporary_data, load_weight_report
 
@@ -426,7 +428,18 @@ def _validate_clean_reimport_in_process(
             modifier.type == "ARMATURE" for modifier in mesh.modifiers
         )
         uv_maps = [layer.name for layer in mesh.data.uv_layers]
-        expected_action_count = len(canonical_source_actions(contract)[0])
+        # A factory-clean process has only the GLB-imported production Actions,
+        # not the original canonical source datablocks.  Derive the expected
+        # count from the serialized contract instead of trying to resolve live
+        # source Actions that cannot exist here.
+        expected_action_names = canonical_expected_action_names(contract)
+        expected_action_count = len(expected_action_names)
+        imported_action_names = sorted(
+            {
+                production_action_semantic_name(action.name)
+                for action in new_actions
+            }
+        )
         profile_metadata_match = (
             armature.get("sbf_production_profile")
             == contract.get("profile_id")
@@ -442,7 +455,7 @@ def _validate_clean_reimport_in_process(
             and bool(materials)
             and bool(images)
             and bool(uv_maps)
-            and len(new_actions) == expected_action_count
+            and imported_action_names == expected_action_names
             and not removed_action_channels
             and profile_metadata_match
             and abs(float(height) - expected_height)
@@ -470,6 +483,10 @@ def _validate_clean_reimport_in_process(
             "textures": images,
             "uv_maps": uv_maps,
             "animation_inventory": [action.name for action in new_actions],
+            "expected_animation_inventory": expected_action_names,
+            "imported_semantic_animation_inventory": imported_action_names,
+            "expected_action_count": expected_action_count,
+            "imported_action_count": len(new_actions),
             "character_height": round(float(height), 6),
             "height_delta": round(abs(float(height) - expected_height), 6),
             "mesh_world_bounds": {

@@ -178,18 +178,36 @@ def _evaluate_safety(context, target, rest_points, height, safety_ratio):
         (point - rest).length for point, rest in zip(points, rest_points)
     ]
     max_displacement = max(displacements, default=0.0)
-    explosive = sum(value > height * 1.25 for value in displacements)
+    rest_center = (rest_min + rest_max) * 0.5
+    center = (minimum + maximum) * 0.5
+    global_translation = center - rest_center
+    max_relative_displacement = max(
+        (
+            point - rest - global_translation
+        ).length
+        for point, rest in zip(points, rest_points)
+    )
+    meaningful_deformation = max_displacement > height * 1.0e-5
+    explosive = sum(
+        (point - rest - global_translation).length > height * 1.25
+        for point, rest in zip(points, rest_points)
+    )
     safe = (
         not non_finite
         and not explosive
+        and meaningful_deformation
         and diagonal <= rest_diagonal * safety_ratio
-        and max_displacement <= height * 1.5
+        and max_relative_displacement <= height * 1.5
     )
     return {
         "safe": safe,
         "non_finite_vertices": non_finite,
         "explosive_vertices": explosive,
         "maximum_displacement": round(max_displacement, 6),
+        "maximum_relative_displacement": round(
+            max_relative_displacement, 6
+        ),
+        "meaningful_deformation": meaningful_deformation,
         "bounds_ratio": round(diagonal / max(rest_diagonal, 1.0e-8), 6),
         "bounds": {
             "minimum": [round(float(value), 6) for value in minimum],
@@ -386,6 +404,31 @@ def clean_owned_production_actions(armature=None):
     return removed
 
 
+def _semantic_action_name(name):
+    return re.sub(r"(?:\.\d{3})+$", "", name)
+
+
+def canonical_expected_action_names(contract):
+    """Return semantic Action names from the immutable saved contract."""
+
+    return sorted(
+        {
+            _semantic_action_name(item["name"])
+            for item in contract["animation_inventory"]["actions"]
+        }
+    )
+
+
+def production_action_semantic_name(name):
+    """Map an exported/imported production Action back to its contract name."""
+
+    for prefix in (PRODUCTION_TRACK_PREFIX, PRODUCTION_ACTION_PREFIX):
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+    return _semantic_action_name(name)
+
+
 def canonical_source_actions(contract):
     """Resolve one live Action per canonical semantic name.
 
@@ -394,16 +437,10 @@ def canonical_source_actions(contract):
     duplicate even though they represent one animation fixture.
     """
 
-    def semantic_name(name):
-        return re.sub(r"(?:\.\d{3})+$", "", name)
-
-    expected = {
-        semantic_name(item["name"])
-        for item in contract["animation_inventory"]["actions"]
-    }
+    expected = set(canonical_expected_action_names(contract))
     available = {}
     for action in sorted(bpy.data.actions, key=lambda item: item.name):
-        base = semantic_name(action.name)
+        base = _semantic_action_name(action.name)
         if base not in expected:
             continue
         current = available.get(base)

@@ -115,6 +115,56 @@ def _target(context, settings):
             target = active
     if target is None or target.type != "MESH":
         raise ValueError("Choose a production Target Mesh.")
+    if target.name not in context.view_layer.objects:
+        # Blender can preserve a PointerProperty to an object after that object
+        # has been unlinked from every scene collection.  Such an orphan still
+        # accepts vertex groups and modifiers, but the dependency graph never
+        # evaluates them.  Recover the unique visible intake twin when one
+        # exists (for example after an artist duplicates/replaces the clean
+        # object) instead of spending minutes binding a no-op target.
+        identity_keys = (
+            "sbf_intake_token",
+            "sbf_normalized_geometry_fingerprint",
+        )
+        candidates = [
+            obj
+            for obj in context.view_layer.objects
+            if obj.type == "MESH"
+            and obj != target
+            and all(target.get(key) and obj.get(key) == target.get(key)
+                    for key in identity_keys)
+        ]
+        if len(candidates) > 1:
+            raise ValueError(
+                f"Target Mesh '{target.name}' is not in the active scene. "
+                "Choose the intended visible production mesh; multiple intake "
+                "copies have the same identity."
+            )
+        # The stored pointer is the authoritative processed topology and may
+        # already carry artist corrections or a completed bind.  Swap it back
+        # into the scene in place of a unique glTF/reimport duplicate instead
+        # of silently changing the production target to split topology.
+        if candidates:
+            duplicate = candidates[0]
+            collections = list(duplicate.users_collection)
+            for collection in collections:
+                collection.objects.unlink(duplicate)
+        else:
+            collections = [context.scene.collection]
+        for collection in collections:
+            if target.name not in collection.objects:
+                collection.objects.link(target)
+        target.hide_viewport = False
+        try:
+            target.hide_set(False)
+        except RuntimeError:
+            pass
+        context.view_layer.update()
+        if target.name not in context.view_layer.objects:
+            raise ValueError(
+                f"Target Mesh '{target.name}' could not be restored to the "
+                "active scene; choose a visible production mesh."
+            )
     settings.target_object = target
     return target
 

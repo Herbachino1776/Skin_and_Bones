@@ -1339,6 +1339,98 @@ def remove_root_surface_weights(
     }
 
 
+def stabilize_bilateral_leg_bridges(target, fitted, analysis, weights):
+    """Keep center cloth/groin bridges from being torn by both thigh chains."""
+
+    body = fitted.data.bones.get("body")
+    left_hip = fitted.data.bones.get("leg_left_top")
+    right_hip = fitted.data.bones.get("leg_right_top")
+    if body is None or left_hip is None or right_hip is None:
+        return weights, {
+            "bilateral_leg_bridge_vertices": 0,
+            "bilateral_leg_bridge_weight_moved": 0.0,
+            "_bilateral_leg_bridge_vertex_indices": [],
+        }
+    height = float(analysis["world_height"])
+    lateral = Vector(analysis["lateral_axis_world"]).normalized()
+    up = Vector(analysis["up_axis_world"]).normalized()
+    center = Vector(analysis["centerline_world"])
+    ground = float(analysis["ground"])
+    hip_height = (
+        (fitted.matrix_world @ left_hip.head_local).dot(up)
+        + (fitted.matrix_world @ right_hip.head_local).dot(up)
+    ) * 0.5
+    bridge_seeds = []
+    for index, source_values in enumerate(weights):
+        point = target.matrix_world @ target.data.vertices[index].co
+        lateral_offset = abs((point - center).dot(lateral))
+        point_height = point.dot(up)
+        left_weight = math.fsum(
+            value
+            for name, value in source_values.items()
+            if name.startswith("leg_left_")
+        )
+        right_weight = math.fsum(
+            value
+            for name, value in source_values.items()
+            if name.startswith("leg_right_")
+        )
+        is_center_bridge = (
+            lateral_offset <= height * 0.12
+            and ground + height * 0.12 <= point_height <= hip_height + height * 0.03
+            and min(left_weight, right_weight) >= 0.02
+        )
+        if is_center_bridge:
+            bridge_seeds.append(index)
+
+    # Feather the pelvis influence over neighboring topology.  A hard body/
+    # thigh boundary merely moves the fan to the first edge outside the bridge.
+    adjacency = [set() for _vertex in target.data.vertices]
+    for edge in target.data.edges:
+        first, second = map(int, edge.vertices)
+        adjacency[first].add(second)
+        adjacency[second].add(first)
+    distance = {index: 0 for index in bridge_seeds}
+    frontier = set(bridge_seeds)
+    feather_rings = 8
+    for ring in range(1, feather_rings + 1):
+        next_frontier = {
+            neighbor
+            for index in frontier
+            for neighbor in adjacency[index]
+            if neighbor not in distance
+        }
+        for index in next_frontier:
+            distance[index] = ring
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    cleaned = []
+    moved = 0.0
+    for index, source_values in enumerate(weights):
+        ring = distance.get(index)
+        if ring is None:
+            cleaned.append(dict(source_values))
+            continue
+        body_blend = 0.9 * (1.0 - ring / (feather_rings + 1.0))
+        values = {
+            name: value * (1.0 - body_blend)
+            for name, value in source_values.items()
+        }
+        moved_here = math.fsum(source_values.values()) * body_blend
+        values["body"] = values.get("body", 0.0) + moved_here
+        total = math.fsum(values.values())
+        cleaned.append({name: value / total for name, value in values.items()})
+        moved += moved_here
+    return cleaned, {
+        "bilateral_leg_bridge_vertices": len(bridge_seeds),
+        "bilateral_leg_bridge_feathered_vertices": len(distance),
+        "bilateral_leg_bridge_weight_moved": round(moved, 6),
+        "_bilateral_leg_bridge_vertex_indices": sorted(distance),
+    }
+
+
 def clean_weights(
     target,
     fitted,
@@ -2025,6 +2117,12 @@ def bind_production_character(
 ):
     """Bind transactionally; restore every changed target field on failure."""
 
+    if target.name not in context.view_layer.objects:
+        raise ValueError(
+            f"Target Mesh '{target.name}' is not in the active scene; choose the "
+            "visible production mesh before binding."
+        )
+
     topology_before = topology_snapshot(target)
     groups_before = _snapshot_vertex_groups(target)
     parent_before = target.parent
@@ -2132,6 +2230,9 @@ def bind_production_character(
                 influence_limit,
                 preferred_families,
             )
+            cleaned, bridge_cleanup = stabilize_bilateral_leg_bridges(
+                target, fitted, analysis, cleaned
+            )
             cleanup = {
                 "voxel_heat_proxy_vertices": voxel_heat_report["proxy_vertices"],
                 "voxel_heat_proxy_triangles": voxel_heat_report["proxy_triangles"],
@@ -2147,6 +2248,7 @@ def bind_production_character(
                 **remote_limb_cleanup,
                 **spatial_cleanup,
                 **root_cleanup,
+                **bridge_cleanup,
                 **continuity_cleanup,
             }
             donor_source = voxel_heat_report["method"]
@@ -2194,6 +2296,11 @@ def bind_production_character(
             donor_source = donor.get("sbf_donor_source", "")
         root_successor_vertices = cleanup.pop(
             "_root_surface_successor_vertices", []
+        )
+        root_successor_vertices = sorted(
+            set(root_successor_vertices).union(
+                cleanup.pop("_bilateral_leg_bridge_vertex_indices", [])
+            )
         )
         final_threshold = (
             max(float(threshold), VOXEL_HEAT_NOISE_THRESHOLD)

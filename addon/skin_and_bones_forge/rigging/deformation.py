@@ -400,6 +400,11 @@ def _frame_metrics(
     ]
     rest_center = (rest_minimum + rest_maximum) * 0.5
     center = (minimum + maximum) * 0.5
+    global_translation = center - rest_center
+    relative_displacements = [
+        (point - rest - global_translation).length
+        for point, rest in zip(points, rest_points)
+    ]
     components = []
     for reference in component_reference:
         indices = reference["indices"]
@@ -440,7 +445,7 @@ def _frame_metrics(
     ]
     explosive = [
         index
-        for index, displacement in enumerate(displacements)
+        for index, displacement in enumerate(relative_displacements)
         if displacement > height * displacement_limit
     ]
     edge_strain = []
@@ -488,6 +493,10 @@ def _frame_metrics(
             (item["stretch_ratio"] for item in edge_strain), default=1.0
         ),
         "maximum_displacement": max(displacements, default=0.0),
+        "maximum_relative_displacement": max(
+            relative_displacements, default=0.0
+        ),
+        "global_translation": _vector(global_translation),
         "bounds_ratio": bounds_ratio,
         "bounds": {"minimum": _vector(minimum), "maximum": _vector(maximum)},
         "displacements": displacements,

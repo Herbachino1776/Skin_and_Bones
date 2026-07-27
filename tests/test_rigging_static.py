@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import math
+import re
 import unittest
 from pathlib import Path
 
@@ -152,6 +153,60 @@ class RiggingStaticTests(unittest.TestCase):
         self.assertIn("def canonical_source_actions", source)
         self.assertIn(r'(?:\.\d{3})+$', source)
         self.assertIn("actions, missing_actions = canonical_source_actions", source)
+        self.assertIn("def canonical_expected_action_names", source)
+        production = (RIGGING / "production.py").read_text(encoding="utf-8")
+        self.assertIn(
+            "expected_action_names = canonical_expected_action_names(contract)",
+            production,
+        )
+        self.assertIn(
+            "imported_action_names == expected_action_names",
+            production,
+        )
+        tree = ast.parse(source)
+        functions = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name in {
+                "_semantic_action_name",
+                "canonical_expected_action_names",
+                "production_action_semantic_name",
+            }
+        ]
+        namespace = {
+            "re": re,
+            "PRODUCTION_TRACK_PREFIX": "SBF_ProductionTrack_",
+            "PRODUCTION_ACTION_PREFIX": "SBF_Production_",
+        }
+        exec(
+            compile(ast.Module(body=functions, type_ignores=[]), str(RIGGING / "poses.py"), "exec"),
+            namespace,
+        )
+        contract = {
+            "animation_inventory": {
+                "actions": [
+                    {"name": "Walk"},
+                    {"name": "Walk.001"},
+                    {"name": "Death"},
+                    {"name": "Attack_A"},
+                    {"name": "Attack_B"},
+                    {"name": "Cast"},
+                    {"name": "Idle"},
+                    {"name": "Hurt"},
+                ]
+            }
+        }
+        self.assertEqual(
+            ["Attack_A", "Attack_B", "Cast", "Death", "Hurt", "Idle", "Walk"],
+            namespace["canonical_expected_action_names"](contract),
+        )
+        self.assertEqual(
+            "Attack_A",
+            namespace["production_action_semantic_name"](
+                "SBF_ProductionTrack_Attack_A.001"
+            ),
+        )
 
     def test_weight_repair_uses_fitted_bone_distance_not_hard_bins(self):
         source = (RIGGING / "weights.py").read_text(encoding="utf-8")
@@ -172,6 +227,19 @@ class RiggingStaticTests(unittest.TestCase):
         self.assertIn("def remove_root_surface_weights", source)
         self.assertIn('"prohibited_surface_weight_vertices"', source)
         self.assertIn("deform_names - NON_SURFACE_DEFORM_BONES", source)
+
+    def test_scene_targets_and_bilateral_pelvis_bridges_are_guarded(self):
+        operators = (PACKAGE / "operators" / "rigging.py").read_text(
+            encoding="utf-8"
+        )
+        weights = (RIGGING / "weights.py").read_text(encoding="utf-8")
+        poses = (RIGGING / "poses.py").read_text(encoding="utf-8")
+        deformation = (RIGGING / "deformation.py").read_text(encoding="utf-8")
+        self.assertIn("target.name not in context.view_layer.objects", operators)
+        self.assertIn("def stabilize_bilateral_leg_bridges", weights)
+        self.assertIn("bilateral_leg_bridge_feathered_vertices", weights)
+        self.assertIn("meaningful_deformation", poses)
+        self.assertIn("relative_displacements", deformation)
 
     def test_deformation_gate_uses_edges_and_palette_continuity(self):
         deformation = (RIGGING / "deformation.py").read_text(encoding="utf-8")

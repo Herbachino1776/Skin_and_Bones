@@ -173,17 +173,32 @@ scales only location channels by each fitted/source rest-bone length ratio.
 editing the originals.
 
 If only pelvis or robe vertices fan outward during a collapse, re-run **Bind
-Production Character** with version 0.6.7 or later. The binder now reconciles
-abrupt four-influence palette changes across short production-mesh edges after
-voxel transfer. Do not repair this by moving hand bones, splitting the mesh, or
-assigning the affected region rigidly to root; those approaches introduce new
-rest-orientation or deformation seams.
+Production Character** with version 1.0.1 or later. The binder detects connected
+center groin/robe bridges that received both left- and right-leg weights, moves
+their shared influence to the pelvis/body chain, and feathers the correction
+over neighboring topology. Do not repair this by moving hand bones, splitting
+the mesh, or assigning the affected region to root; those approaches introduce
+new rest-orientation or deformation seams.
 
 Version 0.6.8 also prevents millimeter-scale rest edges from failing solely on
 a large ratio during an otherwise coherent collapse. An edge is blocking only
 when it exceeds both the 4.5x stretch ratio and 4% of character height after
 deformation. Large pelvis fans remain blocking; short, visually coherent robe
 or shoulder folds do not.
+
+Version 1.0.1 also repairs a saved Target Mesh pointer that refers to the
+authoritative clean object after it was unlinked from the active scene. A
+unique visible intake/reimport duplicate is swapped out and the authoritative
+processed topology is restored before fitting or binding. Pose and Action
+tests reject zero-motion rigs, and collapse/root translation is evaluated
+relative to whole-character motion so a coherent fall is not mistaken for an
+exploding vertex.
+
+Version 1.0.2 fixes clean-reimport Action inventory validation. The
+factory-clean validator derives the expected semantic Action count from the
+serialized canonical contract; it no longer expects zero merely because the
+original source Action datablocks are intentionally absent from the clean
+process.
 
 ## Animation Forge rejects the GLB
 
