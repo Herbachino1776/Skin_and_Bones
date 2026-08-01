@@ -33,7 +33,7 @@ class IntakeStaticTests(unittest.TestCase):
             "sbf.remove_raw_spar3d",
         ):
             self.assertIn(identifier, operators)
-        self.assertIn('bl_label = "0. SPAR3D Intake & Mesh Prep"', panel)
+        self.assertIn('bl_label = "0. Character Setup"', panel)
         self.assertNotIn("MOD_WELD", panel)
         self.assertIn('icon="AUTOMERGE_ON"', panel)
         classes = ast.parse(panel)

@@ -2,6 +2,17 @@
 
 All notable changes follow semantic versioning.
 
+## 1.2.1 - 2026-08-01
+
+### Fixed
+
+- Restore the validated production material whenever Texture Repair Studio
+  commits or returns to Final, including when a projection preview was active.
+- Give repair diagnostics dedicated ownership properties so clearing them does
+  not consume projection-preview state or leave a temporary material assigned.
+- Revalidate repeated diagnostic button presses and retain correction/mask bytes
+  while leaving projection preview state in Blender 5.1.2.
+
 ## 1.2.0 - 2026-07-31
 
 ### Added

@@ -105,13 +105,12 @@ class SBF_PT_main(Panel):
     def draw(self, context):
         layout = self.layout
         settings = context.scene.sbf_settings
-        layout.operator("sbf.load_preset", icon="PRESET")
-        layout.operator(
-            "sbf.best_preview",
-            text="One-Click Best Preview",
-            icon="SHADING_RENDERED",
-        )
+        workflow = layout.column(align=True)
+        workflow.label(text="0 Character Setup", icon="OUTLINER_OB_MESH")
+        workflow.label(text="SKIN  Sources > Preview > Bake > Repair > Deliver")
+        workflow.label(text="BONES  Fit > Bind > Test > Export")
         status = layout.box()
+        status.label(text="Current Status", icon="INFO")
         status.label(text=settings.status_message, icon="INFO")
 
 
@@ -123,8 +122,9 @@ class _SBF_PT_section:
 
 
 class SBF_PT_spar3d_intake(_SBF_PT_section, Panel):
-    bl_label = "0. SPAR3D Intake & Mesh Prep"
+    bl_label = "0. Character Setup"
     bl_idname = "SBF_PT_spar3d_intake"
+    bl_order = 0
 
     def draw(self, context):
         layout = self.layout
@@ -144,6 +144,10 @@ class SBF_PT_spar3d_intake(_SBF_PT_section, Panel):
         options = layout.box()
         options.prop(settings, "intake_target_height")
         options.prop(settings, "intake_preserve_raw", icon="LOCKED")
+        target = layout.box()
+        target.label(text="Production Target", icon="OUTLINER_OB_MESH")
+        target.prop(settings, "target_object", text="Target Mesh")
+        target.operator("sbf.validate", text="VALIDATE CHARACTER", icon="CHECKMARK")
         status = layout.box()
         icon = {
             "READY_FOR_SKIN": "CHECKMARK",
@@ -166,6 +170,7 @@ class SBF_PT_spar3d_intake_advanced(_SBF_PT_section, Panel):
     bl_idname = "SBF_PT_spar3d_intake_advanced"
     bl_parent_id = "SBF_PT_spar3d_intake"
     bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 1
 
     def draw(self, context):
         layout = self.layout
@@ -183,24 +188,28 @@ class SBF_PT_spar3d_intake_advanced(_SBF_PT_section, Panel):
 
 
 class SBF_PT_target(_SBF_PT_section, Panel):
-    bl_label = "1. Target Character"
+    bl_label = "Target Contract & Orientation"
     bl_idname = "SBF_PT_target"
+    bl_parent_id = "SBF_PT_spar3d_intake"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 0
 
     def draw(self, context):
         layout = self.layout
         settings = context.scene.sbf_settings
-        layout.prop(settings, "target_object")
         layout.prop(settings, "production_material")
         layout.prop(settings, "target_uv")
         axes = layout.row(align=True)
         axes.prop(settings, "forward_axis")
         axes.prop(settings, "up_axis")
-        layout.operator("sbf.validate", icon="CHECKMARK")
+        layout.label(text="Advanced overrides for detected target data.", icon="INFO")
 
 
 class SBF_PT_sources(_SBF_PT_section, Panel):
-    bl_label = "2. Source Views"
+    bl_label = "SKIN 1. Source Images"
     bl_idname = "SBF_PT_sources"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 1
 
     def draw(self, context):
         layout = self.layout
@@ -214,10 +223,7 @@ class SBF_PT_sources(_SBF_PT_section, Panel):
         )
         layout.prop(settings, "auto_fit_source_images")
         layout.operator("sbf.auto_fit_sources", icon="FULLSCREEN_ENTER")
-        layout.label(
-            text="Expand only the view you are aligning.",
-            icon="IMAGE_DATA",
-        )
+        layout.label(text="Expand only the view you are aligning.", icon="IMAGE_DATA")
         layout.label(
             text="Calibrate Front first; other views are corrected independently.",
             icon="PIVOT_CURSOR",
@@ -235,16 +241,31 @@ class SBF_PT_sources(_SBF_PT_section, Panel):
 
 
 class SBF_PT_preview(_SBF_PT_section, Panel):
-    bl_label = "3. Fit & Live Preview"
+    bl_label = "SKIN 2. Align & Preview"
     bl_idname = "SBF_PT_preview"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 2
 
     def draw(self, context):
         layout = self.layout
         settings = context.scene.sbf_settings
-        layout.prop(settings, "framing_ratio")
-        layout.prop(settings, "show_projection_cameras")
-        layout.prop(settings, "live_preview", icon="HIDE_OFF")
-        row = layout.row(align=True)
+        recommended = layout.box()
+        recommended.label(text="Recommended Preview", icon="SHADING_RENDERED")
+        recommended.operator("sbf.load_preset", icon="PRESET")
+        best = recommended.row()
+        best.scale_y = 1.35
+        best.operator(
+            "sbf.best_preview",
+            text="ONE-CLICK BEST PREVIEW",
+            icon="SHADING_RENDERED",
+        )
+        live = layout.box()
+        live.label(text="Live Preview", icon="MATERIAL")
+        live.prop(settings, "framing_ratio")
+        display = live.row(align=True)
+        display.prop(settings, "show_projection_cameras")
+        display.prop(settings, "live_preview", icon="HIDE_OFF")
+        row = live.row(align=True)
         row.operator("sbf.create_preview", icon="MATERIAL")
         row.operator("sbf.refresh_preview", icon="FILE_REFRESH")
         hint = layout.column(align=True)
@@ -254,8 +275,11 @@ class SBF_PT_preview(_SBF_PT_section, Panel):
 
 
 class SBF_PT_head_protection(_SBF_PT_section, Panel):
-    bl_label = "4. Head Identity Protection"
+    bl_label = "Head Identity Protection"
     bl_idname = "SBF_PT_head_protection"
+    bl_parent_id = "SBF_PT_preview"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 2
 
     def draw(self, context):
         layout = self.layout
@@ -274,9 +298,11 @@ class SBF_PT_head_protection(_SBF_PT_section, Panel):
 
 
 class SBF_PT_blending(_SBF_PT_section, Panel):
-    bl_label = "Advanced Blending"
+    bl_label = "Advanced Projection Blending"
     bl_idname = "SBF_PT_blending"
+    bl_parent_id = "SBF_PT_preview"
     bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 3
 
     def draw(self, context):
         layout = self.layout
@@ -293,9 +319,11 @@ class SBF_PT_blending(_SBF_PT_section, Panel):
 
 
 class SBF_PT_occlusion(_SBF_PT_section, Panel):
-    bl_label = "Occlusion"
+    bl_label = "Advanced Occlusion"
     bl_idname = "SBF_PT_occlusion"
+    bl_parent_id = "SBF_PT_preview"
     bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 4
 
     def draw(self, context):
         layout = self.layout
@@ -310,8 +338,11 @@ class SBF_PT_occlusion(_SBF_PT_section, Panel):
 
 
 class SBF_PT_source_doctor(_SBF_PT_section, Panel):
-    bl_label = "5. SOURCE ALIGNMENT DOCTOR"
+    bl_label = "Manual Source Processing & Landmarks"
     bl_idname = "SBF_PT_source_doctor"
+    bl_parent_id = "SBF_PT_preview"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 0
 
     def draw(self, context):
         layout = self.layout
@@ -375,10 +406,11 @@ class SBF_PT_source_doctor(_SBF_PT_section, Panel):
 
 
 class SBF_PT_source_doctor_advanced(_SBF_PT_section, Panel):
-    bl_label = "Advanced Source Doctor"
+    bl_label = "Advanced Source Processing"
     bl_idname = "SBF_PT_source_doctor_advanced"
-    bl_parent_id = "SBF_PT_source_doctor"
+    bl_parent_id = "SBF_PT_preview"
     bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 1
 
     def draw(self, context):
         layout = self.layout
@@ -421,28 +453,44 @@ class SBF_PT_source_doctor_advanced(_SBF_PT_section, Panel):
 
 
 class SBF_PT_output(_SBF_PT_section, Panel):
-    bl_label = "6. Bake Material"
+    bl_label = "SKIN 3. Bake Texture"
     bl_idname = "SBF_PT_output"
     bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 3
 
     def draw(self, context):
         layout = self.layout
         settings = context.scene.sbf_settings
         layout.prop(settings, "texture_size")
+        layout.prop(settings, "output_image_path")
+        bake = layout.row()
+        bake.scale_y = 1.4
+        bake.operator("sbf.bake_final", text="BAKE FINAL TEXTURE", icon="RENDER_STILL")
+        layout.label(text="Original UV and PBR texture bindings are preserved.", icon="LOCKED")
+
+
+class SBF_PT_bake_advanced(_SBF_PT_section, Panel):
+    bl_label = "Advanced Bake & Material Settings"
+    bl_idname = "SBF_PT_bake_advanced"
+    bl_parent_id = "SBF_PT_output"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.sbf_settings
         layout.prop(settings, "bake_margin")
         layout.prop(settings, "generate_bake_uv")
         layout.prop(settings, "roughness")
         layout.prop(settings, "normal_strength")
         layout.prop(settings, "smooth_shading")
         layout.prop(settings, "pack_baked_image")
-        layout.prop(settings, "output_image_path")
-        layout.operator("sbf.bake_final", icon="RENDER_STILL")
 
 
 class SBF_PT_texture_repair(_SBF_PT_section, Panel):
-    bl_label = "7. TEXTURE REPAIR STUDIO"
+    bl_label = "SKIN 4. Texture Repair Studio"
     bl_idname = "SBF_PT_texture_repair"
     bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 4
 
     def draw(self, context):
         layout = self.layout
@@ -635,9 +683,10 @@ class SBF_PT_texture_repair_advanced(_SBF_PT_section, Panel):
 
 
 class SBF_PT_delivery(_SBF_PT_section, Panel):
-    bl_label = "9. Delivery & Verification"
+    bl_label = "SKIN 5. Base Asset Delivery"
     bl_idname = "SBF_PT_delivery"
     bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 5
 
     def draw(self, context):
         layout = self.layout
@@ -655,9 +704,10 @@ class SBF_PT_delivery(_SBF_PT_section, Panel):
 
 
 class SBF_PT_bones(_SBF_PT_section, Panel):
-    bl_label = "8. Bones — Automatic Humanoid Rig"
+    bl_label = "BONES 1. Build & Fit Skeleton"
     bl_idname = "SBF_PT_bones"
     bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 6
 
     def draw(self, context):
         layout = self.layout
@@ -738,13 +788,22 @@ class SBF_PT_bones(_SBF_PT_section, Panel):
             for message in settings.rig_blocking_warnings.split(" | ")[:4]:
                 warnings.label(text=message, icon="ERROR")
 
+
+class SBF_PT_bone_binding(_SBF_PT_section, Panel):
+    bl_label = "BONES 2. Bind & Validate Weights"
+    bl_idname = "SBF_PT_bone_binding"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 7
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.sbf_settings
         binding = layout.box()
         binding.label(text="Production Binding", icon="MOD_ARMATURE")
         binding.label(text="Universal Voxel Auto-Skin", icon="MOD_REMESH")
-        advanced = binding.column(align=True)
-        advanced.prop(settings, "rig_weight_threshold")
-        advanced.prop(settings, "rig_influence_limit")
-        binding.operator("sbf.bind_production_character", icon="LINKED")
+        bind = binding.row()
+        bind.scale_y = 1.35
+        bind.operator("sbf.bind_production_character", icon="LINKED")
         binding.operator("sbf.validate_production_weights", icon="CHECKMARK")
         weight_icon = {
             "READY_FOR_ANIMATION_TEST": "CHECKMARK",
@@ -761,7 +820,31 @@ class SBF_PT_bones(_SBF_PT_section, Panel):
         stats.label(text=f"Max influences: {settings.rig_maximum_influences}")
         stats.label(text=f"Donor confidence: {settings.rig_donor_confidence:.3f}")
         stats.label(text=f"Proxy fallback: {settings.rig_proxy_fallback_count}")
+        layout.label(text=settings.rig_recommended_action, icon="LIGHT")
 
+
+class SBF_PT_bone_binding_advanced(_SBF_PT_section, Panel):
+    bl_label = "Advanced Binding Settings"
+    bl_idname = "SBF_PT_bone_binding_advanced"
+    bl_parent_id = "SBF_PT_bone_binding"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.sbf_settings
+        layout.prop(settings, "rig_weight_threshold")
+        layout.prop(settings, "rig_influence_limit")
+
+
+class SBF_PT_bone_tests(_SBF_PT_section, Panel):
+    bl_label = "BONES 3. Test & Finalize Rig"
+    bl_idname = "SBF_PT_bone_tests"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 8
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.sbf_settings
         tests = layout.box()
         tests.label(text="Deformation Acceptance", icon="POSE_HLT")
         tests.operator("sbf.run_pose_torture_tests", icon="PLAY")
@@ -777,8 +860,21 @@ class SBF_PT_bones(_SBF_PT_section, Panel):
                 f"{settings.rig_removed_finger_channel_count}"
             )
         )
-        tests.operator("sbf.finalize_production_rig", icon="ARMATURE_DATA")
+        finalize = tests.row()
+        finalize.scale_y = 1.35
+        finalize.operator("sbf.finalize_production_rig", icon="ARMATURE_DATA")
+        layout.label(text=settings.rig_recommended_action, icon="LIGHT")
 
+
+class SBF_PT_bone_delivery(_SBF_PT_section, Panel):
+    bl_label = "BONES 4. Export & Compatibility"
+    bl_idname = "SBF_PT_bone_delivery"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 9
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.sbf_settings
         delivery = layout.box()
         delivery.label(text="Rigged GLB & Compatibility", icon="EXPORT")
         delivery.prop(settings, "rigged_export_glb_path")
@@ -801,18 +897,23 @@ class SBF_PT_bones(_SBF_PT_section, Panel):
 PANEL_CLASSES = (
     SBF_PT_main,
     SBF_PT_spar3d_intake,
-    SBF_PT_spar3d_intake_advanced,
     SBF_PT_target,
+    SBF_PT_spar3d_intake_advanced,
     SBF_PT_sources,
     SBF_PT_preview,
+    SBF_PT_source_doctor,
+    SBF_PT_source_doctor_advanced,
     SBF_PT_head_protection,
     SBF_PT_blending,
     SBF_PT_occlusion,
-    SBF_PT_source_doctor,
-    SBF_PT_source_doctor_advanced,
     SBF_PT_output,
+    SBF_PT_bake_advanced,
     SBF_PT_texture_repair,
     SBF_PT_texture_repair_advanced,
-    SBF_PT_bones,
     SBF_PT_delivery,
+    SBF_PT_bones,
+    SBF_PT_bone_binding,
+    SBF_PT_bone_binding_advanced,
+    SBF_PT_bone_tests,
+    SBF_PT_bone_delivery,
 )

@@ -68,24 +68,29 @@ from skin_and_bones_forge.baking.repair_service import (  # noqa: E402
     apply_repair_strokes,
     atlas_data,
     begin_repair_session,
-    clear_repair_preview,
     clear_repairs,
     commit_final_base_color,
     detect_color_seams,
     heal_seams,
     repair_images,
-    show_repair_preview,
     smart_fill,
     validate_repair_for_delivery,
 )
 from skin_and_bones_forge.constants import (  # noqa: E402
     BASE_COLOR_UV_NAME,
     BODY_PART_ATTRIBUTE_PREFIX,
+    ORIGINAL_MATERIAL_PROPERTY,
+    ORIGINAL_SLOT_PROPERTY,
+    ORIGINAL_UV_PROPERTY,
+    PREVIEW_MATERIAL_PREFIX,
     REPAIR_BAKED_IMAGE,
     REPAIR_CLASSIFICATION_IMAGE,
     REPAIR_CORRECTION_IMAGE,
     REPAIR_FINAL_IMAGE,
     REPAIR_MASK_IMAGE,
+    REPAIR_PREVIEW_MATERIAL_PROPERTY,
+    REPAIR_PREVIEW_SLOT_PROPERTY,
+    TEMPORARY_PROPERTY,
     WEIGHT_ATTRIBUTE_PREFIX,
 )
 from skin_and_bones_forge.export.core import export_glb  # noqa: E402
@@ -212,11 +217,24 @@ raw_hash = fingerprint(session["baked"])
 if len(json.loads(target["sbf_repair_seam_pairs"])) != 1:
     raise RuntimeError("Runtime mesh did not produce one real shared-edge UV seam pair")
 
-settings.repair_display = "UNLIT_FINAL"
-show_repair_preview(bpy.context, info, settings)
+# Follow the real operator path from an active projection preview. This is the
+# state that previously left production characters fully pink after repair.
+projection_preview = bpy.data.materials.new(
+    f"{PREVIEW_MATERIAL_PREFIX}RuntimeProjection"
+)
+projection_preview.use_nodes = True
+projection_preview[TEMPORARY_PROPERTY] = True
+target[ORIGINAL_MATERIAL_PROPERTY] = material.name
+target[ORIGINAL_SLOT_PROPERTY] = 0
+target[ORIGINAL_UV_PROPERTY] = "OriginalUV"
+target.material_slots[0].material = projection_preview
+
+if bpy.ops.sbf.texture_display(display="UNLIT_FINAL") != {"FINISHED"}:
+    raise RuntimeError("Repair inspection failed from a projection preview")
 if not target.material_slots[0].material.name.startswith("SBF_Preview_TextureRepair_"):
     raise RuntimeError("Unlit final inspection did not use an owned preview material")
-show_repair_preview(bpy.context, info, settings)
+if bpy.ops.sbf.texture_display(display="UNLIT_FINAL") != {"FINISHED"}:
+    raise RuntimeError("Repeated repair inspection failed after target revalidation")
 if len(
     [
         item
@@ -225,10 +243,17 @@ if len(
     ]
 ) != 1:
     raise RuntimeError("Repeated repair preview leaked materials")
-clear_repair_preview(info)
-settings.repair_display = "FINAL"
+if bpy.ops.sbf.texture_display(display="FINAL") != {"FINISHED"}:
+    raise RuntimeError("Final display failed to leave the repair preview")
 if target.material_slots[0].material != material:
-    raise RuntimeError("Clearing repair preview did not restore production material")
+    raise RuntimeError("Final display did not restore the production material")
+if any(
+    key in target
+    for key in (REPAIR_PREVIEW_SLOT_PROPERTY, REPAIR_PREVIEW_MATERIAL_PROPERTY)
+):
+    raise RuntimeError("Final display retained stale repair-preview ownership")
+if target.get(ORIGINAL_MATERIAL_PROPERTY, "") != material.name:
+    raise RuntimeError("Repair preview destroyed the projection preview's ownership state")
 
 # Geometry-aware Seam Heal must reduce the paired-edge metric and leave the raw
 # bake untouched.
@@ -304,6 +329,22 @@ filled_right = (mask_values > 0.99) & (xx >= int(size * 0.68))
 mean_right = correction_values[filled_right, :3].mean(axis=0)
 if not (mean_right[1] > mean_right[0] * 2.0 and mean_right[1] > mean_right[2]):
     raise RuntimeError(f"Smart Fill used an unrelated red hand donor: {mean_right}")
+
+# A correction commit must also escape a stale projection preview while
+# retaining every correction byte. This guards the user's recovered file path.
+correction_hash_before_preview_exit = fingerprint(repair_images(target)["corrections"])
+mask_hash_before_preview_exit = fingerprint(repair_images(target)["mask"])
+target.material_slots[0].material = projection_preview
+fresh_info = validate_target(bpy.context, settings)
+_final, _path, preview_exit_metrics = commit_final_base_color(fresh_info, settings)
+if target.material_slots[0].material != material:
+    raise RuntimeError("Correction commit left the projection preview material active")
+if fingerprint(repair_images(target)["corrections"]) != correction_hash_before_preview_exit:
+    raise RuntimeError("Projection-preview exit changed correction pixels")
+if fingerprint(repair_images(target)["mask"]) != mask_hash_before_preview_exit:
+    raise RuntimeError("Projection-preview exit changed the correction mask")
+if preview_exit_metrics["correction_pixels"] <= 0:
+    raise RuntimeError("Projection-preview exit discarded active corrections")
 
 # Compatible rebake must replace the raw layer while preserving correction work.
 correction_hash_before = fingerprint(repair_images(target)["corrections"])
@@ -436,6 +477,8 @@ result = {
     "uv_change_invalidated": True,
     "failed_stroke_rolled_back": True,
     "preview_leak_free": True,
+    "projection_preview_exit_safe": True,
+    "projection_preview_corrections_preserved": True,
     "delivery_gates_blocked": True,
     "clone": clone_metrics,
     "heal": heal_metrics,

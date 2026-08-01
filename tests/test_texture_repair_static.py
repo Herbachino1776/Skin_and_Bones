@@ -55,7 +55,7 @@ class TextureRepairStaticTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("TEXTURE_REPAIR_OPERATOR_CLASSES", operators)
-        self.assertIn("TEXTURE REPAIR STUDIO", panel)
+        self.assertIn("SKIN 4. Texture Repair Studio", panel)
         self.assertIn("COMMIT FINAL BASE COLOR", panel)
         self.assertIn("Advanced Texture Repair", panel)
 
@@ -71,6 +71,15 @@ class TextureRepairStaticTests(unittest.TestCase):
             for alias in node.names
         }
         self.assertNotIn("bpy", imported)
+
+    def test_repair_preview_uses_dedicated_ownership_state(self):
+        service = (PACKAGE / "baking" / "repair_service.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("_restore_production_material(info)", service)
+        self.assertIn("REPAIR_PREVIEW_SLOT_PROPERTY", service)
+        self.assertNotIn("target[ORIGINAL_MATERIAL_PROPERTY]", service)
+        self.assertNotIn("target[ORIGINAL_SLOT_PROPERTY]", service)
 
 
 if __name__ == "__main__":

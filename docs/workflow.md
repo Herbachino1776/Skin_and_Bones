@@ -6,7 +6,7 @@ Open the SPAR3D `.blend` or import its GLB. Keep a source copy. The add-on
 works in memory and writes to new output paths by default, but source control
 is still good production hygiene.
 
-Start with **0. SPAR3D Intake & Mesh Prep**. Version 1.2.0 imports the raw GLB,
+Start with **0. Character Setup**. Version 1.2.0 imports the raw GLB,
 selects the plausible production mesh, exact-welds duplicated seam positions,
 preserves face-corner UVs and normals, and normalizes the clean target to 1.50 m.
 The downstream target contract expects:
@@ -19,12 +19,22 @@ The downstream target contract expects:
 - Preferably, a normal texture connected through a Normal Map node.
 
 Open **3D Viewport > Sidebar > Skin & Bones Forge**, set **Target Mesh**, and
-click **Validate Character**. The add-on fills the detected production
-material, UV, base-color node, and normal-map node.
+click **Validate Character** in the same stage. **Target Contract &
+Orientation** keeps the detected material, UV, and axis overrides nearby but
+collapsed until they are needed.
+
+The sidebar follows the production sequence and keeps later stages collapsed:
+
+- **SKIN 1-5** moves from source images through alignment, bake, repair, and
+  boneless base-asset delivery.
+- **BONES 1-4** moves from skeleton fitting through binding, deformation tests,
+  and rigged compatibility export.
+- Advanced diagnostics and tuning stay nested under the stage they affect.
 
 ## Prepare the sources
 
-Click **Select Character Perspective Folder** and choose a character folder.
+Open **SKIN 1. Source Images**, click **Select Character Perspective Folder**,
+and choose a character folder.
 The browser opens at `D:\AI aRt\Skin and Bones Projection packs`. The add-on
 loads exactly one image whose filename contains each separate view key:
 `front`, `back`, `left`, and `right`. Other files, including the source image,
@@ -54,7 +64,8 @@ The left/right labels refer to the character's sides, not the viewer's.
 
 ## Run Source Alignment Doctor
 
-Open **5. SOURCE ALIGNMENT DOCTOR** before final bake:
+Open **SKIN 2. Align & Preview**, then expand **Manual Source Processing &
+Landmarks** before final bake:
 
 1. Click **PROCESS ALL SOURCE PLATES**. The original image datablocks and PNGs
    remain untouched; the add-on creates owned `SBF_CLEAN_SOURCE_<VIEW>` images.
@@ -75,7 +86,7 @@ warping. Severe articulated contradiction stops with
 plate rather than forcing the bake.
 
 Use **SHOW EDGE CONTAMINATION** and **SHOW CLEANED SOURCE** under **Advanced
-Source Doctor** to inspect cleanup. Doctor pixel distances are scaled from a
+Source Processing** to inspect cleanup. Doctor pixel distances are scaled from a
 2K reference. **RESTORE ORIGINAL SOURCE** removes only owned cleaned/warped
 data and returns that view to its untouched original pointer.
 
@@ -123,7 +134,8 @@ idempotent and starts from the saved silhouette auto-fit.
 
 ## Preview and refine
 
-After loading the sources, click **One-Click Best Preview**. It applies the
+In **SKIN 2. Align & Preview**, click **One-Click Best Preview** after loading
+the sources. It applies the
 same identity-priority preset used by the visual acceptance harness, auto-fits
 every loaded silhouette, processes missing cleaned sources, initializes missing
 body landmarks, creates bounded body warps, reapplies saved facial landmarks,
@@ -159,9 +171,10 @@ temporary state from the production material.
 
 ## Bake
 
-Choose an atlas size, output PNG, margin, roughness, normal strength, and
-packing state. Keep **Clean Base-Color UV** enabled for SPAR3D output, then
-click **Bake Final Texture**.
+Open **SKIN 3. Bake Texture**, choose an atlas size and output PNG, then click
+**Bake Final Texture**. Margin, roughness, normal strength, packing state, and
+**Clean Base-Color UV** remain under **Advanced Bake & Material Settings**.
+Keep **Clean Base-Color UV** enabled for SPAR3D output.
 
 The bake:
 
@@ -184,7 +197,7 @@ already a deliberate, connected production atlas.
 
 ## Repair the baked base color
 
-The bake now starts **7. TEXTURE REPAIR STUDIO** at the active atlas size. It
+The bake now starts **SKIN 4. Texture Repair Studio** at the active atlas size. It
 keeps four owned layers:
 
 - `SBF_BaseColor_Baked`: the unchanged projection result, also saved beside the
@@ -235,7 +248,7 @@ colors remain.
 
 ## Verify and deliver
 
-**Render Verification Set** writes:
+Open **SKIN 5. Base Asset Delivery**. **Render Verification Set** writes:
 
 - Front, back, left, and right
 - Face close-up
@@ -255,8 +268,8 @@ boneless base asset for a separate rigging project.
 ## Build the production Bones rig
 
 Version 1.2.0 fits, binds, tests, and exports the production rig. Keep the
-canonical rig and production target in the same file, expand **Bones —
-Automatic Humanoid Rig**, and follow the focused workflow in
+canonical rig and production target in the same file, then follow **BONES 1-4**
+and the focused workflow in
 [rigging_workflow.md](rigging_workflow.md). Preview objects live in the owned
 `SBF_RigPreview` collection; donor/proxy data live only in
 `SBF_RiggingTemporary`. Production binding intentionally adds the exact 57

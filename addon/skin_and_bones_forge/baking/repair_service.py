@@ -13,9 +13,6 @@ from mathutils import Vector
 from ..constants import (
     BASE_COLOR_UV_NAME,
     BODY_PART_ATTRIBUTE_PREFIX,
-    ORIGINAL_MATERIAL_PROPERTY,
-    ORIGINAL_SLOT_PROPERTY,
-    ORIGINAL_UV_PROPERTY,
     REPAIR_BAKED_IMAGE,
     REPAIR_CLASSIFICATION_IMAGE,
     REPAIR_CORRECTION_IMAGE,
@@ -26,7 +23,9 @@ from ..constants import (
     REPAIR_FORBIDDEN_MASK_IMAGE,
     REPAIR_MASK_IMAGE,
     REPAIR_OWNER_PROPERTY,
+    REPAIR_PREVIEW_MATERIAL_PROPERTY,
     REPAIR_PREVIEW_PREFIX,
+    REPAIR_PREVIEW_SLOT_PROPERTY,
     REPAIR_ROLE_PROPERTY,
     REPAIR_TARGET_MASK_IMAGE,
     TEMPORARY_PROPERTY,
@@ -94,6 +93,41 @@ def _set_image_pixels(image, values):
 def _remove_owned_image(image):
     if image is not None and image.get(REPAIR_OWNER_PROPERTY, False):
         bpy.data.images.remove(image, do_unlink=True)
+
+
+def _is_owned_repair_preview(material):
+    return bool(
+        material is not None
+        and material.name.startswith(REPAIR_PREVIEW_PREFIX)
+        and material.get(REPAIR_OWNER_PROPERTY, False)
+    )
+
+
+def _restore_production_material(info):
+    """Leave any temporary preview and bind the validated production material."""
+
+    target = info.obj
+    slot = int(info.material_slot)
+    if not 0 <= slot < len(target.material_slots):
+        slot = int(target.get(REPAIR_PREVIEW_SLOT_PROPERTY, -1))
+    if not 0 <= slot < len(target.material_slots):
+        raise RuntimeError("The production material slot is no longer available.")
+
+    current = target.material_slots[slot].material
+    stored_name = target.get(REPAIR_PREVIEW_MATERIAL_PROPERTY, "")
+    stored = bpy.data.materials.get(stored_name) if stored_name else None
+    target.material_slots[slot].material = info.material
+
+    for material in {current, stored}:
+        if _is_owned_repair_preview(material) and material.users == 0:
+            bpy.data.materials.remove(material)
+    for key in (
+        REPAIR_PREVIEW_SLOT_PROPERTY,
+        REPAIR_PREVIEW_MATERIAL_PROPERTY,
+    ):
+        if key in target:
+            del target[key]
+    return info.material
 
 
 def validate_repair_name_availability():
@@ -494,6 +528,7 @@ def _classification_values(image):
 
 
 def commit_final_base_color(info, settings, *, output_path=None):
+    _restore_production_material(info)
     images = repair_images(info.obj)
     baked = _image_pixels(images["baked"])
     corrections = _image_pixels(images["corrections"])
@@ -931,24 +966,7 @@ def _seam_heatmap(target, final):
 
 
 def clear_repair_preview(info):
-    target = info.obj
-    slot = int(target.get("sbf_repair_preview_slot", -1))
-    material_name = target.get("sbf_repair_preview_material", "")
-    if 0 <= slot < len(target.material_slots):
-        target.material_slots[slot].material = info.material
-    material = bpy.data.materials.get(material_name)
-    if material is not None and material.get(REPAIR_OWNER_PROPERTY, False):
-        bpy.data.materials.remove(material, do_unlink=True)
-    for key in ("sbf_repair_preview_slot", "sbf_repair_preview_material"):
-        if key in target:
-            del target[key]
-    for key in (
-        ORIGINAL_MATERIAL_PROPERTY,
-        ORIGINAL_SLOT_PROPERTY,
-        ORIGINAL_UV_PROPERTY,
-    ):
-        if key in target:
-            del target[key]
+    _restore_production_material(info)
 
 
 def show_repair_preview(context, info, settings):
@@ -1020,11 +1038,8 @@ def show_repair_preview(context, info, settings):
     links.new(texture.outputs["Color"], emission.inputs["Color"])
     links.new(emission.outputs["Emission"], output.inputs["Surface"])
     target = info.obj
-    target[ORIGINAL_MATERIAL_PROPERTY] = info.material.name
-    target[ORIGINAL_SLOT_PROPERTY] = info.material_slot
-    target[ORIGINAL_UV_PROPERTY] = info.uv_name
-    target["sbf_repair_preview_slot"] = info.material_slot
-    target["sbf_repair_preview_material"] = material.name
+    target[REPAIR_PREVIEW_SLOT_PROPERTY] = info.material_slot
+    target[REPAIR_PREVIEW_MATERIAL_PROPERTY] = material.name
     target.material_slots[info.material_slot].material = material
     return display_image
 

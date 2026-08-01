@@ -11,6 +11,10 @@ from ..constants import (
     ORIGINAL_MATERIAL_PROPERTY,
     ORIGINAL_SLOT_PROPERTY,
     PREVIEW_MATERIAL_PREFIX,
+    REPAIR_OWNER_PROPERTY,
+    REPAIR_PREVIEW_MATERIAL_PROPERTY,
+    REPAIR_PREVIEW_PREFIX,
+    REPAIR_PREVIEW_SLOT_PROPERTY,
     VIEW_LABELS,
     VIEW_NAMES,
 )
@@ -179,7 +183,7 @@ def validate_target(context, settings, require_sources=False):
         if material_slot < 0:
             remembered_name = obj.get(ORIGINAL_MATERIAL_PROPERTY, "")
             remembered_slot = int(obj.get(ORIGINAL_SLOT_PROPERTY, -1))
-            preview_active = (
+            projection_preview_active = (
                 0 <= remembered_slot < len(obj.material_slots)
                 and remembered_name == material.name
                 and obj.material_slots[remembered_slot].material is not None
@@ -187,8 +191,23 @@ def validate_target(context, settings, require_sources=False):
                     PREVIEW_MATERIAL_PREFIX
                 )
             )
-            if preview_active:
+            repair_slot = int(obj.get(REPAIR_PREVIEW_SLOT_PROPERTY, -1))
+            repair_name = obj.get(REPAIR_PREVIEW_MATERIAL_PROPERTY, "")
+            repair_material = (
+                obj.material_slots[repair_slot].material
+                if 0 <= repair_slot < len(obj.material_slots)
+                else None
+            )
+            repair_preview_active = (
+                repair_material is not None
+                and repair_name == repair_material.name
+                and repair_material.name.startswith(REPAIR_PREVIEW_PREFIX)
+                and repair_material.get(REPAIR_OWNER_PROPERTY, False)
+            )
+            if projection_preview_active:
                 material_slot = remembered_slot
+            elif repair_preview_active:
+                material_slot = repair_slot
             else:
                 raise ValidationError(
                     "Production Material is not assigned to the target."

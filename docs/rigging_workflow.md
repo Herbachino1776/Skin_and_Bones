@@ -13,6 +13,8 @@ rest heads, tails, matrices, hierarchy, or bone names.
 
 ## Analyze
 
+Open **BONES 1. Build & Fit Skeleton**.
+
 1. Click **Analyze Canonical Rig**. The fingerprint covers stable rest data;
    Actions and NLA are inventoried but excluded. Use **Write Rig Report** for
    the JSON-compatible full report.
@@ -70,6 +72,10 @@ corrections stay on the target so regenerated handles can reapply them.
 
 ## Bind production weights
 
+Open **BONES 2. Bind & Validate Weights**. The normal path keeps its two primary
+actions prominent; **Advanced Binding Settings** retains the weight threshold
+and influence-limit overrides.
+
 Click **Bind Production Character** to run **Universal Voxel Auto-Skin**. The
 operation voxelizes a temporary world-space copy, runs Blender automatic bone
 heat on that watertight proxy, transfers the proxy weights back to the original
@@ -99,6 +105,8 @@ bone still drives hierarchy and root motion through its children.
 
 ## Test and finalize
 
+Open **BONES 3. Test & Finalize Rig**.
+
 Run **Run Pose Torture Tests** followed by **Test Canonical Actions**. The first
 operation evaluates every retained production bone around all three local axes
 and removes its owned test Action. The second evaluates every frame of all five
@@ -113,6 +121,8 @@ helpers, names the armature `SBF_ProductionRig`, creates five owned
 production-compatible Actions/NLA tracks, and retains rigging metadata.
 
 ## Export and compatibility acceptance
+
+Open **BONES 4. Export & Compatibility**.
 
 All output fields default under `E:\Skin_And_Bones_Exports`: `Textures`,
 `Blender`, `GLB`, `Rigged_GLB`, `Proof_Renders`, and `Reports`. Directories are

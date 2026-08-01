@@ -15,6 +15,8 @@ from ..constants import (
     PREVIEW_MATERIAL_PREFIX,
     PROJECTION_CAMERA_PREFIX,
     PROJECTION_UV_PREFIX,
+    REPAIR_PREVIEW_MATERIAL_PROPERTY,
+    REPAIR_PREVIEW_SLOT_PROPERTY,
     TEMP_COLLECTION,
     TEMPORARY_PROPERTY,
     VERIFY_PREFIX,
@@ -114,6 +116,8 @@ def cleanup_temporary_data(context, target=None, production_material=None):
     if target is not None and target.type == "MESH":
         original_name = target.get(ORIGINAL_MATERIAL_PROPERTY, "")
         slot_index = int(target.get(ORIGINAL_SLOT_PROPERTY, -1))
+        if slot_index < 0:
+            slot_index = int(target.get(REPAIR_PREVIEW_SLOT_PROPERTY, -1))
         original = production_material or bpy.data.materials.get(original_name)
         if 0 <= slot_index < len(target.material_slots) and original is not None:
             target.material_slots[slot_index].material = original
@@ -134,6 +138,8 @@ def cleanup_temporary_data(context, target=None, production_material=None):
             ORIGINAL_MATERIAL_PROPERTY,
             ORIGINAL_SLOT_PROPERTY,
             ORIGINAL_UV_PROPERTY,
+            REPAIR_PREVIEW_SLOT_PROPERTY,
+            REPAIR_PREVIEW_MATERIAL_PROPERTY,
         ):
             if key in target:
                 del target[key]

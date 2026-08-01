@@ -246,6 +246,16 @@ surface. Preview refreshes and compatible re-bakes preserve the layers. Use the
 separate `*.baked.png` and saved `.blend` for recovery; do not rename unrelated
 artist images to the reserved `SBF_Texture_*` names.
 
+## The whole character turns pink after texture repair
+
+Install 1.2.1 or newer. Version 1.2.0 could leave
+`SBF_Preview_<character>` assigned after a repair action even though the
+Inspection control said **After**. The final texture and correction layers were
+not overwritten, but Blender could display the temporary projection material
+or its unloaded generated images as pink. In 1.2.1, **After**, **CLEAR REPAIR
+PREVIEW**, every repair commit, save, and export explicitly restores the
+validated production material while preserving correction pixels.
+
 ## Smart Fill reports rejected or unresolved pixels
 
 Smart Fill never expands beyond the explicit target mask. Under the default
