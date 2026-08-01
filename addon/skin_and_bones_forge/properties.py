@@ -142,6 +142,41 @@ def _invalidate_doctor_settings(_settings, context):
         return
 
 
+def _update_repair_composite(_settings, context):
+    if context is None or context.scene is None:
+        return
+    settings = getattr(context.scene, "sbf_settings", None)
+    if settings is None or settings.repair_state != "READY":
+        return
+    try:
+        from .baking.repair_service import (
+            commit_final_base_color,
+            show_repair_preview,
+        )
+        from .validation import validate_target
+
+        info = validate_target(context, settings)
+        commit_final_base_color(info, settings)
+        show_repair_preview(context, info, settings)
+    except (AttributeError, ReferenceError, RuntimeError, ValueError, OSError):
+        return
+
+
+def _update_repair_display(_settings, context):
+    if context is None or context.scene is None:
+        return
+    settings = getattr(context.scene, "sbf_settings", None)
+    if settings is None or settings.repair_state != "READY":
+        return
+    try:
+        from .baking.repair_service import show_repair_preview
+        from .validation import validate_target
+
+        show_repair_preview(context, validate_target(context, settings), settings)
+    except (AttributeError, ReferenceError, RuntimeError, ValueError):
+        return
+
+
 class SBFViewSettings(PropertyGroup):
     image: PointerProperty(
         name="Image",
@@ -786,6 +821,259 @@ class SBFSettings(PropertyGroup):
         default=False,
     )
     last_baked_image: PointerProperty(name="Last Baked Image", type=Image)
+    last_raw_baked_image: PointerProperty(name="Original Baked Image", type=Image)
+    repair_correction_image: PointerProperty(
+        name="Texture Corrections", type=Image
+    )
+    repair_mask_image: PointerProperty(name="Correction Mask", type=Image)
+    repair_final_image: PointerProperty(name="Final Base Color", type=Image)
+    repair_classification_image: PointerProperty(
+        name="Source Classification", type=Image
+    )
+    repair_target_mask_image: PointerProperty(
+        name="Smart Fill Target Mask", type=Image
+    )
+    repair_donor_mask_image: PointerProperty(
+        name="Artist Donor Mask", type=Image
+    )
+    repair_forbidden_mask_image: PointerProperty(
+        name="Forbidden Source Mask", type=Image
+    )
+    repair_enabled: BoolProperty(
+        name="Enable Correction Layer",
+        default=True,
+        update=_update_repair_composite,
+    )
+    repair_opacity: FloatProperty(
+        name="Correction Opacity",
+        default=1.0,
+        min=0.0,
+        max=1.0,
+        subtype="FACTOR",
+        update=_update_repair_composite,
+    )
+    repair_mode: EnumProperty(
+        name="Repair Mode",
+        items=(
+            (
+                "CLONE",
+                "Clone",
+                "Copy surface detail through production UV tangent space",
+            ),
+            (
+                "HEAL",
+                "Heal",
+                "Adapt copied detail to target low-frequency color",
+            ),
+            (
+                "SMART_FILL",
+                "Smart Fill",
+                "Fill only the explicit atlas repair mask",
+            ),
+            (
+                "SEAM_HEAL",
+                "Seam Heal",
+                "Harmonize paired geometric UV seam bands",
+            ),
+        ),
+        default="CLONE",
+    )
+    repair_brush_size: FloatProperty(
+        name="Size",
+        description="Brush radius in atlas pixels",
+        default=32.0,
+        min=1.0,
+        max=512.0,
+        soft_max=128.0,
+    )
+    repair_softness: FloatProperty(
+        name="Softness",
+        default=0.55,
+        min=0.0,
+        max=1.0,
+        subtype="FACTOR",
+    )
+    repair_strength: FloatProperty(
+        name="Strength",
+        default=0.85,
+        min=0.0,
+        max=1.0,
+        subtype="FACTOR",
+    )
+    repair_spacing: FloatProperty(
+        name="Spacing",
+        description="Viewport brush spacing as a fraction of brush diameter",
+        default=0.20,
+        min=0.02,
+        max=1.0,
+        subtype="FACTOR",
+    )
+    repair_detail_preservation: FloatProperty(
+        name="Detail Preservation",
+        default=0.85,
+        min=0.0,
+        max=1.5,
+        soft_max=1.0,
+        subtype="FACTOR",
+    )
+    repair_source_scale: FloatProperty(
+        name="Source Scale", default=1.0, min=0.1, max=5.0
+    )
+    repair_source_rotation: FloatProperty(
+        name="Source Rotation",
+        default=0.0,
+        min=-3.14159265,
+        max=3.14159265,
+        subtype="ANGLE",
+    )
+    repair_clone_aligned: BoolProperty(
+        name="Aligned Source",
+        description="Advance the source anchor with the target stroke",
+        default=True,
+    )
+    repair_restrict_part: BoolProperty(
+        name="Restrict to Semantic Part", default=True
+    )
+    repair_restrict_material: BoolProperty(
+        name="Restrict to Material", default=True
+    )
+    repair_symmetry: BoolProperty(
+        name="Left / Right Symmetry",
+        description="Also apply to the anatomically opposite surface when available",
+        default=False,
+    )
+    repair_frequency_radius: IntProperty(
+        name="Frequency Radius", default=4, min=1, max=64
+    )
+    repair_smart_fill_target: EnumProperty(
+        name="Fill Target",
+        items=(
+            (
+                "UNRESOLVED",
+                "Detected Unresolved",
+                "Use only detected unresolved texels",
+            ),
+            (
+                "SELECTED_FACES",
+                "Selected Faces",
+                "Convert selected faces to an atlas mask",
+            ),
+            ("ARTIST_MASK", "Artist-Painted Mask", "Use the owned target mask image"),
+        ),
+        default="UNRESOLVED",
+    )
+    repair_source_policy: EnumProperty(
+        name="Donor Policy",
+        items=(
+            ("SAME_PART", "Same Part", "Use the same semantic part and material"),
+            (
+                "OPPOSITE_SYMMETRIC_PART",
+                "Opposite Symmetric Part",
+                "Use the opposite limb with the same material",
+            ),
+            (
+                "SAME_MATERIAL",
+                "Same Material",
+                "Use the same material within the same or opposite body part",
+            ),
+            (
+                "ARTIST_PAINTED_DONOR_MASK",
+                "Artist-Painted Donor Mask",
+                "Use only the artist donor mask and matching material",
+            ),
+            (
+                "COMBINED_SAFE_SOURCES",
+                "Combined Safe Sources",
+                "Use same/opposite part or artist donors within the same material",
+            ),
+        ),
+        default="COMBINED_SAFE_SOURCES",
+    )
+    repair_min_donor_confidence: FloatProperty(
+        name="Minimum Donor Confidence",
+        default=0.20,
+        min=0.0,
+        max=1.0,
+        subtype="FACTOR",
+    )
+    repair_patch_candidates: IntProperty(
+        name="Patch Candidates", default=96, min=8, max=512
+    )
+    repair_smart_fill_pixel_limit: IntProperty(
+        name="Smart Fill Pixel Limit",
+        default=250000,
+        min=1,
+        max=4000000,
+    )
+    repair_seam_width: IntProperty(
+        name="Seam Width", default=4, min=1, max=64
+    )
+    repair_seam_max_correction: FloatProperty(
+        name="Maximum Accepted Correction",
+        default=0.35,
+        min=0.001,
+        max=1.732,
+        precision=3,
+    )
+    repair_seam_detection_threshold: FloatProperty(
+        name="Seam Detection Threshold",
+        default=0.045,
+        min=0.001,
+        max=1.732,
+        precision=3,
+    )
+    repair_unresolved_threshold: IntProperty(
+        name="Safe Unresolved Threshold",
+        description="Maximum unresolved atlas pixels allowed for delivery",
+        default=0,
+        min=0,
+        max=10000000,
+    )
+    repair_display: EnumProperty(
+        name="Inspection",
+        items=(
+            ("FINAL", "After", "Live final composite"),
+            ("BEFORE", "Before", "Original non-destructive bake"),
+            ("UNRESOLVED", "Unresolved", "Unresolved/uncovered texel overlay"),
+            ("SEAM_HEATMAP", "Seam Heatmap", "Measured base-color seam overlay"),
+            ("CORRECTION_MASK", "Correction Mask", "Correction blend mask"),
+            ("CLASSIFICATION", "Classification", "Per-texel source classification"),
+            (
+                "SOURCE_CONTAMINATION",
+                "Source Contamination",
+                "Source Doctor and low-confidence projection overlay",
+            ),
+            ("TARGET_MASK", "Target Mask", "Artist-painted Smart Fill target mask"),
+            ("DONOR_MASK", "Donor Mask", "Artist-painted safe donor mask"),
+            ("FORBIDDEN_MASK", "Forbidden Mask", "Explicit forbidden-source mask"),
+            ("UNLIT_FINAL", "Unlit Final", "Unlit final base-color inspection"),
+        ),
+        default="FINAL",
+        update=_update_repair_display,
+    )
+    repair_state: EnumProperty(
+        name="Texture Repair",
+        items=(
+            ("NOT_READY", "Not Ready", "Bake a base-color atlas first"),
+            ("READY", "Ready", "Owned compatible repair layers are ready"),
+            ("STALE", "Stale", "Topology, UV, or atlas size changed"),
+            ("FAILED", "Failed", "Repair operation failed and rolled back"),
+        ),
+        default="NOT_READY",
+    )
+    repair_status: StringProperty(
+        name="Repair Status", default="Bake a base-color atlas to begin repair."
+    )
+    repair_source_status: StringProperty(
+        name="Clone Source", default="No surface source set."
+    )
+    repair_clone_source_json: StringProperty(default="", options={"HIDDEN"})
+    repair_selected_seams_json: StringProperty(default="[]", options={"HIDDEN"})
+    repair_unresolved_count: IntProperty(name="Unresolved", default=0)
+    repair_correction_count: IntProperty(name="Corrected", default=0)
+    repair_detected_seam_count: IntProperty(name="Detected Seams", default=0)
+    repair_seam_error_before: FloatProperty(name="Seam Error Before", default=0.0)
+    repair_seam_error_after: FloatProperty(name="Seam Error After", default=0.0)
     status_message: StringProperty(name="Status", default="Ready")
 
     canonical_armature: PointerProperty(

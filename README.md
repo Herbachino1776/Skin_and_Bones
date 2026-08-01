@@ -4,8 +4,8 @@ Skin & Bones Forge is a Blender 5.1.2 add-on for rebuilding the base-color
 texture of a SPAR3D human mesh and building a validated production rig from
 the canonical Animate Anything humanoid skeleton.
 
-Version 1.1.0 implements one-click SPAR3D production-mesh intake, the Folsom
-visual workflow, and production **Bones**:
+Version 1.2.0 implements one-click SPAR3D production-mesh intake, the Folsom
+visual workflow, production **Bones**, and non-destructive texture repair:
 
 - Import a raw SPAR3D GLB, weld only exactly coincident seam vertices, prove
   loop UV/corner-normal/material preservation, and normalize a protected clean
@@ -34,6 +34,15 @@ visual workflow, and production **Bones**:
 - Preview the material before committing in a compact, collapsible workflow.
 - Bake a 1024-8192 pixel atlas into a clean base-color UV (4096 by default)
   while the normal and other PBR maps stay explicitly bound to the original UV.
+- Preserve the raw bake as `SBF_BaseColor_Baked`, paint Clone/Heal changes into
+  owned correction and mask layers, and bind the composited
+  `SBF_BaseColor_Final` for preview, packing, PNG output, and GLB delivery.
+- Clone through surface tangent space across rotated UV islands, Heal with
+  deterministic frequency separation, Smart Fill only explicit masks from
+  semantic/material-safe donors, and harmonize paired geometric UV seam bands.
+- Classify projection fallback and repair provenance per atlas texel, expose
+  unresolved/seam diagnostics, and block delivery when the configured safe
+  unresolved threshold or known diagnostic colors remain.
 - Restore roughness and normal strength with adjustable defaults of 1.0 and 0.25.
 - Remove all temporary data, save a new `.blend`, export a new GLB, and emit
   optional processing manifests and verification renders.
@@ -63,7 +72,7 @@ visual workflow, and production **Bones**:
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v1.1.0.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v1.2.0.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -90,7 +99,9 @@ required top-level `skin_and_bones_forge` module.
    flip, scale, offset, alpha, and weight controls update live. Click
    **Refresh Preview** after changing fit, ownership, or occlusion settings.
 7. Choose the texture size and output path, then click **Bake Final Texture**.
-8. Use **Render Verification Set**, **Save New Base Asset**, and
+8. Expand **TEXTURE REPAIR STUDIO**. Use Clone/Heal strokes, an explicit Smart
+   Fill mask, or **HEAL SAFE SEAMS**, then click **COMMIT FINAL BASE COLOR**.
+9. Use **Render Verification Set**, **Save New Base Asset**, and
    **Export New GLB**.
 
 For Bones, open/import the production target alongside the canonical rig,
@@ -151,15 +162,16 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v1.1.0` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v1.2.0` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 
 ## Scope
 
-Version 1.1.0 completes the simplified-hand production contract and permanent
-production-rigging slice. Optional hand shape-key authoring, animation polish,
-gore/damage authoring, batch processing, Rigify, paintable masks, and depth-map
-visibility remain downstream milestones.
+Version 1.2.0 adds the permanent Texture Repair Studio correction-layer slice
+without changing production topology, original UVs, normal maps, or other PBR
+textures. Optional hand shape-key authoring, animation polish, gore/damage
+authoring, batch processing, Rigify, and runtime game editing remain downstream
+milestones.
 
 Skin & Bones Forge is licensed under GPL-3.0-or-later.

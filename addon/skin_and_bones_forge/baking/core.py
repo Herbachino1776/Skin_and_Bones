@@ -18,6 +18,10 @@ from ..projection.source_processing import (
     cleanup_warped_sources,
     validate_preview_source_parity,
 )
+from .repair_service import (
+    begin_repair_session,
+    validate_repair_name_availability,
+)
 
 
 def _absolute_path(path_value):
@@ -248,16 +252,27 @@ def bake_final_texture(context, info, settings):
 
     output_path = _absolute_path(settings.output_image_path)
     original_path = info.original_base_image.filepath
-    if original_path and not settings.allow_source_overwrite:
+    original_is_owned_repair = info.original_base_image.get(
+        "sbf_texture_repair_owned", False
+    )
+    if (
+        original_path
+        and not original_is_owned_repair
+        and not settings.allow_source_overwrite
+    ):
         resolved_original = Path(bpy.path.abspath(original_path)).resolve()
-        if output_path == resolved_original:
+        raw_output_path = output_path.with_name(
+            f"{output_path.stem}.baked{output_path.suffix or '.png'}"
+        )
+        if output_path == resolved_original or raw_output_path == resolved_original:
             raise RuntimeError(
-                "Base-color output matches the original source image. Choose a "
-                "new path or explicitly enable Allow Source Overwrite."
+                "Final or raw-bake output matches the original source image. "
+                "Choose a new path or explicitly enable Allow Source Overwrite."
             )
 
+    validate_repair_name_availability()
     size = int(settings.texture_size)
-    image_name = f"SBF_{target.name}_BaseColor_{size}"
+    image_name = f"SBF_BaseColor_BakeWork_{target.name}_{size}"
     baked_image = bpy.data.images.new(
         image_name,
         width=size,
@@ -342,23 +357,27 @@ def bake_final_texture(context, info, settings):
                 pass
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    baked_image.filepath_raw = str(output_path)
-    baked_image.file_format = "PNG"
-    baked_image.save()
-    if settings.pack_baked_image:
-        baked_image.pack()
-
-    info.base_color_node.image = baked_image
+    repair_session = begin_repair_session(
+        context,
+        info,
+        settings,
+        baked_image,
+        output_path,
+        bake_uv_name,
+    )
+    final_image = repair_session["final"]
+    info.base_color_node.image = final_image
     _bind_production_texture_uvs(info, bake_uv_name)
     target.material_slots[info.material_slot].material = info.material
     _set_material_output_values(info, settings)
 
-    settings.last_baked_image = baked_image
+    settings.last_baked_image = final_image
+    settings.last_raw_baked_image = baked_image
     target["sbf_processed"] = True
     target["sbf_version"] = ADDON_VERSION_STRING
-    target["sbf_base_color_image"] = baked_image.name
+    target["sbf_base_color_image"] = final_image.name
     target["sbf_base_color_path"] = str(output_path)
 
     cleanup_temporary_data(context, target, info.material)
     cleanup_warped_sources(settings)
-    return baked_image, output_path
+    return final_image, output_path

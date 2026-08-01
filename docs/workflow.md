@@ -6,7 +6,7 @@ Open the SPAR3D `.blend` or import its GLB. Keep a source copy. The add-on
 works in memory and writes to new output paths by default, but source control
 is still good production hygiene.
 
-Start with **0. SPAR3D Intake & Mesh Prep**. Version 1.1.0 imports the raw GLB,
+Start with **0. SPAR3D Intake & Mesh Prep**. Version 1.2.0 imports the raw GLB,
 selects the plausible production mesh, exact-welds duplicated seam positions,
 preserves face-corner UVs and normals, and normalizes the clean target to 1.50 m.
 The downstream target contract expects:
@@ -182,6 +182,57 @@ The default 4096 bake uses Cycles CPU, one sample, a 24-pixel margin, and the
 clean base-color UV. Disable that option only for a mesh whose original UV is
 already a deliberate, connected production atlas.
 
+## Repair the baked base color
+
+The bake now starts **7. TEXTURE REPAIR STUDIO** at the active atlas size. It
+keeps four owned layers:
+
+- `SBF_BaseColor_Baked`: the unchanged projection result, also saved beside the
+  requested output as `*.baked.png`;
+- `SBF_Texture_Corrections`: replacement RGB produced by repair tools;
+- `SBF_Texture_Correction_Mask`: the non-destructive blend amount;
+- `SBF_BaseColor_Final`: `mix(Baked, Corrections, CorrectionMask)` and the only
+  image bound for final PNG, packed Blender data, and GLB export.
+
+Topology, polygon/vertex order, `SBF_BaseColorUV`, and atlas size are
+fingerprinted. A compatible re-bake preserves the correction and mask layers;
+changing any fingerprinted contract clears stale corrections. Preview refreshes
+do not remove them. Normal and other PBR images remain on the original UV.
+
+For **Clone** or **Heal**, click **SET SOURCE** in the 3D Viewport, then drag
+with **APPLY / PAINT REPAIR**. Clone maps source and target through their local
+surface tangent bases, so rotated UV islands do not rotate the copied detail.
+Heal keeps source high-frequency detail while adapting to target color. Size,
+Softness, Strength, and Detail Preservation are the normal controls; source
+scale/rotation, spacing, aligned/fixed behavior, semantic/material restrictions,
+and optional anatomical symmetry are under **Advanced Texture Repair**. Escape
+or right-click cancels before any pixels are written.
+
+**SMART FILL MASK** runs only on detected unresolved pixels, selected faces
+converted to an atlas mask, or the owned artist target mask. The default
+**Combined Safe Sources** policy requires the same material and a matching or
+opposite semantic part (or an explicitly painted donor). The forbidden-source
+mask always wins. Fill advances from the boundary inward and reports requested,
+filled, unresolved, and rejected counts. Split a mask if it exceeds the
+configured bounded pixel limit.
+
+For seam work, click **DETECT COLOR SEAMS**. The add-on pairs UV-separated
+corners only when their faces share a real mesh edge, measures base-color
+discontinuity, and selects seams above the detection threshold. **HEAL SELECTED
+SEAMS** handles the current list; **HEAL ALL SAFE SEAMS** leaves corrections
+above the maximum accepted amount for manual Clone/Heal. Only narrow paired UV
+bands receive low-frequency harmonization; fine detail remains and repaired RGB
+extends just beyond island borders.
+
+Use **Show Unresolved**, **Show Seam Heatmap**, Before/After, Correction Mask,
+Classification, and **Unlit Final** for inspection. Diagnostic preview materials
+are temporary; **CLEAR REPAIR PREVIEW** restores the production material without
+deleting corrections. **CLEAR SELECTED REGION** and **CLEAR ALL** change only
+owned repair layers. Click **COMMIT FINAL BASE COLOR** before verification.
+Save and GLB export also recomposite and validate automatically, and block when
+unresolved pixels exceed **Safe Unresolved Threshold** or known diagnostic
+colors remain.
+
 ## Verify and deliver
 
 **Render Verification Set** writes:
@@ -203,7 +254,7 @@ boneless base asset for a separate rigging project.
 
 ## Build the production Bones rig
 
-Version 1.1.0 fits, binds, tests, and exports the production rig. Keep the
+Version 1.2.0 fits, binds, tests, and exports the production rig. Keep the
 canonical rig and production target in the same file, expand **Bones —
 Automatic Humanoid Rig**, and follow the focused workflow in
 [rigging_workflow.md](rigging_workflow.md). Preview objects live in the owned

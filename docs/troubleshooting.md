@@ -235,3 +235,39 @@ fingerprint describes the simplified output.
 If a singular hand needs an open-palm or closed-grip silhouette, that requires
 future mesh deformation (for example the reserved `DSB_HAND_OPEN_MAGIC` or
 `DSB_HAND_GRIP_SHAFT` shape keys), not per-finger bones in this profile.
+
+## Texture repairs disappeared after re-bake
+
+Texture Repair Studio preserves corrections only when target vertex/polygon
+order, the production base-color UV corners, and atlas dimensions have the same
+fingerprint. A topology edit, UV edit, or texture-size change intentionally
+creates empty correction layers because stale pixels would land on the wrong
+surface. Preview refreshes and compatible re-bakes preserve the layers. Use the
+separate `*.baked.png` and saved `.blend` for recovery; do not rename unrelated
+artist images to the reserved `SBF_Texture_*` names.
+
+## Smart Fill reports rejected or unresolved pixels
+
+Smart Fill never expands beyond the explicit target mask. Under the default
+**Combined Safe Sources** policy it also requires the same material plus the
+same/opposite semantic part or an artist donor. Review the forbidden and donor
+masks, lower **Minimum Donor Confidence** only when the source is genuinely
+safe, or use Clone/Heal. Do not disable part restrictions simply to let a hand
+or face texture fill a thigh, torso, or clothing region.
+
+## Seam Heal leaves seams selected
+
+The measured correction exceeds **Maximum Accepted Correction** or the pair is
+ambiguous. This is intentional: Seam Heal only changes narrow bands around real
+shared 3D edges whose UV corners are separated. Use the heatmap and unlit final
+inspection, then repair unsafe pairs manually with Clone/Heal. Lighting and
+normal-map seams are not base-color seam candidates.
+
+## Save or GLB export is blocked after repair
+
+Click **Show Unresolved** and inspect the classification overlay. Delivery
+recomposites `SBF_BaseColor_Final` and blocks when unresolved pixels exceed
+**Safe Unresolved Threshold**, a known diagnostic color remains, the repair
+fingerprint is stale, or the production material does not use the final image.
+Repair the remaining mask and click **COMMIT FINAL BASE COLOR**; do not raise the
+threshold to hide a visible atlas hole.

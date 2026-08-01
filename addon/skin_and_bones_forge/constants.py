@@ -2,7 +2,7 @@
 
 ADDON_NAME = "Skin & Bones Forge"
 ADDON_MODULE = "skin_and_bones_forge"
-ADDON_VERSION = (1, 1, 0)
+ADDON_VERSION = (1, 2, 0)
 ADDON_VERSION_STRING = ".".join(str(part) for part in ADDON_VERSION)
 
 EXPORT_ROOT = r"E:\Skin_And_Bones_Exports"
@@ -60,6 +60,20 @@ SOURCE_CONFIDENCE_PREFIX = "SBF_SOURCE_CONFIDENCE_"
 SOURCE_OWNER_PROPERTY = "sbf_source_doctor_owned"
 SOURCE_STATE_PROPERTY = "sbf_processed_source_state"
 BODY_PART_ATTRIBUTE_PREFIX = f"{WEIGHT_ATTRIBUTE_PREFIX}part_"
+
+REPAIR_BAKED_IMAGE = "SBF_BaseColor_Baked"
+REPAIR_CORRECTION_IMAGE = "SBF_Texture_Corrections"
+REPAIR_MASK_IMAGE = "SBF_Texture_Correction_Mask"
+REPAIR_FINAL_IMAGE = "SBF_BaseColor_Final"
+REPAIR_CLASSIFICATION_IMAGE = "SBF_Texture_Classification"
+REPAIR_TARGET_MASK_IMAGE = "SBF_Texture_Repair_TargetMask"
+REPAIR_DONOR_MASK_IMAGE = "SBF_Texture_Repair_DonorMask"
+REPAIR_FORBIDDEN_MASK_IMAGE = "SBF_Texture_ForbiddenSourceMask"
+REPAIR_DIAGNOSTIC_IMAGE = "SBF_Texture_Repair_Diagnostic"
+REPAIR_OWNER_PROPERTY = "sbf_texture_repair_owned"
+REPAIR_FINGERPRINT_PROPERTY = "sbf_texture_repair_fingerprint"
+REPAIR_ROLE_PROPERTY = "sbf_texture_repair_role"
+REPAIR_PREVIEW_PREFIX = "SBF_Preview_TextureRepair_"
 
 TEMPORARY_PROPERTY = "sbf_temporary"
 ORIGINAL_MATERIAL_PROPERTY = "sbf_original_material"

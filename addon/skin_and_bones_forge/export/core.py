@@ -8,6 +8,7 @@ from pathlib import Path
 
 import bpy
 
+from ..baking.repair_service import validate_repair_for_delivery
 from ..constants import (
     ADDON_VERSION_STRING,
     BASE_COLOR_UV_NAME,
@@ -35,6 +36,9 @@ def _guard_source_overwrite(path, settings):
 
 def _manifest_payload(info, settings, output_type, output_path):
     source = str(Path(bpy.data.filepath).resolve()) if bpy.data.filepath else ""
+    repair_metrics = json.loads(
+        info.obj.get("sbf_repair_metrics", "{}") or "{}"
+    )
     return {
         "schema": "skin-and-bones-forge-processing-v1",
         "addon": "Skin & Bones Forge",
@@ -71,6 +75,7 @@ def _manifest_payload(info, settings, output_type, output_path):
             info.base_color_node.image
             and info.base_color_node.image.packed_file is not None
         ),
+        "texture_repair": repair_metrics,
     }
 
 
@@ -90,6 +95,7 @@ def save_blend_copy(context, info, settings):
     output_path = _absolute_path(settings.save_blend_path)
     _guard_source_overwrite(output_path, settings)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    validate_repair_for_delivery(info, settings)
     cleanup_temporary_data(context, info.obj, info.material)
     bpy.ops.wm.save_as_mainfile(filepath=str(output_path), copy=True)
     manifest = _write_manifest(info, settings, "BLEND", output_path)
@@ -108,6 +114,7 @@ def _selection_with_parents(target):
 def export_glb(context, info, settings):
     output_path = _absolute_path(settings.export_glb_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    validate_repair_for_delivery(info, settings)
     cleanup_temporary_data(context, info.obj, info.material)
 
     selected_before = list(context.selected_objects)

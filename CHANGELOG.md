@@ -2,6 +2,24 @@
 
 All notable changes follow semantic versioning.
 
+## 1.2.0 - 2026-07-31
+
+### Added
+
+- Non-destructive baked, correction, mask, classification, and final base-color
+  images with topology/UV/atlas fingerprints and compatible re-bake reuse.
+- Surface-tangent Clone, frequency-separated Heal, explicit-mask deterministic
+  Smart Fill with semantic/material donor policies, and paired-edge UV Seam Heal.
+- Unresolved, seam, correction, classification, and unlit diagnostics; compact
+  Texture Repair Studio controls; final-delivery validation and repair manifests.
+- Pure algorithm coverage and Blender 5.1.2 runtime regression for layer safety,
+  rotated UV islands, donor rejection, seam metrics, packing, and GLB parity.
+
+### Changed
+
+- Final PNG, packed material image, Blender copy, and GLB export now always use
+  `SBF_BaseColor_Final`; the projection bake remains separately preserved.
+
 ## 1.1.0 - 2026-07-31
 
 ### Added

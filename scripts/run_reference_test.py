@@ -85,6 +85,11 @@ from skin_and_bones_forge.constants import (  # noqa: E402
     CARDINAL_VIEW_NAMES,
     PREVIEW_MATERIAL_PREFIX,
     PROJECTION_UV_PREFIX,
+    REPAIR_BAKED_IMAGE,
+    REPAIR_CLASSIFICATION_IMAGE,
+    REPAIR_CORRECTION_IMAGE,
+    REPAIR_FINAL_IMAGE,
+    REPAIR_MASK_IMAGE,
     VIEW_NAMES,
     WEIGHT_ATTRIBUTE_PREFIX,
 )
@@ -524,6 +529,30 @@ if base_image is None or list(base_image.size) != [int(args.size), int(args.size
     raise RuntimeError("Baked base-color image has the wrong dimensions")
 if settings.pack_baked_image and base_image.packed_file is None:
     raise RuntimeError("Baked base-color image was not packed")
+raw_bake = settings.last_raw_baked_image
+if raw_bake is None or raw_bake.name != REPAIR_BAKED_IMAGE:
+    raise RuntimeError("Texture Repair Studio did not preserve the original bake")
+if base_image.name != REPAIR_FINAL_IMAGE or raw_bake == base_image:
+    raise RuntimeError("Final composite does not use a distinct owned image")
+owned_repair_names = {
+    REPAIR_BAKED_IMAGE,
+    REPAIR_CORRECTION_IMAGE,
+    REPAIR_MASK_IMAGE,
+    REPAIR_FINAL_IMAGE,
+    REPAIR_CLASSIFICATION_IMAGE,
+}
+if not owned_repair_names.issubset({image.name for image in bpy.data.images}):
+    raise RuntimeError("Texture Repair Studio owned image set is incomplete")
+if any(
+    bpy.data.images[name].packed_file is None for name in owned_repair_names
+):
+    raise RuntimeError("A Texture Repair Studio image was not packed")
+repair_metrics = json.loads(target.get("sbf_repair_metrics", "{}"))
+if not repair_metrics or repair_metrics.get("diagnostic_pixels") != 0:
+    raise RuntimeError(f"Texture repair validation metrics failed: {repair_metrics}")
+raw_bake_path = Path(raw_bake.filepath_raw)
+if not raw_bake_path.is_file() or raw_bake_path == Path(settings.output_image_path):
+    raise RuntimeError("Original bake was not saved to its separate sibling PNG")
 if len(mesh.vertices) != original["vertices"]:
     raise RuntimeError("Vertex count changed")
 if len(mesh.polygons) != original["polygons"]:
@@ -625,6 +654,13 @@ result = {
     },
     "source_doctor": source_doctor,
     "processed_source_parity": True,
+    "texture_repair": {
+        "architecture": "baked+corrections+mask=final",
+        "owned_images": sorted(owned_repair_names),
+        "raw_bake_path": str(raw_bake_path),
+        "final_path": str(Path(settings.output_image_path).resolve()),
+        "metrics": repair_metrics,
+    },
     "body_part_ownership": "one_hot_per_polygon",
     "severe_pose_status": "SOURCE_POSE_REVIEW_REQUIRED",
     "landmark_regression": landmark_regression,

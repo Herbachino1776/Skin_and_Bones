@@ -439,8 +439,203 @@ class SBF_PT_output(_SBF_PT_section, Panel):
         layout.operator("sbf.bake_final", icon="RENDER_STILL")
 
 
+class SBF_PT_texture_repair(_SBF_PT_section, Panel):
+    bl_label = "7. TEXTURE REPAIR STUDIO"
+    bl_idname = "SBF_PT_texture_repair"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.sbf_settings
+        ready = settings.repair_state == "READY"
+        layer = layout.box()
+        layer.enabled = ready
+        row = layer.row(align=True)
+        row.prop(settings, "repair_enabled", text="Correction Layer")
+        row.prop(settings, "repair_opacity", text="Opacity")
+
+        tabs = layer.row(align=True)
+        tabs.prop_enum(settings, "repair_mode", "CLONE", text="Clone")
+        tabs.prop_enum(settings, "repair_mode", "HEAL", text="Heal")
+        tabs.prop_enum(settings, "repair_mode", "SMART_FILL", text="Smart Fill")
+        tabs.prop_enum(settings, "repair_mode", "SEAM_HEAL", text="Seam Heal")
+
+        if settings.repair_mode in {"CLONE", "HEAL"}:
+            source = layer.row()
+            source.scale_y = 1.35
+            source.operator(
+                "sbf.texture_repair_set_source",
+                text="SET SOURCE",
+                icon="EYEDROPPER",
+            )
+            paint = layer.row()
+            paint.scale_y = 1.55
+            paint.operator(
+                "sbf.texture_repair_paint",
+                text="APPLY / PAINT REPAIR",
+                icon="BRUSH_DATA",
+            )
+        elif settings.repair_mode == "SMART_FILL":
+            smart = layer.row()
+            smart.scale_y = 1.55
+            smart.operator(
+                "sbf.texture_smart_fill",
+                text="SMART FILL MASK",
+                icon="MOD_MASK",
+            )
+        else:
+            seams = layer.row()
+            seams.scale_y = 1.55
+            heal = seams.operator(
+                "sbf.texture_heal_seams",
+                text="HEAL SAFE SEAMS",
+                icon="UV_SYNC_SELECT",
+            )
+            heal.all_safe = True
+
+        controls = layer.column(align=True)
+        controls.prop(settings, "repair_brush_size")
+        controls.prop(settings, "repair_softness")
+        controls.prop(settings, "repair_strength")
+        if settings.repair_mode == "HEAL":
+            controls.prop(settings, "repair_detail_preservation")
+
+        inspection = layer.row(align=True)
+        unresolved = inspection.operator(
+            "sbf.texture_display",
+            text="Show Unresolved",
+            icon="ERROR",
+            depress=settings.repair_display == "UNRESOLVED",
+        )
+        unresolved.display = "UNRESOLVED"
+        heatmap = inspection.operator(
+            "sbf.texture_display",
+            text="Show Seam Heatmap",
+            icon="UV",
+            depress=settings.repair_display == "SEAM_HEATMAP",
+        )
+        heatmap.display = "SEAM_HEATMAP"
+        comparison = layer.row(align=True)
+        before = comparison.operator(
+            "sbf.texture_display",
+            text="Before",
+            depress=settings.repair_display == "BEFORE",
+        )
+        before.display = "BEFORE"
+        after = comparison.operator(
+            "sbf.texture_display",
+            text="After",
+            depress=settings.repair_display == "FINAL",
+        )
+        after.display = "FINAL"
+
+        commit = layer.row()
+        commit.scale_y = 1.5
+        commit.operator(
+            "sbf.texture_commit_final",
+            text="COMMIT FINAL BASE COLOR",
+            icon="CHECKMARK",
+        )
+        layer.operator(
+            "sbf.texture_clear_preview",
+            text="CLEAR REPAIR PREVIEW",
+            icon="HIDE_OFF",
+        )
+        status = layout.box()
+        status.label(text=settings.repair_status, icon="INFO")
+        status.label(
+            text=(
+                f"Corrected {settings.repair_correction_count:,} | "
+                f"Unresolved {settings.repair_unresolved_count:,} | "
+                f"Seams {settings.repair_detected_seam_count:,}"
+            )
+        )
+        status.label(text=settings.repair_source_status)
+
+
+class SBF_PT_texture_repair_advanced(_SBF_PT_section, Panel):
+    bl_label = "Advanced Texture Repair"
+    bl_idname = "SBF_PT_texture_repair_advanced"
+    bl_parent_id = "SBF_PT_texture_repair"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.sbf_settings
+        layout.enabled = settings.repair_state == "READY"
+        brush = layout.box()
+        brush.label(text="Clone / Heal", icon="BRUSH_DATA")
+        brush.prop(settings, "repair_spacing")
+        brush.prop(settings, "repair_source_scale")
+        brush.prop(settings, "repair_source_rotation")
+        brush.prop(settings, "repair_clone_aligned")
+        brush.prop(settings, "repair_restrict_part")
+        brush.prop(settings, "repair_restrict_material")
+        brush.prop(settings, "repair_symmetry")
+        brush.prop(settings, "repair_frequency_radius")
+
+        smart = layout.box()
+        smart.label(text="Masked Smart Fill", icon="MOD_MASK")
+        smart.prop(settings, "repair_smart_fill_target")
+        smart.prop(settings, "repair_source_policy")
+        smart.prop(settings, "repair_min_donor_confidence")
+        smart.prop(settings, "repair_patch_candidates")
+        smart.prop(settings, "repair_smart_fill_pixel_limit")
+        masks = smart.row(align=True)
+        target_mask = masks.operator("sbf.texture_display", text="TARGET MASK")
+        target_mask.display = "TARGET_MASK"
+        donor_mask = masks.operator("sbf.texture_display", text="DONOR MASK")
+        donor_mask.display = "DONOR_MASK"
+        forbidden_mask = masks.operator(
+            "sbf.texture_display", text="FORBIDDEN MASK"
+        )
+        forbidden_mask.display = "FORBIDDEN_MASK"
+        smart.prop(settings, "repair_target_mask_image")
+        smart.prop(settings, "repair_donor_mask_image")
+        smart.prop(settings, "repair_forbidden_mask_image")
+
+        seams = layout.box()
+        seams.label(text="Geometry-Aware Seam Heal", icon="UV")
+        seams.prop(settings, "repair_seam_width")
+        seams.prop(settings, "repair_seam_detection_threshold")
+        seams.prop(settings, "repair_seam_max_correction")
+        detect = seams.row()
+        detect.scale_y = 1.25
+        detect.operator("sbf.texture_detect_seams", text="DETECT COLOR SEAMS")
+        actions = seams.row(align=True)
+        selected = actions.operator(
+            "sbf.texture_heal_seams", text="HEAL SELECTED SEAMS"
+        )
+        selected.all_safe = False
+        safe = actions.operator(
+            "sbf.texture_heal_seams", text="HEAL ALL SAFE SEAMS"
+        )
+        safe.all_safe = True
+        seams.label(
+            text=(
+                f"Seam error {settings.repair_seam_error_before:.5f} -> "
+                f"{settings.repair_seam_error_after:.5f}"
+            )
+        )
+
+        diagnostics = layout.box()
+        diagnostics.label(text="Diagnostics / Layer Safety", icon="IMAGE_DATA")
+        diagnostics.prop(settings, "repair_display")
+        diagnostics.prop(settings, "repair_unresolved_threshold")
+        diagnostics.prop(settings, "repair_correction_image")
+        diagnostics.prop(settings, "repair_mask_image")
+        diagnostics.prop(settings, "repair_classification_image")
+        clears = diagnostics.row(align=True)
+        selected_clear = clears.operator(
+            "sbf.texture_clear", text="CLEAR SELECTED REGION"
+        )
+        selected_clear.selected = True
+        all_clear = clears.operator("sbf.texture_clear", text="CLEAR ALL")
+        all_clear.selected = False
+
+
 class SBF_PT_delivery(_SBF_PT_section, Panel):
-    bl_label = "8. Delivery & Verification"
+    bl_label = "9. Delivery & Verification"
     bl_idname = "SBF_PT_delivery"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -460,7 +655,7 @@ class SBF_PT_delivery(_SBF_PT_section, Panel):
 
 
 class SBF_PT_bones(_SBF_PT_section, Panel):
-    bl_label = "7. Bones — Automatic Humanoid Rig"
+    bl_label = "8. Bones — Automatic Humanoid Rig"
     bl_idname = "SBF_PT_bones"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -616,6 +811,8 @@ PANEL_CLASSES = (
     SBF_PT_source_doctor,
     SBF_PT_source_doctor_advanced,
     SBF_PT_output,
+    SBF_PT_texture_repair,
+    SBF_PT_texture_repair_advanced,
     SBF_PT_bones,
     SBF_PT_delivery,
 )

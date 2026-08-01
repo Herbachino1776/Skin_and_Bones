@@ -25,6 +25,10 @@ This is the fast structural regression. It validates:
 - Normal image assignment.
 - Temporary-data cleanup.
 - Packed base color.
+- Separate packed `SBF_BaseColor_Baked`, corrections, mask, classification,
+  and final images with the final image bound for delivery.
+- Texture-repair fingerprint/manifest metrics, a sibling raw-bake PNG, zero
+  known diagnostic colors, and configured unresolved-threshold validation.
 - Roughness `1.0` and normal strength `0.25`.
 - Blender output reopen.
 - GLB export and GLB re-import, including base-color UV-set selection.
@@ -54,8 +58,28 @@ python scripts/build_release.py
 The release ZIP must contain a single top-level `skin_and_bones_forge/`
 package and no `__pycache__` or fixture assets.
 
+Run the pure repair matrix inside Blender's bundled NumPy runtime:
+
+```powershell
+E:\Blender\blender.exe --background --factory-startup `
+  --python tests\test_texture_repair.py
+```
+
+Run the small end-to-end repair fixture with:
+
+```powershell
+E:\Blender\blender.exe --background --factory-startup `
+  --python scripts\run_texture_repair_runtime_test.py -- `
+  --repo-root . --output-dir build\texture_repair_runtime
+```
+
+It proves raw-layer immutability, rotated-island Clone, Heal, semantic/material
+donor rejection, explicit-mask Smart Fill, shared-edge Seam Heal metrics,
+transaction rollback, re-bake preservation/invalidation, preview/data leak
+safety, delivery gates, packed PNG output, and byte-identical GLB embedding.
+
 Every push to `main` runs these static checks on GitHub Actions and uploads
-`Skin_and_Bones_Forge_v1.1.0` as a 30-day workflow artifact.
+`Skin_and_Bones_Forge_v1.2.0` as a 30-day workflow artifact.
 
 To exercise texture projection and baking on the exact-welded production mesh,
 run the Blender harness directly with `--prepare-spar3d`. The ordinary wrapper
