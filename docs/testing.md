@@ -79,7 +79,7 @@ transaction rollback, re-bake preservation/invalidation, preview/data leak
 safety, delivery gates, packed PNG output, and byte-identical GLB embedding.
 
 Every push to `main` runs these static checks on GitHub Actions and uploads
-`Skin_and_Bones_Forge_v1.2.2` as a 30-day workflow artifact.
+`Skin_and_Bones_Forge_v1.2.3` as a 30-day workflow artifact.
 
 To exercise texture projection and baking on the exact-welded production mesh,
 run the Blender harness directly with `--prepare-spar3d`. The ordinary wrapper

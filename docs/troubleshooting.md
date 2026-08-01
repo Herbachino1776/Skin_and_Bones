@@ -7,7 +7,10 @@
   PREVIEW**.
 - `SOURCE_POSE_REVIEW_REQUIRED` is a deliberate severe-pose gate. Choose the
   reported view, use **PLACE BODY LANDMARKS**, and verify the worst arm/leg
-  chain. A genuinely different pose needs a compatible source plate.
+  chain. For `right_arm`, verify Right shoulder, Right elbow, Right wrist, and
+  Right hand center. In Front, character right is image left; in Back,
+  character right is image right. A genuinely different pose needs a compatible
+  source plate.
 - An owned-image size mismatch indicates stale or artist-resized
   `SBF_CLEAN_SOURCE_*` data. **RESTORE ORIGINAL SOURCE** and process that view
   again; the source PNG is never changed.

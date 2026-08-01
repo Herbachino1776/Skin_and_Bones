@@ -18,7 +18,12 @@ from ..constants import (
     VIEW_NAMES,
 )
 from ..projection import cleanup_temporary_data
-from ..projection.body_alignment import BODY_LANDMARK_LABELS, BODY_LANDMARK_NAMES
+from ..projection.body_alignment import (
+    BODY_LANDMARK_LABELS,
+    BODY_LANDMARK_NAMES,
+    body_landmark_display_label,
+    body_landmark_orientation_hint,
+)
 from ..projection.source_processing import (
     auto_initialize_body_landmarks,
     body_landmarks,
@@ -221,12 +226,12 @@ def _draw_body_landmarks(operator):
         return
     positions = []
     labels = []
-    for index, name in enumerate(BODY_LANDMARK_NAMES):
+    for name in BODY_LANDMARK_NAMES:
         if name not in operator._metadata["points"]:
             continue
         x, y = _point_position(region, operator._metadata["points"][name])
         positions.append((x, y))
-        labels.append((x, y, index + 1))
+        labels.append((x, y, body_landmark_display_label(name)))
     if positions:
         shader = gpu.shader.from_builtin("UNIFORM_COLOR")
         batch = batch_for_shader(shader, "POINTS", {"pos": positions})
@@ -239,17 +244,29 @@ def _draw_body_landmarks(operator):
         gpu.state.blend_set("NONE")
     font_id = 0
     blf.size(font_id, 12.0)
-    blf.color(font_id, 0.05, 0.75, 1.0, 1.0)
-    for x, y, number in labels:
-        blf.position(font_id, x + 7.0, y + 5.0, 0.0)
-        blf.draw(font_id, str(number))
+    for x, y, label in labels:
+        label_width, _label_height = blf.dimensions(font_id, label)
+        label_x = x - label_width - 7.0 if x > region.width * 0.7 else x + 7.0
+        blf.color(font_id, 0.0, 0.0, 0.0, 0.9)
+        blf.position(font_id, label_x + 1.0, y + 4.0, 0.0)
+        blf.draw(font_id, label)
+        blf.color(font_id, 0.05, 0.75, 1.0, 1.0)
+        blf.position(font_id, label_x, y + 5.0, 0.0)
+        blf.draw(font_id, label)
     current = operator._next_unset()
     prompt = BODY_LANDMARK_LABELS[current] if current else "Click a cyan point to reposition"
+    orientation_hint = body_landmark_orientation_hint(operator.view_name)
     blf.size(font_id, 18.0)
     blf.color(font_id, 1.0, 1.0, 1.0, 1.0)
     blf.position(font_id, 24.0, 54.0, 0.0)
     blf.draw(font_id, f"Place: {prompt}")
+    if orientation_hint:
+        blf.size(font_id, 13.0)
+        blf.color(font_id, 1.0, 0.8, 0.2, 1.0)
+        blf.position(font_id, 24.0, 78.0, 0.0)
+        blf.draw(font_id, orientation_hint)
     blf.size(font_id, 13.0)
+    blf.color(font_id, 1.0, 1.0, 1.0, 1.0)
     blf.position(font_id, 24.0, 30.0, 0.0)
     blf.draw(
         font_id,

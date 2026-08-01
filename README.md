@@ -4,7 +4,7 @@ Skin & Bones Forge is a Blender 5.1.2 add-on for rebuilding the base-color
 texture of a SPAR3D human mesh and building a validated production rig from
 the canonical Animate Anything humanoid skeleton.
 
-Version 1.2.2 implements one-click SPAR3D production-mesh intake, the Folsom
+Version 1.2.3 implements one-click SPAR3D production-mesh intake, the Folsom
 visual workflow, production **Bones**, and non-destructive texture repair:
 
 - Import a raw SPAR3D GLB, weld only exactly coincident seam vertices, prove
@@ -73,7 +73,7 @@ visual workflow, production **Bones**, and non-destructive texture repair:
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v1.2.2.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v1.2.3.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -163,17 +163,18 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v1.2.2` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v1.2.3` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 
 ## Scope
 
-Version 1.2.2 adds a GPU-safe projection preview and working bounded warp raster
-output on top of the permanent Texture Repair Studio correction-layer slice,
-without changing production topology, original UVs, normal maps, or other PBR
-textures. Optional hand shape-key authoring, animation polish, gore/damage
-authoring, batch processing, Rigify, and runtime game editing remain downstream
-milestones.
+Version 1.2.3 adds named body-landmark overlays and explicit front/back
+anatomical-right guidance on top of the GPU-safe projection preview, working
+bounded warp raster output, and permanent Texture Repair Studio correction-layer
+slice. It does not change production topology, original UVs, normal maps, or
+other PBR textures. Optional hand shape-key authoring, animation polish,
+gore/damage authoring, batch processing, Rigify, and runtime game editing remain
+downstream milestones.
 
 Skin & Bones Forge is licensed under GPL-3.0-or-later.

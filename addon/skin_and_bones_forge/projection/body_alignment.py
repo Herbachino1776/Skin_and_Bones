@@ -54,6 +54,29 @@ BODY_LANDMARK_LABELS = {
     "toe_right": "Right foot tip",
 }
 
+BODY_LANDMARK_ORIENTATION_HINTS = {
+    "front": "Front view: character RIGHT is image LEFT",
+    "back": "Back view: character RIGHT is image RIGHT",
+}
+
+
+def body_landmark_display_label(name):
+    """Return the numbered anatomical label shown by the image editor."""
+
+    try:
+        number = BODY_LANDMARK_NAMES.index(name) + 1
+        label = BODY_LANDMARK_LABELS[name]
+    except (KeyError, ValueError) as exc:
+        raise ValueError(f"Unknown body landmark: {name}") from exc
+    return f"{number}. {label}"
+
+
+def body_landmark_orientation_hint(view_name):
+    """Explain anatomical right where front/back mirroring is ambiguous."""
+
+    return BODY_LANDMARK_ORIENTATION_HINTS.get(view_name, "")
+
+
 BODY_PARTS = (
     "head",
     "torso",

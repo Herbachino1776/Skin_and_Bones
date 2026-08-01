@@ -2,6 +2,15 @@
 
 All notable changes follow semantic versioning.
 
+## 1.2.3 - 2026-08-01
+
+### Added
+
+- Label every cyan body-landmark point with its number and anatomical name in
+  the Image Editor, with a high-contrast shadow over detailed source artwork.
+- Show explicit front/back orientation guidance so character-right arm points
+  cannot be confused with image-right points while correcting pose preflight.
+
 ## 1.2.2 - 2026-08-01
 
 ### Fixed

@@ -15,6 +15,27 @@ SPEC.loader.exec_module(BODY)
 
 
 class BodyAlignmentTests(unittest.TestCase):
+    def test_landmark_overlay_labels_names_and_orients_anatomical_right(self):
+        self.assertEqual(
+            BODY.body_landmark_display_label("shoulder_right"),
+            "4. Right shoulder",
+        )
+        self.assertEqual(
+            BODY.body_landmark_display_label("hand_right"),
+            "10. Right hand center",
+        )
+        self.assertEqual(
+            BODY.body_landmark_orientation_hint("front"),
+            "Front view: character RIGHT is image LEFT",
+        )
+        self.assertEqual(
+            BODY.body_landmark_orientation_hint("back"),
+            "Back view: character RIGHT is image RIGHT",
+        )
+        self.assertEqual(BODY.body_landmark_orientation_hint("left"), "")
+        with self.assertRaisesRegex(ValueError, "Unknown body landmark"):
+            BODY.body_landmark_display_label("third_elbow")
+
     def test_landmark_normalization_clamps_and_rejects_unknowns(self):
         result = BODY.normalize_landmark_metadata(
             {"points": {"head_top": (-0.2, 1.2)}, "skipped": []}
