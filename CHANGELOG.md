@@ -2,6 +2,22 @@
 
 All notable changes follow semantic versioning.
 
+## 1.2.2 - 2026-08-01
+
+### Fixed
+
+- Write bounded warp pixels back into their actual destination image instead of
+  a non-contiguous NumPy reshape copy; the 2K projections now reach preview and
+  final bake instead of silently falling back to the previous SPAR3D texture.
+- Replace 57 preview texture samplers and seven one-hot shader attributes with
+  nine texture nodes, native-resolution packed warp atlases, two packed view-
+  weight vectors, and one compact body-part owner ID for the four-cardinal
+  workflow. Blender 5.1.2 no longer fails the preview shader with "uses too
+  many attributes" and magenta output.
+- Reject transparent, stale, missing, or over-budget projection atlases before
+  final bake, and sample an existing baked fallback through its bound base-color
+  UV rather than assuming the original production UV.
+
 ## 1.2.1 - 2026-08-01
 
 ### Fixed

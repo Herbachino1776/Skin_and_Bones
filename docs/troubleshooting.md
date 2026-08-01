@@ -256,6 +256,22 @@ or its unloaded generated images as pink. In 1.2.1, **After**, **CLEAR REPAIR
 PREVIEW**, every repair commit, save, and export explicitly restores the
 validated production material while preserving correction pixels.
 
+## The projection preview turns the whole character pink
+
+Install 1.2.2 or newer, then click **One-Click Best Preview** again. Version
+1.2.1's four-cardinal preview requested 57 image samplers and more mesh
+attributes than Blender's material limit; Blender 5.1.2 rejected that GPU shader
+with **uses too many attributes** and displayed magenta. The same version also
+wrote bounded warp pixels through a detached NumPy reshape, leaving those
+sources transparent and
+causing final bake to reuse the old SPAR3D base color. Version 1.2.2 packs each
+view into one native-resolution body-part atlas, uses one compact owner ID, and
+blocks final bake when a processed atlas is transparent, stale, or unavailable.
+
+You do not need to rebuild the character or reselect the PNGs. Open the existing
+`.blend`, install 1.2.2, click **One-Click Best Preview**, confirm the actual
+projection artwork appears, and then click **Bake Final Base Color**.
+
 ## Smart Fill reports rejected or unresolved pixels
 
 Smart Fill never expands beyond the explicit target mask. Under the default

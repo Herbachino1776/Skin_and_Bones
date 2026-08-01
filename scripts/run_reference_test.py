@@ -81,7 +81,7 @@ if existing_addon is not None:
 import skin_and_bones_forge  # noqa: E402
 from skin_and_bones_forge.constants import (  # noqa: E402
     BASE_COLOR_UV_NAME,
-    BODY_PART_ATTRIBUTE_PREFIX,
+    BODY_PART_ID_ATTRIBUTE,
     CARDINAL_VIEW_NAMES,
     PREVIEW_MATERIAL_PREFIX,
     PROJECTION_UV_PREFIX,
@@ -96,8 +96,10 @@ from skin_and_bones_forge.constants import (  # noqa: E402
 from skin_and_bones_forge.projection.body_alignment import BODY_PARTS  # noqa: E402
 from skin_and_bones_forge.projection.source_processing import (  # noqa: E402
     generate_warped_sources,
+    get_warped_atlas,
     get_warped_images,
     process_all_source_plates,
+    validate_preview_source_parity,
 )
 from skin_and_bones_forge.projection.alignment import (  # noqa: E402
     _alpha_bounds,
@@ -348,12 +350,13 @@ for name in loaded_source_names:
     if tuple(view.cleaned_image.size) != tuple(view.image.size):
         raise RuntimeError(f"{name} cleaned source size differs from its original")
     warped = get_warped_images(view)
-    if set(warped) != set(BODY_PARTS):
-        raise RuntimeError(f"{name} does not have all bounded part sources")
-    for part, image in warped.items():
-        node = preview_material.node_tree.nodes.get(f"SBF_WarpSource_{name}_{part}")
-        if node is None or node.image != image:
-            raise RuntimeError(f"Preview did not use {name} {part} processed source")
+    atlas, atlas_metadata = get_warped_atlas(view)
+    if set(warped) != set(BODY_PARTS) or set(atlas_metadata["parts"]) != set(BODY_PARTS):
+        raise RuntimeError(f"{name} does not have all bounded atlas regions")
+    for node_name in (f"SBF_WarpAtlas_{name}", f"SBF_WarpAtlasSafe_{name}"):
+        node = preview_material.node_tree.nodes.get(node_name)
+        if node is None or node.image != atlas:
+            raise RuntimeError(f"Preview did not use {name} processed atlas")
     metrics = json.loads(view.source_doctor_metrics_json)
     if metrics["contamination_after"] > metrics["contamination_before"] + 1.0e-8:
         raise RuntimeError(f"{name} Source Plate Doctor increased contamination")
@@ -364,6 +367,7 @@ for name in loaded_source_names:
         "mismatch_before": view.pose_mismatch_error,
         "mismatch_after": 0.0,
         "warped_parts": sorted(warped),
+        "warp_atlas_size": list(atlas.size),
     }
     cleaned_before_reuse[name] = (
         view.cleaned_image.name,
@@ -380,18 +384,34 @@ for name, (cleaned_name, cleaned_fingerprint) in cleaned_before_reuse.items():
     if view.cleaned_image.name != cleaned_name or image_fingerprint(view.cleaned_image) != cleaned_fingerprint:
         raise RuntimeError(f"{name} cleaned source was not reused idempotently")
 
+owner_id = mesh.attributes.get(BODY_PART_ID_ATTRIBUTE)
+if owner_id is None:
+    raise RuntimeError("Missing compact body-part ownership ID")
 for polygon in mesh.polygons:
-    ownership = []
-    for part in BODY_PARTS:
-        attribute = mesh.attributes.get(f"{BODY_PART_ATTRIBUTE_PREFIX}{part}")
-        if attribute is None:
-            raise RuntimeError(f"Missing body-part ownership attribute for {part}")
-        values = {round(attribute.data[index].value, 6) for index in polygon.loop_indices}
-        if len(values) != 1:
-            raise RuntimeError("Body-part ownership interpolates across one polygon")
-        ownership.append(next(iter(values)))
-    if abs(sum(ownership) - 1.0) > 1.0e-6:
-        raise RuntimeError("A polygon has ambiguous or missing body-part ownership")
+    values = {round(owner_id.data[index].value, 6) for index in polygon.loop_indices}
+    if len(values) != 1:
+        raise RuntimeError("Body-part ownership interpolates across one polygon")
+    value = next(iter(values))
+    if value != round(value) or not 0 <= int(value) < len(BODY_PARTS):
+        raise RuntimeError("A polygon has an invalid body-part ownership ID")
+
+validate_preview_source_parity(preview_material, settings)
+preview_textures = [
+    node for node in preview_material.node_tree.nodes
+    if node.bl_idname == "ShaderNodeTexImage"
+]
+preview_attributes = {
+    node.attribute_name
+    for node in preview_material.node_tree.nodes
+    if node.bl_idname == "ShaderNodeAttribute" and node.attribute_name
+}
+preview_attributes.update(
+    node.uv_map
+    for node in preview_material.node_tree.nodes
+    if node.bl_idname == "ShaderNodeUVMap" and node.uv_map
+)
+if len(preview_textures) > 13 or len(preview_attributes) > 12:
+    raise RuntimeError("Projection preview exceeds the production GPU shader budget")
 
 # Runtime-proof the severe contradiction status without changing owned images.
 front_metadata_before = settings.front.body_landmarks_json
@@ -482,6 +502,27 @@ if args.render_preview:
         "render_preview_verification",
         bpy.ops.sbf.render_verification(),
     )
+    preview_path = Path(settings.proof_render_dir) / "sbf_verify_front.png"
+    if not preview_path.is_file():
+        raise RuntimeError("Projection preview proof render was not created")
+    preview_image = bpy.data.images.load(str(preview_path), check_existing=False)
+    try:
+        preview_pixels = array("f", [0.0]) * len(preview_image.pixels)
+        preview_image.pixels.foreach_get(preview_pixels)
+        opaque = magenta = 0
+        for index in range(0, len(preview_pixels), preview_image.channels):
+            red, green, blue, alpha = preview_pixels[index : index + 4]
+            if alpha <= 0.05:
+                continue
+            opaque += 1
+            if red > 0.8 and green < 0.2 and blue > 0.8:
+                magenta += 1
+        if opaque == 0:
+            raise RuntimeError("Projection preview proof contains no visible character")
+        if magenta / opaque > 0.01:
+            raise RuntimeError("Projection preview proof contains Blender error magenta")
+    finally:
+        bpy.data.images.remove(preview_image)
     settings.proof_render_dir = str(output_dir / "proof_renders")
 
 projection_stats = {}
@@ -661,7 +702,7 @@ result = {
         "final_path": str(Path(settings.output_image_path).resolve()),
         "metrics": repair_metrics,
     },
-    "body_part_ownership": "one_hot_per_polygon",
+    "body_part_ownership": "compact_owner_id_per_polygon",
     "severe_pose_status": "SOURCE_POSE_REVIEW_REQUIRED",
     "landmark_regression": landmark_regression,
     "loaded_source_views": loaded_source_names,

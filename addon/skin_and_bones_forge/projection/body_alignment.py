@@ -447,9 +447,13 @@ def warp_part_pixels(pixels, width, height, source_landmarks, target_landmarks, 
             edge = _np.clip(barycentric.min(axis=1) / float(feather), 0.0, 1.0)
             edge = edge * edge * (3.0 - 2.0 * edge)
             sampled[:, 3] *= edge
-        region = output[minimum_y : maximum_y + 1, minimum_x : maximum_x + 1]
-        flat_indices = _np.flatnonzero(inside)
-        region_flat = region.reshape((-1, 4))
-        replace = sampled[:, 3] >= region_flat[flat_indices, 3]
-        region_flat[flat_indices[replace]] = sampled[replace]
+        # A bounded 2D slice is not C-contiguous when it is narrower than the
+        # full image. Reshaping that slice can silently allocate a copy, which
+        # previously discarded every warped pixel and left the bake falling
+        # back to the old atlas. Index the destination explicitly instead.
+        local_y, local_x = _np.nonzero(inside)
+        destination_y = local_y + minimum_y
+        destination_x = local_x + minimum_x
+        replace = sampled[:, 3] >= output[destination_y, destination_x, 3]
+        output[destination_y[replace], destination_x[replace]] = sampled[replace]
     return output

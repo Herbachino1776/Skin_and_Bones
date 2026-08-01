@@ -61,6 +61,24 @@ class BodyAlignmentTests(unittest.TestCase):
         self.assertGreater(before["error"], after["error"])
         self.assertEqual(BODY.classify_mismatch(0.25), "MODERATE")
 
+    @unittest.skipIf(BODY._np is None, "NumPy runtime is unavailable")
+    def test_bounded_raster_write_reaches_the_destination_image(self):
+        landmarks = BODY.auto_initialize_landmarks("front")
+        pixels = BODY._np.ones((64, 64, 4), dtype=BODY._np.float32)
+        warped = BODY.warp_part_pixels(
+            pixels,
+            64,
+            64,
+            landmarks,
+            landmarks,
+            "head",
+            feather=0.08,
+        )
+        visible = warped[:, :, 3] > 0.0
+        self.assertTrue(visible.any())
+        self.assertFalse(visible.all())
+        self.assertGreater(float(warped[:, :, 3].max()), 0.9)
+
     def test_processed_state_invalidation_is_stable(self):
         payload = {"source": "front", "doctor": {"despill": 0.85}, "landmarks": [0.4, 0.8]}
         token = BODY.processed_state_token(payload)

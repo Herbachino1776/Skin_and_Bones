@@ -156,7 +156,8 @@ hidden side.
 Pose mismatch compares normalized articulated chains. Two-anchor head/pelvis
 scale and torso taper are bounded-affine corrections; reversed or strongly
 bent arm/leg chains can still return `SOURCE_POSE_REVIEW_REQUIRED`. Moderate
-mismatch produces seven separate source images per view:
+mismatch produces seven separate native-resolution regions in one atlas per
+view:
 
 ```text
 head | torso | left_arm | right_arm | pelvis | left_leg | right_leg
@@ -166,12 +167,17 @@ Limb chains form bounded triangle ribbons; torso, pelvis, and head use compact
 two-triangle patches. Barycentric inverse sampling is deterministic and
 feathered inside patch/joint boundaries. No global liquify transform exists.
 
-The mesh receives temporary one-hot `SBF_WEIGHT_part_*` corner attributes.
-Each polygon has exactly one semantic owner, and the shader samples only the
-matching per-part image. Consequently left/right cannot cross, arm/hand images
-cannot sample on torso, pelvis, or thigh polygons, and leg images cannot sample
-on hanging arms. Existing directional, identity, alpha, and ray-occlusion
+The mesh receives one temporary `SBF_WEIGHT_part_id` corner attribute. Each
+polygon has exactly one semantic owner, and the shader remaps it to the matching
+atlas region before sampling. Consequently left/right cannot cross, arm/hand
+images cannot sample on torso, pelvis, or thigh polygons, and leg images cannot
+sample on hanging arms. Existing directional, identity, alpha, and ray-occlusion
 weights apply after this guard.
+
+The six directional scalar weights remain available for diagnostics and are
+also packed three-at-a-time into two temporary vector attributes for shader
+sampling. This keeps four-cardinal and optional six-view previews below Blender
+5.1.2's GPU attribute ceiling without changing any weight value.
 
 ## Shader blend and fallback
 

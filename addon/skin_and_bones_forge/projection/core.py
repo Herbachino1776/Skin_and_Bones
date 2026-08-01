@@ -21,6 +21,7 @@ from ..constants import (
     TEMPORARY_PROPERTY,
     VERIFY_PREFIX,
     VIEW_NAMES,
+    VIEW_WEIGHT_PACK_PREFIX,
     WEIGHT_ATTRIBUTE_PREFIX,
     SOURCE_OWNER_PROPERTY,
 )
@@ -544,6 +545,24 @@ def create_projection_state(context, info, settings):
     finally:
         wm.progress_end()
 
+    packed_weight_attributes = {}
+    for pack_index in range(0, len(VIEW_NAMES), 3):
+        packed_name = f"{VIEW_WEIGHT_PACK_PREFIX}{pack_index // 3}"
+        existing_packed = mesh.attributes.get(packed_name)
+        if existing_packed is not None:
+            mesh.attributes.remove(existing_packed)
+        packed = mesh.attributes.new(
+            name=packed_name,
+            type="FLOAT_VECTOR",
+            domain="CORNER",
+        )
+        names = VIEW_NAMES[pack_index : pack_index + 3]
+        for loop in mesh.loops:
+            values = [attributes[name].data[loop.index].value for name in names]
+            values.extend([0.0] * (3 - len(values)))
+            packed.data[loop.index].vector = values
+        packed_weight_attributes[pack_index // 3] = packed
+
     mesh.uv_layers.active = mesh.uv_layers[info.uv_name]
     mesh.uv_layers[info.uv_name].active_render = True
     mesh.update()
@@ -553,6 +572,7 @@ def create_projection_state(context, info, settings):
         "directions": directions,
         "bounds": bounds,
         "attributes": attributes,
+        "packed_weight_attributes": packed_weight_attributes,
         "head_mask": head_mask,
         "body_part_attributes": body_part_attributes,
     }

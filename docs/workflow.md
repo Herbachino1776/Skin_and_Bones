@@ -6,7 +6,7 @@ Open the SPAR3D `.blend` or import its GLB. Keep a source copy. The add-on
 works in memory and writes to new output paths by default, but source control
 is still good production hygiene.
 
-Start with **0. Character Setup**. Version 1.2.0 imports the raw GLB,
+Start with **0. Character Setup**. Version 1.2.2 imports the raw GLB,
 selects the plausible production mesh, exact-welds duplicated seam positions,
 preserves face-corner UVs and normals, and normalizes the clean target to 1.50 m.
 The downstream target contract expects:
@@ -76,7 +76,8 @@ Landmarks** before final bake:
    need correction. The Image Editor supports wheel zoom, middle-mouse pan,
    Backspace undo, `S` skip-hidden, Enter accept, and Escape cancel.
 4. Click **GENERATE WARPED SOURCES**. Head, torso, both arms/hands, pelvis, and
-   both legs/feet receive separate bounded piecewise-affine projection images.
+   both legs/feet receive separate native-resolution regions inside one bounded
+   GPU-safe warp atlas per view.
 5. Click **REFRESH BEST PREVIEW**.
 
 The pose preflight reports acceptable, moderate, or severe mismatch per view
@@ -267,7 +268,7 @@ boneless base asset for a separate rigging project.
 
 ## Build the production Bones rig
 
-Version 1.2.0 fits, binds, tests, and exports the production rig. Keep the
+Version 1.2.2 fits, binds, tests, and exports the production rig. Keep the
 canonical rig and production target in the same file, then follow **BONES 1-4**
 and the focused workflow in
 [rigging_workflow.md](rigging_workflow.md). Preview objects live in the owned
