@@ -129,6 +129,50 @@ corner still correct center and vertical scale. The body transform is never
 modified, and reapplying starts from the stored auto-fit transform rather than
 accumulating edits.
 
+## Source Plate Doctor
+
+Every enabled original source is read into a separate owned
+`SBF_CLEAN_SOURCE_<VIEW>` datablock. Border alpha and median border RGB establish
+the background model. A high-alpha, background-distant foreground mask is
+slightly eroded to define trusted color. Deterministic four-neighbor expansion
+then supplies foreground RGB for partial-alpha despill and transparent-pixel
+RGB extension. Alpha values, resolution, and color-space intent remain
+unchanged. The outer expansion distance also produces a lower-confidence
+silhouette band for diagnostics.
+
+Processing rejects non-finite values, size/ownership mismatches, missing clean
+sources, and any partial-alpha edge pixel that still strongly matches the
+detected background. A settings/source/pixel fingerprint makes repeat runs
+idempotent and invalidates stale warps.
+
+## Body landmarks, bounded warp, and ownership
+
+The Bones humanoid analyzer remains the mesh-side anatomical authority. Its
+head, shoulder, elbow, wrist, hand, hip, knee, ankle, and toe points are
+projected into each camera. Image-side metadata uses the same anatomical
+left/right convention plus head top and chin. Profiles explicitly skip the
+hidden side.
+
+Pose mismatch compares normalized articulated chains. Two-anchor head/pelvis
+scale and torso taper are bounded-affine corrections; reversed or strongly
+bent arm/leg chains can still return `SOURCE_POSE_REVIEW_REQUIRED`. Moderate
+mismatch produces seven separate source images per view:
+
+```text
+head | torso | left_arm | right_arm | pelvis | left_leg | right_leg
+```
+
+Limb chains form bounded triangle ribbons; torso, pelvis, and head use compact
+two-triangle patches. Barycentric inverse sampling is deterministic and
+feathered inside patch/joint boundaries. No global liquify transform exists.
+
+The mesh receives temporary one-hot `SBF_WEIGHT_part_*` corner attributes.
+Each polygon has exactly one semantic owner, and the shader samples only the
+matching per-part image. Consequently left/right cannot cross, arm/hand images
+cannot sample on torso, pelvis, or thigh polygons, and leg images cannot sample
+on hanging arms. Existing directional, identity, alpha, and ray-occlusion
+weights apply after this guard.
+
 ## Shader blend and fallback
 
 For every source, the regular body confidence is:
@@ -181,6 +225,9 @@ low-resolution triangle islands. By default, the add-on:
 
 The temporary preview emission is baked with Cycles into a new image using
 `SBF_BaseColorUV`. The baked base-color node is explicitly bound to that UV.
+Before baking, a processed-source fingerprint and every part-image node are
+checked against the preview state; originals cannot silently replace cleaned or
+warped sources.
 Unconfigured normal and other PBR image nodes are explicitly bound to the
 unchanged original UV. The material slot, hierarchy, transforms, vertices,
 polygons, original UV coordinates, and normal image remain intact.

@@ -2,6 +2,25 @@
 
 All notable changes follow semantic versioning.
 
+## 1.1.0 - 2026-07-31
+
+### Added
+
+- Non-destructive Source Plate Doctor with trusted-mask erosion, deterministic
+  despill, transparent hidden-RGB repair/extension, contamination diagnostics,
+  validation, owned cleanup, and idempotent source fingerprints.
+- Per-view 18-point body-landmark metadata and Image Editor placement matching
+  the facial-landmark zoom, pan, undo, skip-hidden, accept, and cancel workflow.
+- Seven bounded piecewise-affine body-part source images, pose-consistency
+  preflight, and strict one-owner-per-polygon anatomical projection guards.
+- Preview/final-bake processed-source parity validation and compact Source
+  Alignment Doctor UI with advanced diagnostics.
+
+### Changed
+
+- `One-Click Best Preview` now runs the complete cleaned-source, body-alignment,
+  bounded-warp, ownership, confidence/occlusion, preview, and bake-ready flow.
+
 ## 0.6.1 - 2026-07-25
 
 ### Fixed

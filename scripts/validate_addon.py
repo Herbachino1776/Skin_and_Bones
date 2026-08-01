@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "addon" / "skin_and_bones_forge"
-EXPECTED_VERSION = (1, 0, 2)
+EXPECTED_VERSION = (1, 1, 0)
 EXPECTED_BLENDER = (5, 1, 2)
 REQUIRED_FILES = (
     PACKAGE / "__init__.py",
@@ -26,6 +26,9 @@ REQUIRED_FILES = (
     PACKAGE / "panels" / "main_panel.py",
     PACKAGE / "projection" / "core.py",
     PACKAGE / "projection" / "material.py",
+    PACKAGE / "projection" / "source_doctor.py",
+    PACKAGE / "projection" / "body_alignment.py",
+    PACKAGE / "projection" / "source_processing.py",
     PACKAGE / "rigging" / "contract.py",
     PACKAGE / "rigging" / "analysis.py",
     PACKAGE / "rigging" / "landmarks.py",
@@ -41,6 +44,7 @@ REQUIRED_FILES = (
     PACKAGE / "rigging" / "acceptance_runner.py",
     PACKAGE / "rigging" / "reimport_runner.py",
     PACKAGE / "operators" / "rigging.py",
+    PACKAGE / "operators" / "source_doctor.py",
     PACKAGE / "validation" / "core.py",
 )
 

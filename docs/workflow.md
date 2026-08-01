@@ -6,7 +6,7 @@ Open the SPAR3D `.blend` or import its GLB. Keep a source copy. The add-on
 works in memory and writes to new output paths by default, but source control
 is still good production hygiene.
 
-Start with **0. SPAR3D Intake & Mesh Prep**. Version 1.0.2 imports the raw GLB,
+Start with **0. SPAR3D Intake & Mesh Prep**. Version 1.1.0 imports the raw GLB,
 selects the plausible production mesh, exact-welds duplicated seam positions,
 preserves face-corner UVs and normals, and normalizes the clean target to 1.50 m.
 The downstream target contract expects:
@@ -51,6 +51,33 @@ Best results come from:
 - 2048-4096 pixels of useful character height for a 4K bake.
 
 The left/right labels refer to the character's sides, not the viewer's.
+
+## Run Source Alignment Doctor
+
+Open **5. SOURCE ALIGNMENT DOCTOR** before final bake:
+
+1. Click **PROCESS ALL SOURCE PLATES**. The original image datablocks and PNGs
+   remain untouched; the add-on creates owned `SBF_CLEAN_SOURCE_<VIEW>` images.
+2. Click **AUTO INITIALIZE BODY LANDMARKS**. The deterministic silhouette pass
+   initializes head, shoulder, elbow, wrist, hand, hip, knee, ankle, and foot
+   anchors. Profile views explicitly skip the hidden anatomical side.
+3. Choose a source and use **PLACE BODY LANDMARKS** when the automatic points
+   need correction. The Image Editor supports wheel zoom, middle-mouse pan,
+   Backspace undo, `S` skip-hidden, Enter accept, and Escape cancel.
+4. Click **GENERATE WARPED SOURCES**. Head, torso, both arms/hands, pelvis, and
+   both legs/feet receive separate bounded piecewise-affine projection images.
+5. Click **REFRESH BEST PREVIEW**.
+
+The pose preflight reports acceptable, moderate, or severe mismatch per view
+and identifies the worst part. Moderate mismatch proceeds through bounded
+warping. Severe articulated contradiction stops with
+`SOURCE_POSE_REVIEW_REQUIRED`; correct the landmarks or supply a pose-compatible
+plate rather than forcing the bake.
+
+Use **SHOW EDGE CONTAMINATION** and **SHOW CLEANED SOURCE** under **Advanced
+Source Doctor** to inspect cleanup. Doctor pixel distances are scaled from a
+2K reference. **RESTORE ORIGINAL SOURCE** removes only owned cleaned/warped
+data and returns that view to its untouched original pointer.
 
 ## Orient and align
 
@@ -98,8 +125,9 @@ idempotent and starts from the saved silhouette auto-fit.
 
 After loading the sources, click **One-Click Best Preview**. It applies the
 same identity-priority preset used by the visual acceptance harness, auto-fits
-every loaded silhouette, reapplies saved facial landmarks, and creates the
-preview. The operation creates temporary orthographic cameras, `SBF_PROJ_*`
+every loaded silhouette, processes missing cleaned sources, initializes missing
+body landmarks, creates bounded body warps, reapplies saved facial landmarks,
+and creates the preview. The operation creates temporary orthographic cameras, `SBF_PROJ_*`
 UV maps, and `SBF_WEIGHT_*` corner attributes, then assigns a temporary
 emission preview material.
 
@@ -138,14 +166,17 @@ click **Bake Final Texture**.
 The bake:
 
 1. Uses the preview material as an EMIT source.
-2. Builds `SBF_BaseColorUV` from a temporary exact-welded copy so fragmented
+2. Verifies that preview and bake fingerprints reference exactly the same
+   cleaned and per-part warped images; stale state blocks the bake.
+3. Builds `SBF_BaseColorUV` from a temporary exact-welded copy so fragmented
    SPAR3D surfaces do not turn into tiny triangle islands.
-3. Copies that UV back without changing the production vertices or polygons.
-4. Bakes and saves the PNG.
-5. Explicitly binds the baked base color to `SBF_BaseColorUV`.
-6. Keeps the original UV and binds unconfigured normal/PBR image nodes to it.
-7. Optionally packs the image and applies roughness and normal strength.
-8. Removes projection cameras, projection UVs, weights, and preview material.
+4. Copies that UV back without changing the production vertices or polygons.
+5. Bakes and saves the PNG.
+6. Explicitly binds the baked base color to `SBF_BaseColorUV`.
+7. Keeps the original UV and binds unconfigured normal/PBR image nodes to it.
+8. Optionally packs the image and applies roughness and normal strength.
+9. Removes projection cameras, projection UVs, weights, warped caches, and the
+   preview material while retaining reusable cleaned sources.
 
 The default 4096 bake uses Cycles CPU, one sample, a 24-pixel margin, and the
 clean base-color UV. Disable that option only for a mesh whose original UV is
@@ -172,7 +203,7 @@ boneless base asset for a separate rigging project.
 
 ## Build the production Bones rig
 
-Version 1.0.2 fits, binds, tests, and exports the production rig. Keep the
+Version 1.1.0 fits, binds, tests, and exports the production rig. Keep the
 canonical rig and production target in the same file, expand **Bones —
 Automatic Humanoid Rig**, and follow the focused workflow in
 [rigging_workflow.md](rigging_workflow.md). Preview objects live in the owned

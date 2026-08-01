@@ -33,6 +33,16 @@ def _draw_view(layout, settings, name):
     )
     open_image.view_name = name
     box.prop(view, "image", text="Loaded")
+    doctor = box.row(align=True)
+    doctor.enabled = view.image is not None
+    process = doctor.operator(
+        "sbf.process_source_plate",
+        text="PROCESS SOURCE",
+        icon="MODIFIER",
+    )
+    process.view_name = name
+    if view.cleaned_image is not None:
+        doctor.label(text="Clean", icon="CHECKMARK")
     transforms = box.row(align=True)
     transforms.prop(view, "flip_x", text="Flip X")
     transforms.prop(view, "flip_y", text="Flip Y")
@@ -299,8 +309,119 @@ class SBF_PT_occlusion(_SBF_PT_section, Panel):
         column.prop(settings, "occlusion_feather")
 
 
+class SBF_PT_source_doctor(_SBF_PT_section, Panel):
+    bl_label = "5. SOURCE ALIGNMENT DOCTOR"
+    bl_idname = "SBF_PT_source_doctor"
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.sbf_settings
+        primary = layout.box().column(align=True)
+        primary.scale_y = 1.18
+        primary.operator(
+            "sbf.process_all_source_plates",
+            text="PROCESS ALL SOURCE PLATES",
+            icon="MODIFIER",
+        )
+        primary.operator(
+            "sbf.auto_body_landmarks",
+            text="AUTO INITIALIZE BODY LANDMARKS",
+            icon="EMPTY_AXIS",
+        )
+        selection = primary.row(align=True)
+        selection.prop(settings, "source_doctor_view", text="")
+        place = selection.operator(
+            "sbf.place_body_landmarks",
+            text="PLACE BODY LANDMARKS",
+            icon="PIVOT_CURSOR",
+        )
+        place.view_name = settings.source_doctor_view
+        primary.operator(
+            "sbf.generate_warped_sources",
+            text="GENERATE WARPED SOURCES",
+            icon="MOD_MESHDEFORM",
+        )
+        primary.operator(
+            "sbf.best_preview",
+            text="REFRESH BEST PREVIEW",
+            icon="FILE_REFRESH",
+        )
+
+        diagnostics = layout.box()
+        state_icon = {
+            "READY": "CHECKMARK",
+            "STALE": "ERROR",
+            "FAILED": "CANCEL",
+        }.get(settings.source_doctor_state, "QUESTION")
+        diagnostics.label(
+            text=f"Contamination: {settings.source_doctor_state.replace('_', ' ').title()}",
+            icon=state_icon,
+        )
+        diagnostics.label(text=f"Pose: {settings.source_pose_state}")
+        diagnostics.label(text=settings.source_alignment_status, icon="INFO")
+        diagnostics.prop(settings, "show_pose_mismatch", icon="ORIENTATION_GIMBAL")
+        if settings.show_pose_mismatch:
+            for name in VIEW_NAMES:
+                view = getattr(settings, name)
+                if view.image is None:
+                    continue
+                diagnostics.label(
+                    text=(
+                        f"{VIEW_LABELS[name]}: {view.pose_mismatch_status.title()} "
+                        f"{view.pose_mismatch_worst_part.replace('_', ' ')} "
+                        f"({view.pose_mismatch_error:.4f})"
+                    )
+                )
+
+
+class SBF_PT_source_doctor_advanced(_SBF_PT_section, Panel):
+    bl_label = "Advanced Source Doctor"
+    bl_idname = "SBF_PT_source_doctor_advanced"
+    bl_parent_id = "SBF_PT_source_doctor"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.sbf_settings
+        layout.prop(settings, "trusted_mask_erosion")
+        layout.prop(settings, "rgb_extension_distance")
+        layout.prop(settings, "despill_strength")
+        layout.prop(settings, "silhouette_confidence_width")
+        layout.prop(settings, "warp_joint_feather")
+        layout.separator()
+        layout.prop(settings, "source_doctor_view")
+        row = layout.row(align=True)
+        show_contamination = row.operator(
+            "sbf.show_source_doctor_image",
+            text="SHOW EDGE CONTAMINATION",
+            icon="ERROR",
+        )
+        show_contamination.view_name = settings.source_doctor_view
+        show_contamination.image_kind = "CONTAMINATION"
+        show_clean = row.operator(
+            "sbf.show_source_doctor_image",
+            text="SHOW CLEANED SOURCE",
+            icon="IMAGE_DATA",
+        )
+        show_clean.view_name = settings.source_doctor_view
+        show_clean.image_kind = "CLEANED"
+        actions = layout.row(align=True)
+        reset = actions.operator(
+            "sbf.reset_body_landmarks",
+            text="RESET BODY LANDMARKS",
+            icon="LOOP_BACK",
+        )
+        reset.view_name = settings.source_doctor_view
+        restore = actions.operator(
+            "sbf.restore_original_source",
+            text="RESTORE ORIGINAL SOURCE",
+            icon="RECOVER_LAST",
+        )
+        restore.view_name = settings.source_doctor_view
+
+
 class SBF_PT_output(_SBF_PT_section, Panel):
-    bl_label = "5. Bake Material"
+    bl_label = "6. Bake Material"
     bl_idname = "SBF_PT_output"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -319,7 +440,7 @@ class SBF_PT_output(_SBF_PT_section, Panel):
 
 
 class SBF_PT_delivery(_SBF_PT_section, Panel):
-    bl_label = "7. Delivery & Verification"
+    bl_label = "8. Delivery & Verification"
     bl_idname = "SBF_PT_delivery"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -339,7 +460,7 @@ class SBF_PT_delivery(_SBF_PT_section, Panel):
 
 
 class SBF_PT_bones(_SBF_PT_section, Panel):
-    bl_label = "6. Bones — Automatic Humanoid Rig"
+    bl_label = "7. Bones — Automatic Humanoid Rig"
     bl_idname = "SBF_PT_bones"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -492,6 +613,8 @@ PANEL_CLASSES = (
     SBF_PT_head_protection,
     SBF_PT_blending,
     SBF_PT_occlusion,
+    SBF_PT_source_doctor,
+    SBF_PT_source_doctor_advanced,
     SBF_PT_output,
     SBF_PT_bones,
     SBF_PT_delivery,

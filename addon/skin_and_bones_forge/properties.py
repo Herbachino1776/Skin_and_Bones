@@ -22,6 +22,8 @@ from .constants import (
     EXPORT_REPORT_DIR,
     EXPORT_RIGGED_GLB_DIR,
     EXPORT_TEXTURE_DIR,
+    VIEW_LABELS,
+    VIEW_NAMES,
 )
 
 
@@ -32,6 +34,11 @@ AXIS_ITEMS = (
     ("-Y", "-Y", "Negative Y"),
     ("+Z", "+Z", "Positive Z"),
     ("-Z", "-Z", "Negative Z"),
+)
+
+SOURCE_VIEW_ITEMS = tuple(
+    (name, VIEW_LABELS[name], f"Edit {VIEW_LABELS[name]} body landmarks")
+    for name in VIEW_NAMES
 )
 
 
@@ -71,6 +78,26 @@ def _update_view_image(view, context):
         view.facial_landmarks_skipped = (False, False, False, False)
         view.facial_calibration_valid = False
         view.landmark_image_name = ""
+    if view.image is None or (
+        view.cleaned_original_name and view.cleaned_original_name != view.image.name
+    ):
+        view.cleaned_image = None
+        view.source_confidence_image = None
+        view.cleaned_fingerprint = ""
+        view.cleaned_original_name = ""
+        view.source_doctor_metrics_json = ""
+        view.body_landmarks_json = ""
+        view.body_landmarks_valid = False
+        view.body_landmark_image_name = ""
+        view.warp_images_json = ""
+        view.warp_fingerprint = ""
+        view.pose_mismatch_status = "NOT_RUN"
+        if context is not None and context.scene is not None:
+            settings = getattr(context.scene, "sbf_settings", None)
+            if settings is not None:
+                settings.source_doctor_state = "STALE"
+                settings.source_preview_ready = False
+                settings.preview_source_fingerprint = ""
     if context is not None and context.scene is not None and view.image is not None:
         settings = getattr(context.scene, "sbf_settings", None)
         if settings is not None and settings.auto_fit_source_images:
@@ -93,6 +120,24 @@ def _update_all_preview_views(_settings, context):
         from .projection.material import update_preview_view_controls
 
         update_preview_view_controls(settings)
+    except (AttributeError, ReferenceError, RuntimeError):
+        return
+
+
+def _invalidate_doctor_settings(_settings, context):
+    if context is None or context.scene is None:
+        return
+    settings = getattr(context.scene, "sbf_settings", None)
+    if settings is None:
+        return
+    try:
+        from .projection.source_processing import invalidate_source_alignment
+
+        invalidate_source_alignment(
+            settings,
+            "Source Doctor settings changed; process plates and regenerate warps.",
+            cleaned=True,
+        )
     except (AttributeError, ReferenceError, RuntimeError):
         return
 
@@ -251,6 +296,39 @@ class SBFViewSettings(PropertyGroup):
         options={"HIDDEN"},
     )
     landmark_image_name: StringProperty(default="", options={"HIDDEN"})
+    cleaned_image: PointerProperty(
+        name="Cleaned Source",
+        description="Owned non-destructive Source Plate Doctor result",
+        type=Image,
+        options={"HIDDEN"},
+    )
+    source_confidence_image: PointerProperty(
+        name="Source Confidence",
+        description="Owned lower-confidence silhouette-band image",
+        type=Image,
+        options={"HIDDEN"},
+    )
+    cleaned_fingerprint: StringProperty(default="", options={"HIDDEN"})
+    cleaned_original_name: StringProperty(default="", options={"HIDDEN"})
+    source_doctor_metrics_json: StringProperty(default="", options={"HIDDEN"})
+    body_landmarks_json: StringProperty(default="", options={"HIDDEN"})
+    body_landmarks_valid: BoolProperty(default=False, options={"HIDDEN"})
+    body_landmark_image_name: StringProperty(default="", options={"HIDDEN"})
+    warp_images_json: StringProperty(default="", options={"HIDDEN"})
+    warp_fingerprint: StringProperty(default="", options={"HIDDEN"})
+    pose_mismatch_status: EnumProperty(
+        name="Pose Mismatch",
+        items=(
+            ("NOT_RUN", "Not Run", "Pose preflight has not run"),
+            ("HIDDEN", "Hidden", "This body part is explicitly hidden"),
+            ("ACCEPTABLE", "Acceptable", "Source pose is close to the mesh"),
+            ("MODERATE", "Moderate", "Bounded warping can align this pose"),
+            ("SEVERE", "Severe", "Artist source-pose review is required"),
+        ),
+        default="NOT_RUN",
+    )
+    pose_mismatch_worst_part: StringProperty(default="", options={"HIDDEN"})
+    pose_mismatch_error: FloatProperty(default=0.0, options={"HIDDEN"})
     auto_head_scale: FloatProperty(default=1.0, options={"HIDDEN"})
     auto_head_horizontal_scale: FloatProperty(
         default=1.0,
@@ -407,6 +485,88 @@ class SBFSettings(PropertyGroup):
         ),
         default=True,
     )
+    source_doctor_view: EnumProperty(
+        name="Source View",
+        items=SOURCE_VIEW_ITEMS,
+        default="front",
+    )
+    trusted_mask_erosion: FloatProperty(
+        name="Trusted Mask Erosion",
+        description="2K-reference pixels removed from the trusted silhouette edge",
+        default=1.5,
+        min=0.0,
+        max=16.0,
+        precision=1,
+        update=_invalidate_doctor_settings,
+    )
+    rgb_extension_distance: FloatProperty(
+        name="RGB Extension Distance",
+        description="2K-reference pixels of foreground RGB extended under transparency",
+        default=12.0,
+        min=0.0,
+        max=128.0,
+        precision=1,
+        update=_invalidate_doctor_settings,
+    )
+    despill_strength: FloatProperty(
+        name="Despill Strength",
+        description="Remove detected green, pink, gray, or monochrome edge spill",
+        default=0.85,
+        min=0.0,
+        max=1.0,
+        subtype="FACTOR",
+        update=_invalidate_doctor_settings,
+    )
+    silhouette_confidence_width: FloatProperty(
+        name="Silhouette Confidence Width",
+        description="2K-reference pixel width marked as lower projection confidence",
+        default=8.0,
+        min=0.0,
+        max=64.0,
+        precision=1,
+        update=_invalidate_doctor_settings,
+    )
+    warp_joint_feather: FloatProperty(
+        name="Joint Feather",
+        description="Bounded feather inside per-part warp triangles",
+        default=0.08,
+        min=0.0,
+        max=0.25,
+        subtype="FACTOR",
+        update=_invalidate_doctor_settings,
+    )
+    show_edge_contamination: BoolProperty(
+        name="Show Edge Contamination",
+        default=False,
+    )
+    show_cleaned_source: BoolProperty(
+        name="Show Cleaned Source",
+        default=False,
+    )
+    show_pose_mismatch: BoolProperty(
+        name="Show Pose Mismatch",
+        default=False,
+    )
+    source_doctor_state: EnumProperty(
+        name="Plate Doctor",
+        items=(
+            ("NOT_RUN", "Not Run", "Source plates have not been processed"),
+            ("STALE", "Stale", "Settings or source state changed"),
+            ("READY", "Ready", "All enabled source plates are cleaned"),
+            ("FAILED", "Failed", "Source processing failed"),
+        ),
+        default="NOT_RUN",
+    )
+    source_pose_state: StringProperty(
+        name="Pose Preflight",
+        default="NOT_RUN",
+    )
+    source_alignment_status: StringProperty(
+        name="Source Alignment Status",
+        default="Process source plates before preview.",
+    )
+    source_preview_ready: BoolProperty(default=False, options={"HIDDEN"})
+    preview_source_fingerprint: StringProperty(default="", options={"HIDDEN"})
 
     directional_exponent: FloatProperty(
         name="Directional Exponent",

@@ -20,6 +20,7 @@ from ..constants import (
     VERIFY_PREFIX,
     VIEW_NAMES,
     WEIGHT_ATTRIBUTE_PREFIX,
+    SOURCE_OWNER_PROPERTY,
 )
 
 
@@ -159,6 +160,12 @@ def cleanup_temporary_data(context, target=None, production_material=None):
         ):
             bpy.data.materials.remove(material, do_unlink=True)
 
+    for image in list(bpy.data.images):
+        if image.get(SOURCE_OWNER_PROPERTY, False) and image.get(
+            TEMPORARY_PROPERTY, False
+        ):
+            bpy.data.images.remove(image, do_unlink=True)
+
     collection = bpy.data.collections.get(TEMP_COLLECTION)
     if collection is not None and not collection.objects:
         bpy.data.collections.remove(collection)
@@ -278,6 +285,12 @@ def create_projection_state(context, info, settings):
     directions["right"] = directions["right"]
     bounds = world_bounds(target, directions)
     height = bounds["up_span"]
+
+    # Semantic ownership extends the existing corner-weight architecture.  It
+    # never changes topology, UVs, materials, normals, or vertex order.
+    from .source_processing import create_body_part_attributes
+
+    body_part_attributes = create_body_part_attributes(context, target, settings)
 
     target[ORIGINAL_MATERIAL_PROPERTY] = info.material.name
     target[ORIGINAL_SLOT_PROPERTY] = info.material_slot
@@ -535,4 +548,5 @@ def create_projection_state(context, info, settings):
         "bounds": bounds,
         "attributes": attributes,
         "head_mask": head_mask,
+        "body_part_attributes": body_part_attributes,
     }

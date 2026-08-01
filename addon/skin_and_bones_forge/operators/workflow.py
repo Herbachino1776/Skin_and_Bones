@@ -24,6 +24,12 @@ from ..projection import (
 )
 from ..projection.alignment import auto_fit_loaded_images
 from ..projection.source_files import find_cardinal_view_images
+from ..projection.source_processing import (
+    auto_initialize_body_landmarks,
+    cleanup_warped_sources,
+    generate_warped_sources,
+    process_all_source_plates,
+)
 from ..validation import ValidationError, validate_target
 
 
@@ -292,16 +298,27 @@ def _execute_preview(operator, context):
     cleanup_temporary_data(context, target, settings.production_material)
     try:
         info = validate_target(context, settings, require_sources=True)
+        process_all_source_plates(settings)
+        missing_landmarks = any(
+            getattr(settings, name).enabled
+            and getattr(settings, name).image is not None
+            and not getattr(settings, name).body_landmarks_valid
+            for name in VIEW_NAMES
+        )
+        if missing_landmarks:
+            auto_initialize_body_landmarks(settings, context=context)
+        generate_warped_sources(context, settings)
         create_projection_state(context, info, settings)
         create_preview_material(info, settings)
         settings.status_message = (
-            "Projection preview ready. Alignment controls are live; Refresh "
-            "after changing ownership, fit, or occlusion settings."
+            "Production preview ready from cleaned, pose-aligned, body-guarded "
+            "sources. Refresh after changing alignment or occlusion settings."
         )
         operator.report({"INFO"}, settings.status_message)
         return {"FINISHED"}
     except (ValidationError, RuntimeError, ValueError) as exc:
         cleanup_temporary_data(context, target, settings.production_material)
+        cleanup_warped_sources(settings)
         return _fail(operator, settings, exc)
 
 
@@ -377,6 +394,7 @@ class SBF_OT_cleanup(Operator):
         settings = _settings(context)
         target = _target_for_cleanup(context, settings)
         cleanup_temporary_data(context, target, settings.production_material)
+        cleanup_warped_sources(settings)
         settings.status_message = "Temporary cameras, UVs, weights, and materials removed."
         self.report({"INFO"}, settings.status_message)
         return {"FINISHED"}

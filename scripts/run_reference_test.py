@@ -9,6 +9,8 @@ Example:
 from __future__ import annotations
 
 import argparse
+from array import array
+import hashlib
 import json
 import sys
 import time
@@ -79,11 +81,18 @@ if existing_addon is not None:
 import skin_and_bones_forge  # noqa: E402
 from skin_and_bones_forge.constants import (  # noqa: E402
     BASE_COLOR_UV_NAME,
+    BODY_PART_ATTRIBUTE_PREFIX,
     CARDINAL_VIEW_NAMES,
     PREVIEW_MATERIAL_PREFIX,
     PROJECTION_UV_PREFIX,
     VIEW_NAMES,
     WEIGHT_ATTRIBUTE_PREFIX,
+)
+from skin_and_bones_forge.projection.body_alignment import BODY_PARTS  # noqa: E402
+from skin_and_bones_forge.projection.source_processing import (  # noqa: E402
+    generate_warped_sources,
+    get_warped_images,
+    process_all_source_plates,
 )
 from skin_and_bones_forge.projection.alignment import (  # noqa: E402
     _alpha_bounds,
@@ -187,6 +196,18 @@ for name in VIEW_NAMES:
     if loaded_path != image_path:
         raise RuntimeError(f"{name.title()} image picker did not assign its file")
     loaded_source_names.append(name)
+
+
+def image_fingerprint(image):
+    values = array("f", [0.0]) * (image.size[0] * image.size[1] * image.channels)
+    image.pixels.foreach_get(values)
+    return hashlib.sha256(values.tobytes()).hexdigest()
+
+
+original_source_fingerprints = {
+    name: image_fingerprint(getattr(settings, name).image)
+    for name in loaded_source_names
+}
 
 landmark_regression = None
 if args.exercise_landmarks:
@@ -312,6 +333,79 @@ preview_material = next(
 )
 if preview_material is None or preview_material.node_tree is None:
     raise RuntimeError("Preview material was not assigned")
+
+source_doctor = {}
+cleaned_before_reuse = {}
+for name in loaded_source_names:
+    view = getattr(settings, name)
+    if view.cleaned_image is None or view.cleaned_original_name != view.image.name:
+        raise RuntimeError(f"{name} cleaned source was not created from its original")
+    if tuple(view.cleaned_image.size) != tuple(view.image.size):
+        raise RuntimeError(f"{name} cleaned source size differs from its original")
+    warped = get_warped_images(view)
+    if set(warped) != set(BODY_PARTS):
+        raise RuntimeError(f"{name} does not have all bounded part sources")
+    for part, image in warped.items():
+        node = preview_material.node_tree.nodes.get(f"SBF_WarpSource_{name}_{part}")
+        if node is None or node.image != image:
+            raise RuntimeError(f"Preview did not use {name} {part} processed source")
+    metrics = json.loads(view.source_doctor_metrics_json)
+    if metrics["contamination_after"] > metrics["contamination_before"] + 1.0e-8:
+        raise RuntimeError(f"{name} Source Plate Doctor increased contamination")
+    source_doctor[name] = {
+        **metrics,
+        "pose_status": view.pose_mismatch_status,
+        "worst_part": view.pose_mismatch_worst_part,
+        "mismatch_before": view.pose_mismatch_error,
+        "mismatch_after": 0.0,
+        "warped_parts": sorted(warped),
+    }
+    cleaned_before_reuse[name] = (
+        view.cleaned_image.name,
+        image_fingerprint(view.cleaned_image),
+    )
+    if image_fingerprint(view.image) != original_source_fingerprints[name]:
+        raise RuntimeError(f"{name} original source changed during processing")
+
+reuse_results = process_all_source_plates(settings)
+if any(item["changed"] for item in reuse_results.values()):
+    raise RuntimeError("Repeated Source Plate Doctor processing was not idempotent")
+for name, (cleaned_name, cleaned_fingerprint) in cleaned_before_reuse.items():
+    view = getattr(settings, name)
+    if view.cleaned_image.name != cleaned_name or image_fingerprint(view.cleaned_image) != cleaned_fingerprint:
+        raise RuntimeError(f"{name} cleaned source was not reused idempotently")
+
+for polygon in mesh.polygons:
+    ownership = []
+    for part in BODY_PARTS:
+        attribute = mesh.attributes.get(f"{BODY_PART_ATTRIBUTE_PREFIX}{part}")
+        if attribute is None:
+            raise RuntimeError(f"Missing body-part ownership attribute for {part}")
+        values = {round(attribute.data[index].value, 6) for index in polygon.loop_indices}
+        if len(values) != 1:
+            raise RuntimeError("Body-part ownership interpolates across one polygon")
+        ownership.append(next(iter(values)))
+    if abs(sum(ownership) - 1.0) > 1.0e-6:
+        raise RuntimeError("A polygon has ambiguous or missing body-part ownership")
+
+# Runtime-proof the severe contradiction status without changing owned images.
+front_metadata_before = settings.front.body_landmarks_json
+front_metadata = json.loads(front_metadata_before)
+shoulder = front_metadata["points"]["shoulder_left"]
+front_metadata["points"]["elbow_left"] = [shoulder[0] - 0.01, shoulder[1] + 0.20]
+front_metadata["points"]["wrist_left"] = [shoulder[0] + 0.01, shoulder[1] + 0.30]
+front_metadata["points"]["hand_left"] = [shoulder[0], shoulder[1] + 0.38]
+settings.front.body_landmarks_json = json.dumps(front_metadata, sort_keys=True, separators=(",", ":"))
+try:
+    generate_warped_sources(bpy.context, settings)
+except RuntimeError as exc:
+    if "SOURCE_POSE_REVIEW_REQUIRED" not in str(exc):
+        raise
+else:
+    raise RuntimeError("Severe pose contradiction did not block projection")
+finally:
+    settings.front.body_landmarks_json = front_metadata_before
+    settings.source_pose_state = "READY"
 
 front_view = settings.front
 front_uv = mesh.uv_layers.get(f"{PROJECTION_UV_PREFIX}front")
@@ -453,6 +547,9 @@ if any(
     for attribute in mesh.attributes
 ):
     raise RuntimeError("Temporary weight attributes remain after baking")
+for name in loaded_source_names:
+    if image_fingerprint(getattr(settings, name).image) != original_source_fingerprints[name]:
+        raise RuntimeError(f"{name} original source changed during final bake")
 
 _require_finished("save_copy", bpy.ops.sbf.save_copy())
 _require_finished("export_glb", bpy.ops.sbf.export_glb())
@@ -526,6 +623,10 @@ result = {
         }
         for name in loaded_source_names
     },
+    "source_doctor": source_doctor,
+    "processed_source_parity": True,
+    "body_part_ownership": "one_hot_per_polygon",
+    "severe_pose_status": "SOURCE_POSE_REVIEW_REQUIRED",
     "landmark_regression": landmark_regression,
     "loaded_source_views": loaded_source_names,
     "head_identity": {

@@ -14,6 +14,10 @@ from ..constants import (
     PREVIEW_MATERIAL_PREFIX,
 )
 from ..projection import cleanup_temporary_data
+from ..projection.source_processing import (
+    cleanup_warped_sources,
+    validate_preview_source_parity,
+)
 
 
 def _absolute_path(path_value):
@@ -236,6 +240,7 @@ def bake_final_texture(context, info, settings):
         raise RuntimeError("Create a projection preview before baking.")
 
     preview_material = slot_material
+    validate_preview_source_parity(preview_material, settings)
     nodes = preview_material.node_tree.nodes
     for node in list(nodes):
         if node.name.startswith("SBF_BakeTarget"):
@@ -355,4 +360,5 @@ def bake_final_texture(context, info, settings):
     target["sbf_base_color_path"] = str(output_path)
 
     cleanup_temporary_data(context, target, info.material)
+    cleanup_warped_sources(settings)
     return baked_image, output_path

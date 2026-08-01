@@ -1,5 +1,20 @@
 # Troubleshooting
 
+## Source Plate Doctor or body alignment blocks preview
+
+- `STALE` means a source, Doctor setting, or body landmark changed. Run
+  **PROCESS ALL SOURCE PLATES**, **GENERATE WARPED SOURCES**, then **REFRESH BEST
+  PREVIEW**.
+- `SOURCE_POSE_REVIEW_REQUIRED` is a deliberate severe-pose gate. Choose the
+  reported view, use **PLACE BODY LANDMARKS**, and verify the worst arm/leg
+  chain. A genuinely different pose needs a compatible source plate.
+- An owned-image size mismatch indicates stale or artist-resized
+  `SBF_CLEAN_SOURCE_*` data. **RESTORE ORIGINAL SOURCE** and process that view
+  again; the source PNG is never changed.
+- If contamination remains highlighted, increase RGB extension modestly or
+  correct the source alpha. Validation refuses partial-alpha pixels that still
+  strongly match the detected background.
+
 ## Validation cannot find the base color
 
 Connect the production Image Texture node directly or indirectly to
@@ -194,7 +209,7 @@ tests reject zero-motion rigs, and collapse/root translation is evaluated
 relative to whole-character motion so a coherent fall is not mistaken for an
 exploding vertex.
 
-Version 1.0.2 fixes clean-reimport Action inventory validation. The
+Version 1.1.0 fixes clean-reimport Action inventory validation. The
 factory-clean validator derives the expected semantic Action count from the
 serialized canonical contract; it no longer expects zero merely because the
 original source Action datablocks are intentionally absent from the clean
