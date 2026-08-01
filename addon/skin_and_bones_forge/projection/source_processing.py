@@ -22,7 +22,10 @@ from ..constants import (
     VIEW_NAMES,
 )
 from ..rigging.analysis import analyze_target
-from ..rigging.landmarks import apply_saved_corrections, estimate_landmarks
+from ..rigging.landmarks import (
+    apply_saved_corrections,
+    estimate_projection_landmarks,
+)
 from .alignment import _alpha_bounds
 from .body_alignment import (
     BODY_LANDMARK_NAMES,
@@ -139,6 +142,7 @@ def invalidate_source_alignment(settings, reason, *, cleaned=False):
         view.warp_fingerprint = ""
         view.warp_images_json = ""
         view.pose_mismatch_status = "NOT_RUN"
+        view.pose_mismatch_details_json = ""
         if cleaned:
             view.cleaned_fingerprint = ""
 
@@ -419,6 +423,7 @@ def reset_body_landmarks(settings, view_name=None):
         view.warp_fingerprint = ""
         view.warp_images_json = ""
         view.pose_mismatch_status = "NOT_RUN"
+        view.pose_mismatch_details_json = ""
     settings.source_preview_ready = False
     settings.source_alignment_status = "Body landmarks reset."
 
@@ -446,7 +451,7 @@ def mesh_body_landmarks(context, settings, view_name, analysis=None, landmarks=N
         context, target, settings.forward_axis, settings.up_axis
     )
     landmarks = landmarks or apply_saved_corrections(
-        target, estimate_landmarks(context, target, analysis)
+        target, estimate_projection_landmarks(context, target, analysis)
     )
     directions = view_directions(settings)
     bounds = world_bounds(target, directions)
@@ -620,7 +625,7 @@ def generate_warped_sources(context, settings, view_name=None):
         context, target, settings.forward_axis, settings.up_axis
     )
     mesh_landmarks = apply_saved_corrections(
-        target, estimate_landmarks(context, target, analysis)
+        target, estimate_projection_landmarks(context, target, analysis)
     )
     names = (view_name,) if view_name else VIEW_NAMES
     results = {}
@@ -643,10 +648,12 @@ def generate_warped_sources(context, settings, view_name=None):
         view.pose_mismatch_status = mismatch["status"]
         view.pose_mismatch_worst_part = mismatch["worst_part"]
         view.pose_mismatch_error = mismatch["error"]
-        if mismatch["status"] == "SEVERE":
-            severe.append(
-                f"{name}:{mismatch['worst_part']}={mismatch['error']:.3f}"
-            )
+        view.pose_mismatch_details_json = _stable_json(mismatch["parts"])
+        severe.extend(
+            f"{name}:{part}={details['error']:.3f}"
+            for part, details in mismatch["parts"].items()
+            if details["status"] == "SEVERE"
+        )
         prepared.append((name, view, clean, source, target_metadata, mismatch))
     if severe:
         settings.source_pose_state = "SOURCE_POSE_REVIEW_REQUIRED"
@@ -894,7 +901,7 @@ def create_body_part_attributes(context, target, settings):
 
     analysis = analyze_target(context, target, settings.forward_axis, settings.up_axis)
     landmarks = apply_saved_corrections(
-        target, estimate_landmarks(context, target, analysis)
+        target, estimate_projection_landmarks(context, target, analysis)
     )
     up = Vector(analysis["up_axis_world"])
     lateral = Vector(analysis["lateral_axis_world"])

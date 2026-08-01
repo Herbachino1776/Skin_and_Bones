@@ -92,6 +92,7 @@ def _update_view_image(view, context):
         view.warp_images_json = ""
         view.warp_fingerprint = ""
         view.pose_mismatch_status = "NOT_RUN"
+        view.pose_mismatch_details_json = ""
         if context is not None and context.scene is not None:
             settings = getattr(context.scene, "sbf_settings", None)
             if settings is not None:
@@ -364,6 +365,7 @@ class SBFViewSettings(PropertyGroup):
     )
     pose_mismatch_worst_part: StringProperty(default="", options={"HIDDEN"})
     pose_mismatch_error: FloatProperty(default=0.0, options={"HIDDEN"})
+    pose_mismatch_details_json: StringProperty(default="", options={"HIDDEN"})
     auto_head_scale: FloatProperty(default=1.0, options={"HIDDEN"})
     auto_head_horizontal_scale: FloatProperty(
         default=1.0,

@@ -82,6 +82,37 @@ class BodyAlignmentTests(unittest.TestCase):
         self.assertGreater(before["error"], after["error"])
         self.assertEqual(BODY.classify_mismatch(0.25), "MODERATE")
 
+    def test_symmetric_hanging_arms_from_visual_fixture_are_acceptable(self):
+        source = {
+            "points": {
+                "shoulder_left": (0.373, 0.757),
+                "elbow_left": (0.334, 0.643),
+                "wrist_left": (0.292, 0.532),
+                "hand_left": (0.287, 0.484),
+                "shoulder_right": (0.627, 0.757),
+                "elbow_right": (0.661, 0.643),
+                "wrist_right": (0.711, 0.532),
+                "hand_right": (0.728, 0.484),
+            }
+        }
+        target = {
+            "points": {
+                "shoulder_left": (0.378561, 0.757507),
+                "elbow_left": (0.338825, 0.645886),
+                "wrist_left": (0.293406, 0.534265),
+                "hand_left": (0.287116, 0.478455),
+                "shoulder_right": (0.629151, 0.757507),
+                "elbow_right": (0.664073, 0.645886),
+                "wrist_right": (0.708614, 0.534265),
+                "hand_right": (0.713983, 0.478455),
+            }
+        }
+        mismatch = BODY.pose_mismatch(source, target)
+        self.assertEqual(mismatch["parts"]["left_arm"]["status"], "ACCEPTABLE")
+        self.assertEqual(mismatch["parts"]["right_arm"]["status"], "ACCEPTABLE")
+        self.assertLess(mismatch["parts"]["left_arm"]["error"], 0.12)
+        self.assertLess(mismatch["parts"]["right_arm"]["error"], 0.12)
+
     @unittest.skipIf(BODY._np is None, "NumPy runtime is unavailable")
     def test_bounded_raster_write_reaches_the_destination_image(self):
         landmarks = BODY.auto_initialize_landmarks("front")

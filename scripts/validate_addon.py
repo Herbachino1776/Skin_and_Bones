@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "addon" / "skin_and_bones_forge"
-EXPECTED_VERSION = (1, 2, 3)
+EXPECTED_VERSION = (2, 0, 0)
 EXPECTED_BLENDER = (5, 1, 2)
 REQUIRED_FILES = (
     PACKAGE / "__init__.py",
@@ -35,6 +35,7 @@ REQUIRED_FILES = (
     PACKAGE / "rigging" / "contract.py",
     PACKAGE / "rigging" / "analysis.py",
     PACKAGE / "rigging" / "landmarks.py",
+    PACKAGE / "rigging" / "landmark_math.py",
     PACKAGE / "rigging" / "fitting.py",
     PACKAGE / "rigging" / "validation.py",
     PACKAGE / "rigging" / "profile.py",

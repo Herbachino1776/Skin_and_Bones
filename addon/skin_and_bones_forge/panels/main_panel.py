@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
+
 from bpy.types import Panel
 
 from ..constants import VIEW_LABELS, VIEW_NAMES
 from ..projection.alignment import minimum_facial_landmarks
+from ..projection.body_alignment import BODY_PARTS
 
 
 def _draw_view(layout, settings, name):
@@ -396,13 +399,33 @@ class SBF_PT_source_doctor(_SBF_PT_section, Panel):
                 view = getattr(settings, name)
                 if view.image is None:
                     continue
-                diagnostics.label(
-                    text=(
-                        f"{VIEW_LABELS[name]}: {view.pose_mismatch_status.title()} "
-                        f"{view.pose_mismatch_worst_part.replace('_', ' ')} "
-                        f"({view.pose_mismatch_error:.4f})"
+                try:
+                    details = json.loads(view.pose_mismatch_details_json or "{}")
+                except json.JSONDecodeError:
+                    details = {}
+                if not details:
+                    diagnostics.label(
+                        text=(
+                            f"{VIEW_LABELS[name]}: {view.pose_mismatch_status.title()} "
+                            f"{view.pose_mismatch_worst_part.replace('_', ' ')} "
+                            f"({view.pose_mismatch_error:.4f})"
+                        )
                     )
+                    continue
+                diagnostics.label(
+                    text=f"{VIEW_LABELS[name]}: {view.pose_mismatch_status.title()}"
                 )
+                for part in BODY_PARTS:
+                    part_details = details.get(part, {})
+                    if part_details.get("status") not in {"MODERATE", "SEVERE"}:
+                        continue
+                    diagnostics.label(
+                        text=(
+                            f"    {part.replace('_', ' ').title()}: "
+                            f"{part_details['status'].title()} "
+                            f"({float(part_details['error']):.4f})"
+                        )
+                    )
 
 
 class SBF_PT_source_doctor_advanced(_SBF_PT_section, Panel):

@@ -11,6 +11,11 @@
   Right hand center. In Front, character right is image left; in Back,
   character right is image right. A genuinely different pose needs a compatible
   source plate.
+- In versions before 2.0.0, a wide torso, belt, or skirt could pull the
+  mesh-side wrist estimate inward while the source wrist remained on the arm.
+  Nearly symmetric hanging arms could therefore report values around 0.5-0.7,
+  with only the marginally worse side displayed. Install 2.0.0, re-run
+  **GENERATE WARPED SOURCES**, and inspect the expanded per-part results.
 - An owned-image size mismatch indicates stale or artist-resized
   `SBF_CLEAN_SOURCE_*` data. **RESTORE ORIGINAL SOURCE** and process that view
   again; the source PNG is never changed.

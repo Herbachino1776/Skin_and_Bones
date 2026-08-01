@@ -7,6 +7,7 @@ import json
 from mathutils import Vector
 
 from .analysis import axis_vector
+from .landmark_math import isolated_outer_cluster_indices
 from ..constants import RIG_CORRECTIONS_PROPERTY
 
 
@@ -154,6 +155,48 @@ def _hand_endpoint(points, center, lateral, elbow, wrist, height, side):
     )
 
 
+def _projection_limb_center(
+    points,
+    center,
+    lateral,
+    forward,
+    up,
+    ground,
+    height,
+    fraction,
+    side,
+):
+    """Find the arm band outside the torso/clothing band at one height."""
+
+    samples = _slice(points, up, (ground, height), fraction, radius=0.018)
+    side_samples = [
+        point
+        for point in samples
+        if (point - center).dot(lateral) * side > 0.0
+    ]
+    distances = [
+        (point - center).dot(lateral) * side for point in side_samples
+    ]
+    cluster = isolated_outer_cluster_indices(
+        distances,
+        minimum_gap=height * 0.015,
+    )
+    if not cluster:
+        return None
+    arm_samples = [side_samples[index] for index in cluster]
+    lateral_coordinate = sum(
+        point.dot(lateral) for point in arm_samples
+    ) / len(arm_samples)
+    forward_coordinate = sum(
+        point.dot(forward) for point in arm_samples
+    ) / len(arm_samples)
+    return (
+        lateral * lateral_coordinate
+        + forward * forward_coordinate
+        + up * (ground + fraction * height)
+    )
+
+
 def estimate_landmarks(context, obj, analysis):
     points = _rest_surface_points(obj)
     up = axis_vector(analysis["up_axis"])
@@ -279,6 +322,48 @@ def estimate_landmarks(context, obj, analysis):
             "ankle-relative foot estimate",
             "Foot direction is axis-based; inspect toe placement.",
         )
+    return landmarks
+
+
+def estimate_projection_landmarks(context, obj, analysis):
+    """Estimate target landmarks using arm bands isolated from torso clothing."""
+
+    landmarks = estimate_landmarks(context, obj, analysis)
+    points = _rest_surface_points(obj)
+    up = axis_vector(analysis["up_axis"])
+    forward = axis_vector(analysis["forward_axis"])
+    lateral = Vector(analysis["lateral_axis_world"])
+    center = Vector(analysis["centerline_world"])
+    height = float(analysis["world_height"])
+    ground = float(analysis["ground"])
+    inverse = obj.matrix_world.inverted_safe()
+
+    for base, fraction in (("elbow", 0.655), ("wrist", 0.535), ("hand", 0.475)):
+        for suffix, side in (("left", 1.0), ("right", -1.0)):
+            world = _projection_limb_center(
+                points,
+                center,
+                lateral,
+                forward,
+                up,
+                ground,
+                height,
+                fraction,
+                side,
+            )
+            if world is None:
+                existing = landmarks[f"{base}_{suffix}"]
+                existing["warning"] = (
+                    "Outer arm band was not isolated; inspect this projection landmark."
+                )
+                continue
+            landmarks[f"{base}_{suffix}"] = {
+                "object": _rounded(inverse @ world),
+                "world": _rounded(world),
+                "confidence": 0.95,
+                "method": f"isolated outer-arm slice at {fraction:.3f} height",
+                "warning": "",
+            }
     return landmarks
 
 

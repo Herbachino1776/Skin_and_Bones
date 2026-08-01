@@ -21,6 +21,7 @@ class RiggingStaticTests(unittest.TestCase):
             "contract.py",
             "deformation.py",
             "analysis.py",
+            "landmark_math.py",
             "landmarks.py",
             "fitting.py",
             "validation.py",

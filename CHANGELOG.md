@@ -2,6 +2,18 @@
 
 All notable changes follow semantic versioning.
 
+## 2.0.0 - 2026-08-01
+
+### Fixed
+
+- Replace projection preflight's global elbow/wrist percentiles with isolated
+  outer-arm silhouette clusters. Torso and waist-cloth vertices can no longer
+  fold the target forearm inward and falsely report severe front/back arm pose
+  contradictions for closely matching source plates.
+- Report every moderate and severe body part per view instead of displaying
+  only the marginally worse side, which previously made a bilateral estimator
+  failure look like a right-arm-only problem.
+
 ## 1.2.3 - 2026-08-01
 
 ### Added

@@ -153,6 +153,11 @@ projected into each camera. Image-side metadata uses the same anatomical
 left/right convention plus head top and chin. Profiles explicitly skip the
 hidden side.
 
+For projection preflight, elbow, wrist, and hand centers use the outer mesh
+cluster separated by the largest meaningful lateral gap in each height slice.
+This prevents dense torso, belt, skirt, or hanging-cloth vertices from being
+mistaken for the arm centerline. Rig-fitting landmark behavior remains separate.
+
 Pose mismatch compares normalized articulated chains. Two-anchor head/pelvis
 scale and torso taper are bounded-affine corrections; reversed or strongly
 bent arm/leg chains can still return `SOURCE_POSE_REVIEW_REQUIRED`. Moderate
