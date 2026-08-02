@@ -4,7 +4,7 @@ Skin & Bones Forge is a Blender 5.1.2 add-on for rebuilding the base-color
 texture of a SPAR3D human mesh and building a validated production rig from
 the canonical Animate Anything humanoid skeleton.
 
-Version 2.0.1 implements one-click SPAR3D production-mesh intake, the Folsom
+Version 2.0.5 implements one-click SPAR3D production-mesh intake, the Folsom
 visual workflow, production **Bones**, and non-destructive texture repair:
 
 - Import a raw SPAR3D GLB, weld only exactly coincident seam vertices, prove
@@ -22,6 +22,8 @@ visual workflow, production **Bones**, and non-destructive texture repair:
 - Store 18 labeled image-space body landmarks per view, isolate projected arm
   joints from torso/clothing cross-sections, explicitly skip hidden profile
   sides, and block only genuine `SOURCE_POSE_REVIEW_REQUIRED` contradictions.
+- Fit the first rig-landmark preview to the standardized `SBF_HIGH_A_V1` pose
+  instead of reproducing the old canonical arms-down wrist and hand positions.
 - Keep each processed projection plate continuous while using labeled body
   landmarks for per-part pose preflight. Sparse diagnostic triangles never
   become the visible head, torso, or limb texture.
@@ -75,7 +77,7 @@ visual workflow, production **Bones**, and non-destructive texture repair:
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v2.0.1.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v2.0.5.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -102,8 +104,10 @@ required top-level `skin_and_bones_forge` module.
    flip, scale, offset, alpha, and weight controls update live. Click
    **Refresh Preview** after changing fit, ownership, or occlusion settings.
 7. Choose the texture size and output path, then click **Bake Final Texture**.
-8. Expand **SKIN 4. Texture Repair Studio**. Use Clone/Heal strokes, an explicit Smart
-   Fill mask, or **HEAL SAFE SEAMS**, then click **COMMIT FINAL BASE COLOR**.
+8. Expand **SKIN 4. Texture Repair Studio**. You may paint
+   `SBF_BaseColor_Final` with Blender's native Clone brush (leave Correction
+   Layer enabled at 1.0), use the add-on repair tools, then click
+   **SAVE BLENDER PAINT + COMMIT**. Save/export also captures native paint.
 9. Use **Render Verification Set**, **Save New Base Asset**, and
    **Export New GLB**.
 
@@ -165,13 +169,14 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v2.0.1` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v2.0.5` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 
 ## Scope
 
-Version 2.0.1 adds anatomically reliable target-arm isolation, complete per-part
+Version 2.0.5 adds a standardized high-A rig-landmark profile, anatomically
+reliable target-arm isolation, complete per-part
 pose diagnostics, named body-landmark overlays, continuous projection sources,
 saved-session cache recovery, and an adaptive production base-color atlas on
 top of the GPU-safe projection preview and permanent Texture Repair Studio

@@ -16,6 +16,8 @@ from ..constants import (
     REPAIR_BAKED_IMAGE,
     REPAIR_CLASSIFICATION_IMAGE,
     REPAIR_CORRECTION_IMAGE,
+    REPAIR_COMPOSITE_FINGERPRINT_PROPERTY,
+    REPAIR_COMPOSITE_SETTINGS_PROPERTY,
     REPAIR_DIAGNOSTIC_IMAGE,
     REPAIR_DONOR_MASK_IMAGE,
     REPAIR_FINAL_IMAGE,
@@ -34,12 +36,14 @@ from ..constants import (
 )
 from ..projection.body_alignment import BODY_PARTS
 from .texture_repair import (
+    ARTIST_PAINT,
     CLASSIFICATION_NAMES,
     SEAM_HEAL,
     SMART_FILL,
     UNRESOLVED,
     OPPOSITE_PARTS,
     apply_surface_stroke,
+    capture_external_composite_edits,
     classification_rgba,
     composite_corrections,
     detect_unresolved,
@@ -70,6 +74,28 @@ _ATLAS_CACHE = {}
 
 def _stable_json(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def _composite_settings(settings):
+    return _stable_json(
+        {
+            "enabled": bool(settings.repair_enabled),
+            "opacity": float(settings.repair_opacity),
+        }
+    )
+
+
+def _stored_composite_settings(image, settings):
+    try:
+        stored = json.loads(
+            image.get(REPAIR_COMPOSITE_SETTINGS_PROPERTY, "")
+        )
+    except (TypeError, ValueError, json.JSONDecodeError):
+        stored = {}
+    return (
+        bool(stored.get("enabled", settings.repair_enabled)),
+        float(stored.get("opacity", settings.repair_opacity)),
+    )
 
 
 def _image_pixels(image):
@@ -390,6 +416,12 @@ def begin_repair_session(
     fingerprint = _mesh_repair_fingerprint(
         info.mesh, bake_uv_name, (width, height)
     )
+    if (
+        settings.repair_state == "READY"
+        and target.get(REPAIR_FINGERPRINT_PROPERTY, "") == fingerprint
+    ):
+        # Preserve native Blender paint before replacing Final during a re-bake.
+        capture_blender_paint(info, settings)
     previous = bpy.data.images.get(REPAIR_CORRECTION_IMAGE)
     preserved = bool(
         previous is not None
@@ -435,6 +467,10 @@ def begin_repair_session(
         fingerprint,
         reuse=False,
     )
+    final[REPAIR_COMPOSITE_FINGERPRINT_PROPERTY] = image_fingerprint(
+        _image_pixels(final)
+    )
+    final[REPAIR_COMPOSITE_SETTINGS_PROPERTY] = _composite_settings(settings)
     classification, reused_classification = _owned_layer(
         REPAIR_CLASSIFICATION_IMAGE,
         width,
@@ -527,8 +563,55 @@ def _classification_values(image):
     return result
 
 
-def commit_final_base_color(info, settings, *, output_path=None):
+def capture_blender_paint(info, settings):
+    """Move native Blender paint on Final into persistent repair layers."""
+
+    images = repair_images(info.obj)
+    painted = _image_pixels(images["final"])
+    current_fingerprint = image_fingerprint(painted)
+    stored_fingerprint = images["final"].get(
+        REPAIR_COMPOSITE_FINGERPRINT_PROPERTY, ""
+    )
+    if stored_fingerprint == current_fingerprint:
+        return 0
+    baked = _image_pixels(images["baked"])
+    corrections = _image_pixels(images["corrections"])
+    mask = _image_pixels(images["mask"])[:, :, 0]
+    classes = _classification_values(images["classification"])
+    composite_enabled, composite_opacity = _stored_composite_settings(
+        images["final"], settings
+    )
+    corrections, mask, classes, _changed_mask, changed = (
+        capture_external_composite_edits(
+            baked,
+            corrections,
+            mask,
+            classes,
+            painted,
+            enabled=composite_enabled,
+            opacity=composite_opacity,
+        )
+    )
+    images["final"][REPAIR_COMPOSITE_FINGERPRINT_PROPERTY] = current_fingerprint
+    if not changed:
+        return 0
+    _set_image_pixels(images["corrections"], corrections)
+    mask_rgba = np.repeat(mask[:, :, None], 4, axis=2)
+    mask_rgba[:, :, 3] = 1.0
+    _set_image_pixels(images["mask"], mask_rgba)
+    _set_image_pixels(images["classification"], classification_rgba(classes))
+    return changed
+
+
+def commit_final_base_color(
+    info,
+    settings,
+    *,
+    output_path=None,
+    persist=True,
+):
     _restore_production_material(info)
+    captured_blender_paint = capture_blender_paint(info, settings)
     images = repair_images(info.obj)
     baked = _image_pixels(images["baked"])
     corrections = _image_pixels(images["corrections"])
@@ -541,6 +624,12 @@ def commit_final_base_color(info, settings, *, output_path=None):
         opacity=settings.repair_opacity,
     )
     _set_image_pixels(images["final"], final)
+    images["final"][REPAIR_COMPOSITE_FINGERPRINT_PROPERTY] = image_fingerprint(
+        final
+    )
+    images["final"][REPAIR_COMPOSITE_SETTINGS_PROPERTY] = _composite_settings(
+        settings
+    )
     atlas = atlas_data(info.obj)
     unresolved = detect_unresolved(final, atlas["coverage"], atlas["confidence"])
     classes = _classification_values(images["classification"])
@@ -555,6 +644,8 @@ def commit_final_base_color(info, settings, *, output_path=None):
         "fingerprint": info.obj[REPAIR_FINGERPRINT_PROPERTY],
         "source_fingerprint": info.obj.get("sbf_repair_source_fingerprint", ""),
         "correction_pixels": int(np.count_nonzero(mask > 1.0e-6)),
+        "artist_paint_pixels": int(np.count_nonzero(classes == ARTIST_PAINT)),
+        "captured_blender_paint": captured_blender_paint,
         "correction_coverage": round(
             float(np.count_nonzero(mask > 1.0e-6))
             / max(int(np.count_nonzero(atlas["coverage"])), 1),
@@ -569,19 +660,32 @@ def commit_final_base_color(info, settings, *, output_path=None):
     settings.repair_unresolved_count = metrics["unresolved"]
     settings.repair_correction_count = metrics["correction_pixels"]
     settings.repair_status = (
-        f"Final composite ready: {metrics['correction_pixels']:,} corrected, "
+        f"Final composite ready: {metrics['correction_pixels']:,} corrected"
+        + (
+            f" ({captured_blender_paint:,} Blender-painted saved),"
+            if captured_blender_paint
+            else ","
+        )
+        + " "
         f"{metrics['unresolved']:,} unresolved."
     )
     path = Path(
         bpy.path.abspath(str(output_path or settings.output_image_path))
     ).resolve()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    images["final"].filepath_raw = str(path)
-    images["final"].file_format = "PNG"
-    images["final"].save()
-    if settings.pack_baked_image:
-        for role in ("baked", "corrections", "mask", "final", "classification"):
-            images[role].pack()
+    if persist:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        images["final"].filepath_raw = str(path)
+        images["final"].file_format = "PNG"
+        images["final"].save()
+        if settings.pack_baked_image:
+            for role in (
+                "baked",
+                "corrections",
+                "mask",
+                "final",
+                "classification",
+            ):
+                images[role].pack()
     info.base_color_node.image = images["final"]
     info.obj["sbf_base_color_image"] = images["final"].name
     info.obj["sbf_base_color_path"] = str(path)
@@ -625,7 +729,8 @@ def clone_source(settings):
     return json.loads(settings.repair_clone_source_json)
 
 
-def _stroke_layers(info):
+def _stroke_layers(info, settings):
+    capture_blender_paint(info, settings)
     images = repair_images(info.obj)
     return (
         images,
@@ -637,7 +742,7 @@ def _stroke_layers(info):
 
 
 def apply_repair_strokes(info, settings, source, targets):
-    images, baked, corrections, mask, classes = _stroke_layers(info)
+    images, baked, corrections, mask, classes = _stroke_layers(info, settings)
     atlas = atlas_data(info.obj)
     source_part = int(source.get("part", -1))
     source_material = int(source.get("material", -1))
@@ -730,7 +835,7 @@ def _image_mask(image):
 
 
 def smart_fill(info, settings):
-    images, baked, corrections, mask, classes = _stroke_layers(info)
+    images, baked, corrections, mask, classes = _stroke_layers(info, settings)
     current = composite_corrections(
         baked,
         corrections,
@@ -841,7 +946,7 @@ def detect_color_seams(info, settings):
 
 
 def heal_seams(info, settings, *, all_safe=False):
-    images, baked, corrections, mask, classes = _stroke_layers(info)
+    images, baked, corrections, mask, classes = _stroke_layers(info, settings)
     current = composite_corrections(
         baked,
         corrections,
@@ -893,7 +998,7 @@ def heal_seams(info, settings, *, all_safe=False):
 
 
 def clear_repairs(info, settings, *, selected=False):
-    images, _baked, corrections, mask, classes = _stroke_layers(info)
+    images, _baked, corrections, mask, classes = _stroke_layers(info, settings)
     region = _selected_face_mask(info) if selected else np.ones(mask.shape, dtype=bool)
     changed = int(np.count_nonzero((mask > 1.0e-6) & region))
     corrections[region] = (0.0, 0.0, 0.0, 1.0)
@@ -972,7 +1077,6 @@ def clear_repair_preview(info):
 def show_repair_preview(context, info, settings):
     ensure_repair_compatible(info, settings)
     images = repair_images(info.obj)
-    final = _image_pixels(images["final"])
     display = settings.repair_display
     if display == "FINAL":
         clear_repair_preview(info)
@@ -985,6 +1089,7 @@ def show_repair_preview(context, info, settings):
     elif display == "CLASSIFICATION":
         display_image = images["classification"]
     elif display == "SOURCE_CONTAMINATION":
+        final = _image_pixels(images["final"])
         atlas = atlas_data(info.obj)
         overlay = final.copy()
         low_confidence = atlas["coverage"] & (atlas["confidence"] < 0.20)
@@ -1006,18 +1111,21 @@ def show_repair_preview(context, info, settings):
         )
         settings.repair_forbidden_mask_image = display_image
     elif display == "UNRESOLVED":
+        final = _image_pixels(images["final"])
         atlas = atlas_data(info.obj)
         overlay = final.copy()
         unresolved = detect_unresolved(final, atlas["coverage"], atlas["confidence"])
         overlay[unresolved, :3] = (1.0, 0.0, 0.1)
         display_image = _diagnostic_image(info.obj, overlay)
     elif display == "SEAM_HEATMAP":
+        final = _image_pixels(images["final"])
         display_image = _diagnostic_image(
             info.obj, _seam_heatmap(info.obj, final)
         )
     elif display == "UNLIT_FINAL":
         display_image = images["final"]
     else:
+        final = _image_pixels(images["final"])
         display_image = _diagnostic_image(info.obj, final)
 
     clear_repair_preview(info)

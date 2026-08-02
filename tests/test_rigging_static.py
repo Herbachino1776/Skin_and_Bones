@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 import ast
+from collections import defaultdict
 import math
 import re
+from types import SimpleNamespace
 import unittest
 from pathlib import Path
+
+try:
+    import numpy as np
+except ModuleNotFoundError:
+    np = None
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,11 +22,144 @@ RIGGING = PACKAGE / "rigging"
 
 
 class RiggingStaticTests(unittest.TestCase):
+    @unittest.skipUnless(np is not None, "Blender NumPy runtime required")
+    def test_dense_weight_regularization_matches_reference_rules(self):
+        source = (RIGGING / "weights.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        functions = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name
+            in {
+                "_limit_and_normalize_rows",
+                "_accumulate_edge_values",
+                "_regularize_dense_weights",
+            }
+        ]
+        namespace = {"np": np}
+        exec(
+            compile(
+                ast.Module(body=functions, type_ignores=[]),
+                str(RIGGING / "weights.py"),
+                "exec",
+            ),
+            namespace,
+        )
+
+        values = np.asarray(
+            [
+                (0.70, 0.30, 0.00, 0.00),
+                (0.60, 0.25, 0.15, 0.00),
+                (0.10, 0.50, 0.40, 0.00),
+                (0.00, 0.20, 0.55, 0.25),
+                (0.00, 0.00, 0.65, 0.35),
+                (0.25, 0.25, 0.25, 0.25),
+            ],
+            dtype=np.float64,
+        )
+        edges = np.asarray(
+            ((0, 1), (1, 2), (2, 3), (3, 4), (1, 5), (3, 5)),
+            dtype=np.int64,
+        )
+        palette_edges = edges[[0, 1, 2, 4, 5]]
+        smoothing_allowed = np.ones(values.shape, dtype=bool)
+        smoothing_allowed[2, 0] = False
+        smoothing_allowed[3, 0] = False
+        palette_allowed = np.ones(values.shape, dtype=bool)
+        palette_allowed[3:, 0] = False
+        tiny_vertices = np.asarray((False, False, False, False, True, False))
+
+        def limit_rows(rows, limit):
+            result = np.zeros_like(rows)
+            for index, row in enumerate(rows):
+                ranked = sorted(
+                    enumerate(row), key=lambda item: (-item[1], item[0])
+                )[:limit]
+                total = sum(value for _column, value in ranked)
+                if total > 0.0:
+                    for column, value in ranked:
+                        result[index, column] = value / total
+            return result
+
+        reference = values.copy()
+        adjacency = [[] for _row in reference]
+        for first, second in edges:
+            adjacency[int(first)].append(int(second))
+            adjacency[int(second)].append(int(first))
+        for _iteration in range(3):
+            updated = reference.copy()
+            for index, neighbors in enumerate(adjacency):
+                if not neighbors or tiny_vertices[index]:
+                    continue
+                combined = reference[index] * 0.35
+                combined += sum(reference[item] for item in neighbors) * (
+                    0.65 / len(neighbors)
+                )
+                combined[~smoothing_allowed[index]] = 0.0
+                combined[combined < 1.0e-4] = 0.0
+                total = float(np.sum(combined))
+                if total > 0.0:
+                    updated[index] = combined / total
+            reference = updated
+        reference = limit_rows(reference, 3)
+        palette_executed = 0
+        for _iteration in range(5):
+            proposals = [[] for _row in reference]
+            for first, second in palette_edges:
+                first = int(first)
+                second = int(second)
+                if np.sum(np.abs(reference[first] - reference[second])) <= 0.08:
+                    continue
+                common = limit_rows(
+                    ((reference[first] + reference[second]) * 0.5)[None, :],
+                    3,
+                )[0]
+                proposals[first].append(common)
+                proposals[second].append(common)
+            if not any(proposals):
+                break
+            reconciled = reference.copy()
+            for index, items in enumerate(proposals):
+                if not items:
+                    continue
+                combined = reference[index] * 0.25
+                factor = 0.75 / len(items)
+                for item in items:
+                    combined += np.where(
+                        palette_allowed[index], item * factor, 0.0
+                    )
+                reconciled[index] = limit_rows(combined[None, :], 3)[0]
+            reference = reconciled
+            palette_executed += 1
+
+        actual, smoothing_executed, actual_palette_executed = namespace[
+            "_regularize_dense_weights"
+        ](
+            values,
+            edges,
+            palette_edges,
+            smoothing_allowed,
+            palette_allowed,
+            tiny_vertices,
+            3,
+            3,
+            0.65,
+            1.0e-4,
+            5,
+            0.08,
+        )
+
+        np.testing.assert_allclose(actual, reference, atol=1.0e-12, rtol=0.0)
+        self.assertEqual(3, smoothing_executed)
+        self.assertEqual(palette_executed, actual_palette_executed)
+
     def test_modular_rigging_package_is_complete(self):
         required = {
             "__init__.py",
             "contract.py",
             "deformation.py",
+            "glb_skin.py",
             "analysis.py",
             "landmark_math.py",
             "landmarks.py",
@@ -118,17 +258,90 @@ class RiggingStaticTests(unittest.TestCase):
         self.assertIn("palette_edge_limit=0.015", weights)
         self.assertIn("strict_plausible or bridge_plausible", weights)
 
+    def test_voxel_heat_repairs_only_small_fully_unweighted_components(self):
+        source = (RIGGING / "weights.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        functions = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name in {
+                "_component_indices",
+                "_repairable_unweighted_components",
+            }
+        ]
+        namespace = {"defaultdict": defaultdict}
+        exec(
+            compile(
+                ast.Module(body=functions, type_ignores=[]),
+                str(RIGGING / "weights.py"),
+                "exec",
+            ),
+            namespace,
+        )
+        mesh = SimpleNamespace(
+            vertices=[None] * 10,
+            edges=[
+                SimpleNamespace(vertices=edge)
+                for edge in (
+                    (0, 1),
+                    (2, 3),
+                    (3, 4),
+                    (4, 5),
+                    (6, 7),
+                    (7, 8),
+                    (8, 9),
+                )
+            ],
+        )
+        weights = [
+            {},
+            {},
+            {"body": 1.0},
+            {},
+            {"body": 1.0},
+            {},
+            {},
+            {},
+            {},
+            {},
+        ]
+
+        repairable = namespace["_repairable_unweighted_components"](
+            mesh,
+            weights,
+            max_vertices=2,
+        )
+
+        self.assertEqual([[0, 1]], repairable)
+
     def test_hand_fit_uses_forearm_corridor_and_editable_landmarks(self):
         landmarks = (RIGGING / "landmarks.py").read_text(encoding="utf-8")
         operators = (PACKAGE / "operators" / "rigging.py").read_text(
             encoding="utf-8"
         )
         self.assertIn("def _hand_endpoint", landmarks)
-        self.assertIn("forearm continuation through side-confined hand corridor", landmarks)
+        self.assertIn("palm center validated by side-confined", landmarks)
         self.assertIn('"hand_left",\n    "hand_right",\n    "hip_left"', landmarks)
         self.assertIn("_rest_surface_points(obj)", landmarks)
         self.assertIn("refresh_hand_landmarks", operators)
         self.assertIn("_invalidate_binding_results(settings, target)", operators)
+
+    def test_landmark_profile_targets_standard_high_a_pose(self):
+        source = (RIGGING / "landmarks.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        assignments = {
+            node.targets[0].id: ast.literal_eval(node.value)
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id
+            in {"HIGH_A_HEIGHT_FRACTIONS", "HIGH_A_HAND_OFFSET"}
+        }
+        self.assertEqual(assignments["HIGH_A_HEIGHT_FRACTIONS"]["wrist"], 0.608)
+        self.assertEqual(assignments["HIGH_A_HEIGHT_FRACTIONS"]["elbow"], 0.690)
+        self.assertLess(assignments["HIGH_A_HAND_OFFSET"]["up"], 0.0)
+        self.assertIn("isolated outer-arm center", source)
 
     def test_fitted_validation_allows_only_owned_post_bind_state(self):
         source = (RIGGING / "validation.py").read_text(encoding="utf-8")
@@ -246,12 +459,19 @@ class RiggingStaticTests(unittest.TestCase):
         deformation = (RIGGING / "deformation.py").read_text(encoding="utf-8")
         weights = (RIGGING / "weights.py").read_text(encoding="utf-8")
         self.assertIn("maximum_edge_stretch_ratio", deformation)
+        self.assertIn("maximum_coincident_seam_separation", deformation)
         self.assertIn("blocking_separated_components", deformation)
         self.assertIn("DEFAULT_EDGE_DEFORMED_LENGTH_RATIO = 0.04", deformation)
         self.assertIn('item["deformed_length"]', deformation)
         self.assertIn('height * edge_deformed_length_limit', deformation)
         self.assertIn("palette_reconciliation_iterations", weights)
         self.assertIn("maximum_edge_weight_delta_after", weights)
+
+    def test_rigged_export_repairs_and_reimport_blocks_split_seam_weights(self):
+        production = (RIGGING / "production.py").read_text(encoding="utf-8")
+        self.assertIn("repair_glb_skin_weights", production)
+        self.assertIn("audit_glb_skin_weights", production)
+        self.assertIn('seam_weight_report["coincident_seam_weights_match"]', production)
 
     def test_final_weight_cleanup_matches_validator_threshold(self):
         source = (RIGGING / "weights.py").read_text(encoding="utf-8")

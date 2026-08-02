@@ -24,6 +24,7 @@ from .deformation import (
     scan_action_deformation,
 )
 from .fitting import OWNER
+from .glb_skin import audit_glb_skin_weights, repair_glb_skin_weights
 from .poses import (
     PRODUCTION_TRACK_PREFIX,
     canonical_expected_action_names,
@@ -224,6 +225,9 @@ def _rigging_manifest(
             "status": "EXPORTED",
             "mesh": target.name,
             "armature": armature.name,
+            "skin_weight_repair": json.loads(
+                target.get("sbf_glb_skin_weight_report", "{}")
+            ),
         },
         "glb_reimport_result": load("rig_reimport_json"),
         "animation_forge_acceptance": load("rig_animation_forge_json"),
@@ -272,6 +276,10 @@ def export_rigged_glb(
         raise RuntimeError("Validate production weights before rigged export.")
     output = Path(bpy.path.abspath(settings.rigged_export_glb_path)).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
+    temporary_output = output.with_name(
+        f"{output.stem}.sbf-export.tmp{output.suffix}"
+    )
+    temporary_output.unlink(missing_ok=True)
     clean_weighting_temporary_data()
     selected = list(context.selected_objects)
     active = context.view_layer.objects.active
@@ -287,13 +295,14 @@ def export_rigged_glb(
         armature.select_set(True)
         context.view_layer.objects.active = armature
         values = {
-            "filepath": str(output),
+            "filepath": str(temporary_output),
             "export_format": "GLB",
             "use_selection": True,
             "export_apply": False,
             "export_texcoords": True,
             "export_normals": True,
             "export_tangents": True,
+            "export_yup": True,
             "export_materials": "EXPORT",
             "export_skins": True,
             "export_extras": True,
@@ -304,9 +313,41 @@ def export_rigged_glb(
         result = bpy.ops.export_scene.gltf(
             **_operator_kwargs(bpy.ops.export_scene.gltf, values)
         )
-        if "FINISHED" not in result or not output.is_file():
+        if "FINISHED" not in result or not temporary_output.is_file():
             raise RuntimeError("Blender did not produce the rigged GLB.")
+        bone_names = {bone.name for bone in armature.data.bones}
+        authoritative = {}
+        for vertex in target.data.vertices:
+            # Blender's glTF exporter writes local XYZ as glTF X/Z/-Y.
+            position = (
+                float(vertex.co.x),
+                float(vertex.co.z),
+                -float(vertex.co.y),
+            )
+            weights = {
+                target.vertex_groups[item.group].name: float(item.weight)
+                for item in vertex.groups
+                if target.vertex_groups[item.group].name in bone_names
+                and float(item.weight) > 1.0e-8
+            }
+            if position in authoritative:
+                raise RuntimeError(
+                    "Production mesh contains ambiguous coincident source vertices; "
+                    "rigged GLB export cannot guarantee seam-safe skin weights."
+                )
+            authoritative[position] = weights
+        try:
+            skin_report = repair_glb_skin_weights(
+                temporary_output, authoritative
+            )
+            temporary_output.replace(output)
+        except (OSError, ValueError):
+            raise
+        target["sbf_glb_skin_weight_report"] = json.dumps(
+            skin_report, sort_keys=True
+        )
     finally:
+        temporary_output.unlink(missing_ok=True)
         _restore_animation_state(armature, context.scene, state)
         for obj in list(context.selected_objects):
             obj.select_set(False)
@@ -393,23 +434,29 @@ def _validate_clean_reimport_in_process(
             for action in new_actions
             if _action_bone_names(action).intersection(removed_bones)
         }
+        seam_weight_report = audit_glb_skin_weights(filepath)
         action_safe = True
         action_meaningful = False
         action_test = None
         action_forensics = None
+        action_forensics_by_action = {}
         if new_actions:
-            action_forensics = scan_action_deformation(
-                context, mesh, armature, new_actions[0]
+            for action in sorted(new_actions, key=lambda item: item.name):
+                forensics = scan_action_deformation(
+                    context, mesh, armature, action
+                )
+                action_forensics_by_action[action.name] = forensics
+            action_safe = all(
+                report["status"] == "READY_FOR_ANIMATION_TEST"
+                and report["state_restored"]
+                for report in action_forensics_by_action.values()
             )
-            action_safe = (
-                action_forensics["status"] == "READY_FOR_ANIMATION_TEST"
-                and action_forensics["state_restored"]
+            action_meaningful = any(
+                report["maximum_displacement"] > expected_height * 1.0e-5
+                for report in action_forensics_by_action.values()
             )
-            action_meaningful = (
-                action_forensics["maximum_displacement"]
-                > expected_height * 1.0e-5
-            )
-            action_test = new_actions[0].name
+            action_test = sorted(action_forensics_by_action)[0]
+            action_forensics = action_forensics_by_action[action_test]
         isolated_forensics = run_isolated_bone_forensics(
             context, mesh, armature
         )
@@ -462,6 +509,7 @@ def _validate_clean_reimport_in_process(
             <= max(expected_height * 0.02, 1.0e-4)
             and action_safe
             and action_meaningful
+            and seam_weight_report["coincident_seam_weights_match"]
             and isolated_forensics["status"] == "READY_FOR_ANIMATION_TEST"
             and isolated_forensics["state_restored"]
         )
@@ -497,6 +545,8 @@ def _validate_clean_reimport_in_process(
             "action_deformation_finite": action_safe,
             "action_deformation_meaningful": action_meaningful,
             "action_deformation_forensics": action_forensics,
+            "action_deformation_forensics_by_action": action_forensics_by_action,
+            **seam_weight_report,
             "isolated_bone_forensics": isolated_forensics,
             "hierarchy_scale_notes": [
                 {

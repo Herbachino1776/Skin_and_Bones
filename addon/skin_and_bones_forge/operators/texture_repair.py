@@ -315,8 +315,11 @@ class SBF_OT_texture_clear(Operator):
 
 class SBF_OT_texture_commit_final(Operator):
     bl_idname = "sbf.texture_commit_final"
-    bl_label = "Commit Final Base Color"
-    bl_description = "Composite, save, pack, and bind SBF_BaseColor_Final"
+    bl_label = "Save Blender Paint + Commit"
+    bl_description = (
+        "Capture native Blender paint on SBF_BaseColor_Final, then save, "
+        "pack, and bind the production texture"
+    )
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -326,7 +329,9 @@ class SBF_OT_texture_commit_final(Operator):
             settings.status_message = f"Committed final base color: {path}"
             self.report(
                 {"INFO"},
-                f"Committed {metrics['correction_pixels']:,} corrections to {path}.",
+                f"Saved {metrics['captured_blender_paint']:,} Blender-painted "
+                f"pixels; committed {metrics['correction_pixels']:,} corrections "
+                f"to {path}.",
             )
             return {"FINISHED"}
         except (ValidationError, RuntimeError, ValueError, OSError) as exc:

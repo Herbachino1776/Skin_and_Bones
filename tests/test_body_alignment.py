@@ -113,6 +113,49 @@ class BodyAlignmentTests(unittest.TestCase):
         self.assertLess(mismatch["parts"]["left_arm"]["error"], 0.12)
         self.assertLess(mismatch["parts"]["right_arm"]["error"], 0.12)
 
+    def test_high_a_back_hands_must_continue_forearms_not_fold_to_pelvis(self):
+        source = {
+            "points": {
+                "shoulder_left": (0.418, 0.768),
+                "elbow_left": (0.287, 0.656),
+                "wrist_left": (0.183, 0.571),
+                "hand_left": (0.157, 0.544),
+                "shoulder_right": (0.598, 0.772),
+                "elbow_right": (0.723, 0.658),
+                "wrist_right": (0.809, 0.579),
+                "hand_right": (0.845, 0.552),
+            }
+        }
+        folded_target = {
+            "points": {
+                "shoulder_left": (0.346971, 0.747500),
+                "elbow_left": (0.226828, 0.639500),
+                "wrist_left": (0.122596, 0.531500),
+                "hand_left": (0.417935, 0.489249),
+                "shoulder_right": (0.653665, 0.747500),
+                "elbow_right": (0.771026, 0.639500),
+                "wrist_right": (0.875414, 0.531500),
+                "hand_right": (0.585258, 0.493158),
+            }
+        }
+        continued_target = {
+            "points": {
+                **folded_target["points"],
+                "hand_left": (0.090621, 0.498369),
+                "hand_right": (0.907180, 0.498635),
+            }
+        }
+
+        folded = BODY.pose_mismatch(source, folded_target)["parts"]
+        continued = BODY.pose_mismatch(source, continued_target)["parts"]
+
+        self.assertEqual(folded["left_arm"]["status"], "SEVERE")
+        self.assertEqual(folded["right_arm"]["status"], "SEVERE")
+        self.assertEqual(continued["left_arm"]["status"], "ACCEPTABLE")
+        self.assertEqual(continued["right_arm"]["status"], "ACCEPTABLE")
+        self.assertLess(continued["left_arm"]["error"], 0.07)
+        self.assertLess(continued["right_arm"]["error"], 0.07)
+
     @unittest.skipIf(BODY._np is None, "NumPy runtime is unavailable")
     def test_bounded_raster_write_reaches_the_destination_image(self):
         landmarks = BODY.auto_initialize_landmarks("front")

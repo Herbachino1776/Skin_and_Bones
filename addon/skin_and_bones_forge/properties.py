@@ -157,7 +157,7 @@ def _update_repair_composite(_settings, context):
         from .validation import validate_target
 
         info = validate_target(context, settings)
-        commit_final_base_color(info, settings)
+        commit_final_base_color(info, settings, persist=False)
         show_repair_preview(context, info, settings)
     except (AttributeError, ReferenceError, RuntimeError, ValueError, OSError):
         return

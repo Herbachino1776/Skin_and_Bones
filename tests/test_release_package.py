@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_SCRIPT = ROOT / "scripts" / "build_release.py"
-OUTPUT = ROOT / "dist" / "Skin_and_Bones_Forge_v2.0.1.zip"
+OUTPUT = ROOT / "dist" / "Skin_and_Bones_Forge_v2.0.5.zip"
 
 
 class ReleasePackageTests(unittest.TestCase):
@@ -42,6 +42,9 @@ class ReleasePackageTests(unittest.TestCase):
             )
             self.assertIn(
                 "skin_and_bones_forge/operators/texture_repair.py", names
+            )
+            self.assertIn(
+                "skin_and_bones_forge/rigging/glb_skin.py", names
             )
             self.assertTrue(
                 all(name.startswith("skin_and_bones_forge/") for name in names)

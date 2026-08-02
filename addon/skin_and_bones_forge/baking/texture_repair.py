@@ -25,6 +25,7 @@ HEAL = 4
 SMART_FILL = 5
 SEAM_HEAL = 6
 UNRESOLVED = 7
+ARTIST_PAINT = 8
 
 CLASSIFICATION_NAMES = {
     DIRECT_PROJECTION: "DIRECT_PROJECTION",
@@ -34,6 +35,7 @@ CLASSIFICATION_NAMES = {
     SMART_FILL: "SMART_FILL",
     SEAM_HEAL: "SEAM_HEAL",
     UNRESOLVED: "UNRESOLVED",
+    ARTIST_PAINT: "ARTIST_PAINT",
 }
 
 CLASSIFICATION_COLORS = {
@@ -44,6 +46,7 @@ CLASSIFICATION_COLORS = {
     SMART_FILL: (1.00, 0.65, 0.00, 1.0),
     SEAM_HEAL: (1.00, 0.95, 0.00, 1.0),
     UNRESOLVED: (1.00, 0.00, 0.10, 1.0),
+    ARTIST_PAINT: (1.00, 0.35, 0.75, 1.0),
 }
 
 OPPOSITE_PARTS = {
@@ -93,6 +96,52 @@ def composite_corrections(
         # The base atlas owns alpha.  Repairs are an RGB-only production layer.
         result[:, :, 3] = base[:, :, 3]
     return np.clip(result, 0.0, 1.0).astype(np.float32, copy=False)
+
+
+def capture_external_composite_edits(
+    baked,
+    corrections,
+    correction_mask,
+    classification,
+    painted_final,
+    *,
+    enabled=True,
+    opacity=1.0,
+    threshold=1.5 / 255.0,
+):
+    """Absorb Blender-native paint on Final into the correction layer."""
+
+    base = _as_float_image(baked)
+    repair = _as_float_image(corrections).copy()
+    painted = _as_float_image(painted_final)
+    classes = np.asarray(classification, dtype=np.uint8).copy()
+    mask = np.asarray(correction_mask, dtype=np.float32)
+    if mask.ndim == 3:
+        mask = mask[:, :, 0]
+    mask = mask.copy()
+    expected = composite_corrections(
+        base, repair, mask, enabled=enabled, opacity=opacity
+    )
+    if painted.shape != expected.shape or classes.shape != mask.shape:
+        raise ValueError("Painted final and classification must match the atlas.")
+    changed_mask = (
+        np.max(np.abs(painted[:, :, :3] - expected[:, :, :3]), axis=2)
+        > float(threshold)
+    )
+    changed = int(np.count_nonzero(changed_mask))
+    if not changed:
+        return repair, mask, classes, changed_mask, 0
+    if not enabled or not math.isclose(float(opacity), 1.0, abs_tol=1.0e-6):
+        raise ValueError(
+            "Blender paint was detected on SBF_BaseColor_Final. Enable the "
+            "Correction Layer and set Opacity to 1.0 before committing."
+        )
+    repair[changed_mask, :3] = painted[changed_mask, :3]
+    if repair.shape[2] == 4:
+        repair[changed_mask, 3] = base[changed_mask, 3]
+    mask[changed_mask] = 1.0
+    classes[changed_mask] = ARTIST_PAINT
+    return repair, mask, classes, changed_mask, changed
 
 
 def repair_fingerprint(vertices, polygons, loop_uvs, atlas_size, uv_name):

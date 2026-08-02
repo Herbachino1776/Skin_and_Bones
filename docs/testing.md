@@ -79,7 +79,7 @@ transaction rollback, re-bake preservation/invalidation, preview/data leak
 safety, delivery gates, packed PNG output, and byte-identical GLB embedding.
 
 Every push to `main` runs these static checks on GitHub Actions and uploads
-`Skin_and_Bones_Forge_v2.0.1` as a 30-day workflow artifact.
+`Skin_and_Bones_Forge_v2.0.5` as a 30-day workflow artifact.
 
 To exercise texture projection and baking on the exact-welded production mesh,
 run the Blender harness directly with `--prepare-spar3d`. The ordinary wrapper
@@ -105,6 +105,11 @@ E:\Blender\blender.exe `
   --addon addon `
   --forge-repo "E:\DeVForge\dreadstone_animation_forge"
 ```
+
+For a binding-only performance regression, append `--binding-only
+--profile-binding`. The harness performs the rollback, bind, and repeat-bind
+sequence, asserts identical final weight fingerprints, prints comparable phase
+timings, and emits the hottest binding call paths from `cProfile`.
 
 This checks deterministic animation-neutral fingerprinting, state restore,
 target analysis, exact names/hierarchy, preview replacement, saved correction

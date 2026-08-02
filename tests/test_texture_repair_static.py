@@ -56,7 +56,7 @@ class TextureRepairStaticTests(unittest.TestCase):
         )
         self.assertIn("TEXTURE_REPAIR_OPERATOR_CLASSES", operators)
         self.assertIn("SKIN 4. Texture Repair Studio", panel)
-        self.assertIn("COMMIT FINAL BASE COLOR", panel)
+        self.assertIn("SAVE BLENDER PAINT + COMMIT", panel)
         self.assertIn("Advanced Texture Repair", panel)
 
     def test_algorithms_do_not_import_blender(self):
@@ -80,6 +80,61 @@ class TextureRepairStaticTests(unittest.TestCase):
         self.assertIn("REPAIR_PREVIEW_SLOT_PROPERTY", service)
         self.assertNotIn("target[ORIGINAL_MATERIAL_PROPERTY]", service)
         self.assertNotIn("target[ORIGINAL_SLOT_PROPERTY]", service)
+
+    def test_native_blender_paint_is_captured_before_commit(self):
+        constants = (PACKAGE / "constants.py").read_text(encoding="utf-8")
+        service = (PACKAGE / "baking" / "repair_service.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("REPAIR_COMPOSITE_FINGERPRINT_PROPERTY", constants)
+        self.assertIn("REPAIR_COMPOSITE_SETTINGS_PROPERTY", constants)
+        self.assertIn("def capture_blender_paint", service)
+        self.assertIn("capture_blender_paint(info, settings)", service)
+        self.assertIn("_stored_composite_settings", service)
+
+    def test_live_repair_controls_defer_disk_persistence(self):
+        properties = (PACKAGE / "properties.py").read_text(encoding="utf-8")
+        self.assertIn(
+            "commit_final_base_color(info, settings, persist=False)",
+            properties,
+        )
+        service = (PACKAGE / "baking" / "repair_service.py").read_text(
+            encoding="utf-8"
+        )
+        tree = ast.parse(service)
+        commit = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "commit_final_base_color"
+        )
+        persist_block = next(
+            node
+            for node in commit.body
+            if isinstance(node, ast.If)
+            and isinstance(node.test, ast.Name)
+            and node.test.id == "persist"
+        )
+        persisted_source = ast.unparse(persist_block)
+        self.assertIn("images['final'].save()", persisted_source)
+        self.assertIn("images[role].pack()", persisted_source)
+
+    def test_simple_repair_displays_do_not_read_back_the_final_atlas(self):
+        service = (PACKAGE / "baking" / "repair_service.py").read_text(
+            encoding="utf-8"
+        )
+        tree = ast.parse(service)
+        preview = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "show_repair_preview"
+        )
+        preview_source = ast.unparse(preview)
+        self.assertLess(
+            preview_source.index("if display == 'FINAL'"),
+            preview_source.index("final = _image_pixels(images['final'])"),
+        )
 
 
 if __name__ == "__main__":

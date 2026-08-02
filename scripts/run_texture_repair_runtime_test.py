@@ -346,6 +346,19 @@ if fingerprint(repair_images(target)["mask"]) != mask_hash_before_preview_exit:
 if preview_exit_metrics["correction_pixels"] <= 0:
     raise RuntimeError("Projection-preview exit discarded active corrections")
 
+# Live opacity changes update the in-memory final atlas without repeatedly
+# rewriting the committed PNG. Explicit Commit/Save/Export still persist it.
+committed_bytes = Path(settings.output_image_path).read_bytes()
+full_opacity_hash = fingerprint(repair_images(target)["final"])
+settings.repair_opacity = 0.5
+if Path(settings.output_image_path).read_bytes() != committed_bytes:
+    raise RuntimeError("Live repair opacity rewrote the committed PNG")
+if fingerprint(repair_images(target)["final"]) == full_opacity_hash:
+    raise RuntimeError("Live repair opacity did not update the in-memory final")
+settings.repair_opacity = 1.0
+if Path(settings.output_image_path).read_bytes() != committed_bytes:
+    raise RuntimeError("Restoring live repair opacity rewrote the committed PNG")
+
 # Compatible rebake must replace the raw layer while preserving correction work.
 correction_hash_before = fingerprint(repair_images(target)["corrections"])
 second_raw = make_bake("SBF_RepairRuntimeBakeWork2", size, variant=0.015)
@@ -365,6 +378,10 @@ _bind_production_texture_uvs(info, BASE_COLOR_UV_NAME)
 target.material_slots[0].material = material
 commit_final_base_color(info, settings)
 validation_metrics = validate_repair_for_delivery(info, settings)
+if validation_metrics["artist_paint_pixels"] != 0:
+    raise RuntimeError(
+        "Live composite settings were misclassified as native Blender paint"
+    )
 
 if base_node.image.name != REPAIR_FINAL_IMAGE:
     raise RuntimeError("Production material does not use SBF_BaseColor_Final")
@@ -478,6 +495,7 @@ result = {
     "failed_stroke_rolled_back": True,
     "preview_leak_free": True,
     "projection_preview_exit_safe": True,
+    "live_composite_defers_persistence": True,
     "projection_preview_corrections_preserved": True,
     "delivery_gates_blocked": True,
     "clone": clone_metrics,

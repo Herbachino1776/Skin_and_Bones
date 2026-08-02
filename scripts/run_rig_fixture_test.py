@@ -9,9 +9,11 @@ Run with the canonical .blend already open:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import sys
+import time
 
 import bpy
 from mathutils import Vector
@@ -24,6 +26,8 @@ def _args():
     parser.add_argument("--target-object")
     parser.add_argument("--addon", type=Path, required=True)
     parser.add_argument("--reference-glb", type=Path)
+    parser.add_argument("--binding-only", action="store_true")
+    parser.add_argument("--profile-binding", action="store_true")
     parser.add_argument(
         "--forge-repo",
         type=Path,
@@ -145,6 +149,26 @@ def _assert_pose_equal(actual, expected, tolerance=1.0e-6):
     ) <= tolerance
 
 
+def _weight_fingerprint(target):
+    group_names = {
+        group.index: group.name for group in target.vertex_groups
+    }
+    digest = hashlib.sha256()
+    for vertex in target.data.vertices:
+        assignments = sorted(
+            (group_names[item.group], round(float(item.weight), 9))
+            for item in vertex.groups
+            if float(item.weight) > 0.0
+        )
+        digest.update(
+            json.dumps(
+                (vertex.index, assignments),
+                separators=(",", ":"),
+            ).encode("utf-8")
+        )
+    return digest.hexdigest()
+
+
 def _action_content_snapshot(actions):
     return {
         action.name: {
@@ -264,6 +288,43 @@ target_group_count = len(target.vertex_groups)
 
 skin_and_bones_forge.register()
 try:
+    performance_timings = {
+        "production_binding_seconds": [],
+        "binding_phase_seconds": {},
+    }
+    if args.profile_binding:
+        from skin_and_bones_forge.rigging import weights as weights_module
+
+        for function_name in (
+            "create_voxel_heat_proxy",
+            "transfer_donor_weights",
+            "classify_components",
+            "enforce_anatomical_sides",
+            "smooth_surface_weights",
+            "attenuate_remote_limb_weights",
+            "remove_spatially_impossible_weights",
+            "_topology_preferred_families",
+            "_regularize_weight_continuity",
+            "remove_root_surface_weights",
+            "stabilize_bilateral_leg_bridges",
+            "_ensure_deform_group_coverage",
+            "_canonicalize_final_weights",
+            "_apply_weights",
+            "validate_production_weights",
+        ):
+            original = getattr(weights_module, function_name)
+
+            def timed(*function_args, __name=function_name, __call=original, **kwargs):
+                started = time.perf_counter()
+                try:
+                    return __call(*function_args, **kwargs)
+                finally:
+                    elapsed = round(time.perf_counter() - started, 6)
+                    performance_timings["binding_phase_seconds"].setdefault(
+                        __name, []
+                    ).append(elapsed)
+
+            setattr(weights_module, function_name, timed)
     settings = bpy.context.scene.sbf_settings
     settings.canonical_armature = source
     settings.target_object = target
@@ -424,11 +485,16 @@ try:
     ]
     settings.rig_force_binding_failure = True
     forced_error = ""
+    binding_started = time.perf_counter()
     try:
         forced_result = bpy.ops.sbf.bind_production_character()
         assert "CANCELLED" in forced_result
     except RuntimeError as exc:
         forced_error = str(exc)
+    finally:
+        performance_timings["production_binding_seconds"].append(
+            round(time.perf_counter() - binding_started, 3)
+        )
     assert "Forced binding failure" in forced_error or "CANCELLED" in forced_result
     settings.rig_force_binding_failure = False
     assert target.parent == rollback_parent
@@ -443,10 +509,14 @@ try:
     )
     assert bpy.data.collections.get(RIG_TEMP_COLLECTION) is None
 
-    _assert_operator(
-        bpy.ops.sbf.bind_production_character(), "production binding"
+    binding_started = time.perf_counter()
+    binding_result = bpy.ops.sbf.bind_production_character()
+    performance_timings["production_binding_seconds"].append(
+        round(time.perf_counter() - binding_started, 3)
     )
+    _assert_operator(binding_result, "production binding")
     first_weight_report = json.loads(settings.rig_weight_report_json)
+    first_weight_fingerprint = _weight_fingerprint(target)
     assert first_weight_report["unweighted_vertices"] == 0
     assert first_weight_report["non_normalized_vertices"] == 0
     assert first_weight_report["maximum_influences"] <= 4
@@ -496,9 +566,13 @@ try:
     assert bpy.data.collections.get(RIG_TEMP_COLLECTION) is None
 
     # A repeat bind updates in place without group or modifier duplication.
-    _assert_operator(
-        bpy.ops.sbf.bind_production_character(), "repeat production binding"
+    binding_started = time.perf_counter()
+    binding_result = bpy.ops.sbf.bind_production_character()
+    performance_timings["production_binding_seconds"].append(
+        round(time.perf_counter() - binding_started, 3)
     )
+    _assert_operator(binding_result, "repeat production binding")
+    assert _weight_fingerprint(target) == first_weight_fingerprint
     assert len(target.vertex_groups) == 21
     assert not (removed_bones & {group.name for group in target.vertex_groups})
     assert (
@@ -524,12 +598,26 @@ try:
     assert not weight_report["empty_deform_groups"]
     assert not weight_report["removed_weight_groups_present"]
 
+    if args.binding_only:
+        performance_timings["weight_fingerprint"] = first_weight_fingerprint
+        print("SBF_BINDING_BENCHMARK_RESULT")
+        print(json.dumps(performance_timings, indent=2, sort_keys=True))
+        skin_and_bones_forge.unregister()
+        raise SystemExit(0)
+
     production_animation_before = _animation_snapshot(fitted)
     production_pose_before = _pose_matrices(fitted)
     frame_before_pose_tests = bpy.context.scene.frame_current
-    _assert_operator(
-        bpy.ops.sbf.run_pose_torture_tests(), "pose torture tests"
-    )
+    try:
+        pose_result = bpy.ops.sbf.run_pose_torture_tests()
+    except RuntimeError:
+        print("SBF_POSE_FAILURE_REPORT")
+        print(settings.rig_pose_test_json)
+        raise
+    if "FINISHED" not in pose_result:
+        print("SBF_POSE_FAILURE_REPORT")
+        print(settings.rig_pose_test_json)
+    _assert_operator(pose_result, "pose torture tests")
     pose_report = json.loads(settings.rig_pose_test_json)
     assert pose_report["status"] == "POSE_TESTS_PASSED"
     assert len(pose_report["tests"]) >= 14
@@ -640,6 +728,14 @@ try:
     assert reimport_report["uv_maps"]
     assert reimport_report["materials"]
     assert reimport_report["action_deformation_meaningful"]
+    assert reimport_report["coincident_seam_weights_match"]
+    assert reimport_report["mismatched_coincident_weight_groups"] == 0
+    assert all(
+        report["maximum_coincident_seam_separation"] == 0.0
+        for report in reimport_report[
+            "action_deformation_forensics_by_action"
+        ].values()
+    )
 
     settings.animation_forge_repository = str(args.forge_repo.resolve())
     _assert_operator(
@@ -740,12 +836,14 @@ try:
         "hand_poses_tested": list(pose_metrics),
         "validation": fitted_validation,
         "weight_report": weight_report,
+        "weight_fingerprint": first_weight_fingerprint,
         "pose_tests": pose_report,
         "canonical_action_tests": action_report,
         "rigged_glb": str(rigged_glb),
         "rigging_manifest": str(manifest_path),
         "clean_reimport": reimport_report,
         "animation_forge": forge_report,
+        "performance_timings": performance_timings,
         "target_protected_data_unchanged": True,
         "temporary_cleanup": True,
         "exported_reference_glb": exported_reference,

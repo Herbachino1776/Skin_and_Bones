@@ -603,7 +603,7 @@ class SBF_PT_texture_repair(_SBF_PT_section, Panel):
         commit.scale_y = 1.5
         commit.operator(
             "sbf.texture_commit_final",
-            text="COMMIT FINAL BASE COLOR",
+            text="SAVE BLENDER PAINT + COMMIT",
             icon="CHECKMARK",
         )
         layer.operator(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import math
+import struct
 
 import bpy
 from mathutils import Matrix, Quaternion, Vector
@@ -11,7 +12,7 @@ from mathutils import Matrix, Quaternion, Vector
 from .analysis import evaluated_points
 
 
-FORENSICS_SCHEMA = 1
+FORENSICS_SCHEMA = 2
 DEFAULT_BOUNDS_RATIO = 1.8
 DEFAULT_VERTEX_DISPLACEMENT_RATIO = 1.25
 DEFAULT_COMPONENT_SEPARATION_RATIO = 0.55
@@ -24,6 +25,7 @@ DEFAULT_EDGE_STRETCH_RATIO = 4.5
 # edge to also span a material fraction of character height; the known pelvis
 # fan reaches 8% height while the accepted collapse fold remains below 4%.
 DEFAULT_EDGE_DEFORMED_LENGTH_RATIO = 0.04
+DEFAULT_COINCIDENT_SEAM_SEPARATION_RATIO = 1.0e-5
 MEANINGFUL_WEIGHT = 0.0001
 
 ISOLATED_BONES = (
@@ -374,6 +376,46 @@ def _edge_reference(mesh, points, membership, height):
     return records
 
 
+def _coincident_vertex_groups(mesh):
+    """Return exact local-position duplicates created by GLB vertex splits."""
+
+    grouped = defaultdict(list)
+    for vertex in mesh.vertices:
+        values = tuple(
+            0.0 if float(value) == 0.0 else float(value)
+            for value in vertex.co
+        )
+        grouped[struct.pack("<3f", *values)].append(int(vertex.index))
+    return [tuple(indices) for indices in grouped.values() if len(indices) > 1]
+
+
+def _coincident_seam_metrics(points, groups, height, separation_limit):
+    threshold = max(float(height) * float(separation_limit), 1.0e-8)
+    seams = []
+    for indices in groups:
+        maximum = max(
+            (points[first] - points[second]).length
+            for offset, first in enumerate(indices)
+            for second in indices[offset + 1 :]
+        )
+        if maximum > threshold:
+            seams.append(
+                {
+                    "vertices": indices,
+                    "separation": maximum,
+                }
+            )
+    seams.sort(key=lambda item: item["separation"], reverse=True)
+    return {
+        "coincident_vertex_groups": len(groups),
+        "separated_coincident_seams": len(seams),
+        "maximum_coincident_seam_separation": max(
+            (item["separation"] for item in seams), default=0.0
+        ),
+        "coincident_seams": seams,
+    }
+
+
 def _frame_metrics(
     rest_points,
     points,
@@ -594,6 +636,7 @@ def scan_action_deformation(
     separation_limit=DEFAULT_COMPONENT_SEPARATION_RATIO,
     edge_stretch_limit=DEFAULT_EDGE_STRETCH_RATIO,
     edge_deformed_length_limit=DEFAULT_EDGE_DEFORMED_LENGTH_RATIO,
+    coincident_seam_limit=DEFAULT_COINCIDENT_SEAM_SEPARATION_RATIO,
 ):
     """Evaluate every requested Action frame and restore all touched state."""
 
@@ -622,6 +665,7 @@ def scan_action_deformation(
         height = float(effective_analysis["world_height"])
         references = _component_reference(rest_points, components)
         edges = _edge_reference(target.data, rest_points, membership, height)
+        coincident_groups = _coincident_vertex_groups(target.data)
         assigned_slot = _assign_action(animation, action)
         if frames is None:
             first, last = action.frame_range
@@ -645,11 +689,22 @@ def scan_action_deformation(
                 edge_stretch_limit,
                 edge_deformed_length_limit,
             )
+            metrics.update(
+                _coincident_seam_metrics(
+                    points, coincident_groups, height, coincident_seam_limit
+                )
+            )
+            metrics["safe"] = (
+                metrics["safe"]
+                and not metrics["separated_coincident_seams"]
+            )
             score = max(
                 metrics["bounds_ratio"],
                 metrics["maximum_edge_stretch_ratio"]
                 / max(edge_stretch_limit, 1.0e-8),
                 metrics["maximum_displacement"] / max(height, 1.0e-8),
+                metrics["maximum_coincident_seam_separation"]
+                / max(height * coincident_seam_limit, 1.0e-8),
                 max(
                     (
                         item["relative_centroid_displacement"]
@@ -679,6 +734,12 @@ def scan_action_deformation(
                 "stretched_edges": metrics["stretched_edges"],
                 "maximum_edge_stretch_ratio": _number(
                     metrics["maximum_edge_stretch_ratio"]
+                ),
+                "separated_coincident_seams": metrics[
+                    "separated_coincident_seams"
+                ],
+                "maximum_coincident_seam_separation": _number(
+                    metrics["maximum_coincident_seam_separation"], 8
                 ),
             }
             frame_reports.append(summary)
@@ -724,6 +785,7 @@ def scan_action_deformation(
                 "edge_deformed_length_height_ratio": (
                     edge_deformed_length_limit
                 ),
+                "coincident_seam_separation_height_ratio": coincident_seam_limit,
             },
             "first_unsafe_frame": first_unsafe,
             "worst_frame": worst_frame,
@@ -736,6 +798,22 @@ def scan_action_deformation(
             "maximum_edge_stretch_ratio": max(
                 item["maximum_edge_stretch_ratio"] for item in frame_reports
             ),
+            "coincident_vertex_groups": len(coincident_groups),
+            "maximum_coincident_seam_separation": max(
+                item["maximum_coincident_seam_separation"]
+                for item in frame_reports
+            ),
+            "worst_coincident_seams": [
+                {
+                    "vertices": list(item["vertices"]),
+                    "separation": _number(item["separation"], 8),
+                    "weights": [
+                        vertex_weights(target, index, MEANINGFUL_WEIGHT)
+                        for index in item["vertices"]
+                    ],
+                }
+                for item in worst_metrics["coincident_seams"][:20]
+            ],
             "frames": frame_reports,
             "worst_components": [
                 {

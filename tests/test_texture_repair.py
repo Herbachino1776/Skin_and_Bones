@@ -53,6 +53,45 @@ class TextureRepairTests(unittest.TestCase):
         )
         np.testing.assert_allclose(disabled, baked)
 
+    def test_native_blender_paint_is_absorbed_without_changing_pixels(self):
+        baked = self.rgba(8, 8, color=(0.1, 0.2, 0.3, 0.75))
+        corrections = self.rgba(8, 8, color=(0.0, 0.0, 0.0, 1.0))
+        mask = np.zeros((8, 8), dtype=np.float32)
+        classes = np.zeros((8, 8), dtype=np.uint8)
+        painted = baked.copy()
+        painted[2:5, 3:7, :3] = (0.8, 0.4, 0.15)
+
+        correction, captured_mask, captured_classes, changed_mask, changed = (
+            REPAIR.capture_external_composite_edits(
+                baked, corrections, mask, classes, painted
+            )
+        )
+
+        self.assertEqual(changed, 12)
+        self.assertEqual(int(np.count_nonzero(changed_mask)), 12)
+        self.assertTrue(np.all(captured_mask[2:5, 3:7] == 1.0))
+        self.assertTrue(
+            np.all(captured_classes[2:5, 3:7] == REPAIR.ARTIST_PAINT)
+        )
+        recomposited = REPAIR.composite_corrections(
+            baked, correction, captured_mask
+        )
+        np.testing.assert_allclose(recomposited, painted)
+
+        unchanged = REPAIR.capture_external_composite_edits(
+            baked, corrections, mask, classes, baked
+        )
+        self.assertEqual(unchanged[-1], 0)
+        with self.assertRaisesRegex(ValueError, "Opacity to 1.0"):
+            REPAIR.capture_external_composite_edits(
+                baked,
+                corrections,
+                mask,
+                classes,
+                painted,
+                opacity=0.5,
+            )
+
     def test_fingerprint_invalidates_uv_topology_and_size(self):
         vertices = ((0, 0, 0), (1, 0, 0), (0, 1, 0))
         polygons = ((0, 1, 2),)

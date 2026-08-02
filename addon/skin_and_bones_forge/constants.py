@@ -2,7 +2,7 @@
 
 ADDON_NAME = "Skin & Bones Forge"
 ADDON_MODULE = "skin_and_bones_forge"
-ADDON_VERSION = (2, 0, 1)
+ADDON_VERSION = (2, 0, 5)
 ADDON_VERSION_STRING = ".".join(str(part) for part in ADDON_VERSION)
 
 EXPORT_ROOT = r"E:\Skin_And_Bones_Exports"
@@ -75,6 +75,10 @@ REPAIR_DIAGNOSTIC_IMAGE = "SBF_Texture_Repair_Diagnostic"
 REPAIR_OWNER_PROPERTY = "sbf_texture_repair_owned"
 REPAIR_FINGERPRINT_PROPERTY = "sbf_texture_repair_fingerprint"
 REPAIR_ROLE_PROPERTY = "sbf_texture_repair_role"
+REPAIR_COMPOSITE_FINGERPRINT_PROPERTY = (
+    "sbf_texture_repair_composite_fingerprint"
+)
+REPAIR_COMPOSITE_SETTINGS_PROPERTY = "sbf_texture_repair_composite_settings"
 REPAIR_PREVIEW_PREFIX = "SBF_Preview_TextureRepair_"
 REPAIR_PREVIEW_SLOT_PROPERTY = "sbf_repair_preview_slot"
 REPAIR_PREVIEW_MATERIAL_PROPERTY = "sbf_repair_preview_material"

@@ -11,16 +11,19 @@
   Right hand center. In Front, character right is image left; in Back,
   character right is image right. A genuinely different pose needs a compatible
   source plate.
+- Version 2.0.1 could sample a high-A hand at a fixed low body row and mistake
+  the trouser edge for the hand, folding both target arm chains inward with
+  errors near 1.0. Install 2.0.2 and rerun **PREPARE CONTINUOUS SOURCES**.
 - In versions before 2.0.0, a wide torso, belt, or skirt could pull the
   mesh-side wrist estimate inward while the source wrist remained on the arm.
   Nearly symmetric hanging arms could therefore report values around 0.5-0.7,
-  with only the marginally worse side displayed. Install 2.0.1, re-run
+  with only the marginally worse side displayed. Install 2.0.2, re-run
   **PREPARE CONTINUOUS SOURCES**, and inspect the expanded per-part results.
 - A huge face tile, triangular torso/limb patches, or white projection gaps are
-  the retired sparse-atlas regression from 2.0.0. Install 2.0.1 and refresh the
+  the retired sparse-atlas regression from 2.0.0. Install 2.0.2 and refresh the
   preview; the add-on now rebuilds one continuous source per view.
 - A saved blend whose generated cleaned images reopen black is self-healed by
-  2.0.1 on the next preview refresh. The original projection PNGs are re-read;
+  2.0.2 on the next preview refresh. The original projection PNGs are re-read;
   no manual image deletion is required.
 - An owned-image size mismatch indicates stale or artist-resized
   `SBF_CLEAN_SOURCE_*` data. **RESTORE ORIGINAL SOURCE** and process that view
@@ -170,6 +173,10 @@ The warning is advisory during preview fitting. **Bind Production Character**
 uses **Universal Voxel Auto-Skin**: Blender bone heat runs on an owned temporary
 voxel proxy and the weights are transferred to the unchanged production mesh.
 Do not remesh or retopologize the production target to silence the warning.
+If bone heat misses a very small, fully disconnected voxel island, the binder
+rigidly assigns that proxy island to its nearest fitted surface bone and records
+the repair in the weight report. Larger islands and partial component failures
+remain blocking instead of being hidden by a broad fallback.
 
 When a relaxed hand physically touches the thigh or robe, the prepared surface
 can contain contact edges between the two anatomical branches. The binder
@@ -208,6 +215,15 @@ their shared influence to the pelvis/body chain, and feathers the correction
 over neighboring topology. Do not repair this by moving hand bones, splitting
 the mesh, or assigning the affected region to root; those approaches introduce
 new rest-orientation or deformation seams.
+
+## The exported character develops jagged holes during animation
+
+Install 2.0.4 or newer and export the rigged GLB again before Damage Authoring.
+Older output could assign different skin weights to coincident vertex copies
+created for GLB UV and normal seams. Those copies overlap in rest pose but pull
+apart under a walk. **Export Rigged GLB** now rewrites every split copy from the
+authoritative welded source weight, and **Validate Clean Reimport** blocks any
+weight mismatch or physical seam opening across every exported Action.
 
 Version 0.6.8 also prevents millimeter-scale rest edges from failing solely on
 a large ratio during an otherwise coherent collapse. An edge is blocking only
@@ -260,6 +276,15 @@ surface. Preview refreshes and compatible re-bakes preserve the layers. Use the
 separate `*.baked.png` and saved `.blend` for recovery; do not rename unrelated
 artist images to the reserved `SBF_Texture_*` names.
 
+## Blender Clone brush edits disappear on commit, save, or export
+
+Install 2.0.3 or newer, paint the production image named
+`SBF_BaseColor_Final`, leave **Correction Layer** enabled with **Opacity 1.0**,
+and click **SAVE BLENDER PAINT + COMMIT**. The add-on detects changed pixels and
+moves them into its persistent correction/mask layers before recompositing.
+Save, GLB export, compatible re-bakes, and later Texture Doctor actions perform
+the same capture automatically.
+
 ## The whole character turns pink after texture repair
 
 Install 1.2.1 or newer. Version 1.2.0 could leave
@@ -309,5 +334,5 @@ Click **Show Unresolved** and inspect the classification overlay. Delivery
 recomposites `SBF_BaseColor_Final` and blocks when unresolved pixels exceed
 **Safe Unresolved Threshold**, a known diagnostic color remains, the repair
 fingerprint is stale, or the production material does not use the final image.
-Repair the remaining mask and click **COMMIT FINAL BASE COLOR**; do not raise the
+Repair the remaining mask and click **SAVE BLENDER PAINT + COMMIT**; do not raise the
 threshold to hide a visible atlas hole.

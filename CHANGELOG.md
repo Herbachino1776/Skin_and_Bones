@@ -2,6 +2,62 @@
 
 All notable changes follow semantic versioning.
 
+## 2.0.5 - 2026-08-02
+
+### Performance
+
+- Batch topology-aware weight regularization with Blender's bundled NumPy and
+  reuse immutable spatial analysis within each binding transaction. On the
+  28,474-vertex production fixture, median warm binding time fell from 90.08
+  seconds to 21.78 seconds without changing influence limits, normalization,
+  deterministic output, or validation coverage.
+- Keep Texture Doctor display changes and live composite controls in memory.
+  Simple preview changes no longer read the full 4K image back into Python,
+  and rapid opacity/toggle edits no longer save and pack five images until an
+  explicit commit, save, or export operation.
+
+### Fixed
+
+- Calibrate the initial rig landmark preview to the standardized
+  `SBF_HIGH_A_V1` production pose. Elbows and wrists now use isolated outer-arm
+  cross-sections instead of the old canonical arms-down height, and palm
+  centers use a normalized pose offset.
+- Record the settings used to build each repair composite so changing a live
+  opacity or visibility control cannot misclassify the previous generated
+  result as Blender-native artist paint.
+
+## 2.0.4 - 2026-08-02
+
+### Fixed
+
+- Rewrite every UV/normal-split GLB vertex from the authoritative welded source
+  weight vector after rigged export. Coincident surface copies can no longer
+  receive different bones and tear open when animated downstream.
+- Make clean-reimport acceptance compare coincident seam weights and animate
+  every exported Action while measuring physical seam separation. Split seams
+  without shared mesh edges are now blocking instead of passing edge-only
+  deformation validation.
+
+## 2.0.3 - 2026-08-02
+
+### Fixed
+
+- Preserve Blender-native Image/Texture Paint edits made directly on
+  `SBF_BaseColor_Final`. Commit, save, export, compatible re-bake, and later
+  Texture Doctor actions now capture changed pixels into the persistent
+  correction/mask layers before recompositing.
+
+## 2.0.2 - 2026-08-02
+
+### Fixed
+
+- Continue projection hand landmarks from the isolated forearm instead of
+  sampling a fixed low body row. High-A front/back plates no longer report
+  false severe left/right arm contradictions when that row intersects trousers.
+- Repair very small, fully unweighted voxel-proxy islands against the nearest
+  fitted surface bone. Production binding no longer aborts on isolated hand
+  fragments while larger or partially weighted solver failures remain blocking.
+
 ## 2.0.1 - 2026-08-01
 
 ### Fixed

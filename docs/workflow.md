@@ -248,8 +248,11 @@ Use **Show Unresolved**, **Show Seam Heatmap**, Before/After, Correction Mask,
 Classification, and **Unlit Final** for inspection. Diagnostic preview materials
 are temporary; **CLEAR REPAIR PREVIEW** restores the production material without
 deleting corrections. **CLEAR SELECTED REGION** and **CLEAR ALL** change only
-owned repair layers. Click **COMMIT FINAL BASE COLOR** before verification.
-Save and GLB export also recomposite and validate automatically, and block when
+owned repair layers. Blender's native Clone brush may edit
+`SBF_BaseColor_Final` directly while Correction Layer is enabled at 1.0. Click
+**SAVE BLENDER PAINT + COMMIT** before verification; changed pixels are moved
+into the persistent correction and mask layers. Save and GLB export perform
+the same capture, recomposite, and validation automatically, and block when
 unresolved pixels exceed **Safe Unresolved Threshold** or known diagnostic
 colors remain.
 

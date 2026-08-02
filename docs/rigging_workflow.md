@@ -37,10 +37,12 @@ Open **BONES 1. Build & Fit Skeleton**.
 4. Use **Reset Landmark Corrections** to discard saved overrides and return to
    deterministic automatic landmarks.
 
-The two whole-hand handles continue the elbow-to-wrist direction into each
-palm. Correct these cyan handles and refit; do not rotate fitted rest bones in
-Edit Mode. Direct rest-bone edits cannot preserve the canonical local roll used
-by rotation Actions and are intentionally blocked by the animation gate.
+The automatic arm chain uses the versioned `SBF_HIGH_A_V1` production pose:
+outer-arm cross-sections locate elbows and wrists, and a normalized palm offset
+places each whole-hand handle. Correct uncertain cyan handles and refit; do not
+rotate fitted rest bones in Edit Mode. Direct rest-bone edits cannot preserve
+the canonical local roll used by rotation Actions and are intentionally blocked
+by the animation gate.
 
 ## Simplified production hands
 
@@ -131,12 +133,15 @@ created when an export is written; changing a field remains supported.
 Set **Rigged GLB**, leave **Export Filtered Actions** enabled when desired,
 and click **Export Rigged GLB**. The adjacent `.sbf.json` manifest records the
 fingerprint, binding/component statistics, pose/Action results, delivery
-results, and the deferred hand-aesthetics warning.
+results, and the deferred hand-aesthetics warning. Export also restores the
+authoritative source weights onto every UV/normal-split GLB vertex and blocks
+if even one exported position cannot be mapped safely.
 
 Then run **Validate Clean Reimport**. It verifies the exact simplified bone
 list and hierarchy, 21 deform bones, no removed finger Action channels, one
 skinned mesh and Armature relationship, materials/textures, both UV maps, five
-Actions, height/bounds, and meaningful finite deformation.
+Actions, height/bounds, identical weights at coincident split seams, and
+meaningful finite deformation with zero seam opening across every Action.
 
 Finally set the local Dreadstone Animation Forge package directory and run
 **Run Animation Forge Acceptance**. The add-on launches a factory-clean Blender
