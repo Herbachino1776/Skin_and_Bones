@@ -350,13 +350,22 @@ for name in loaded_source_names:
     if tuple(view.cleaned_image.size) != tuple(view.image.size):
         raise RuntimeError(f"{name} cleaned source size differs from its original")
     warped = get_warped_images(view)
-    atlas, atlas_metadata = get_warped_atlas(view)
-    if set(warped) != set(BODY_PARTS) or set(atlas_metadata["parts"]) != set(BODY_PARTS):
-        raise RuntimeError(f"{name} does not have all bounded atlas regions")
-    for node_name in (f"SBF_WarpAtlas_{name}", f"SBF_WarpAtlasSafe_{name}"):
+    processed, processed_metadata = get_warped_atlas(view)
+    if set(warped) != set(BODY_PARTS):
+        raise RuntimeError(f"{name} does not expose one continuous semantic source")
+    if tuple(processed.size) != tuple(view.cleaned_image.size):
+        raise RuntimeError(f"{name} continuous source changed native resolution")
+    if not set(processed_metadata["warped_parts"]).issubset(
+        {"left_arm", "right_arm", "left_leg", "right_leg"}
+    ):
+        raise RuntimeError(f"{name} applied an unsafe rigid-region warp")
+    for node_name in (
+        f"SBF_ProcessedSourceBody_{name}",
+        f"SBF_ProcessedSourceHead_{name}",
+    ):
         node = preview_material.node_tree.nodes.get(node_name)
-        if node is None or node.image != atlas:
-            raise RuntimeError(f"Preview did not use {name} processed atlas")
+        if node is None or node.image != processed:
+            raise RuntimeError(f"Preview did not use {name} continuous source")
     metrics = json.loads(view.source_doctor_metrics_json)
     if metrics["contamination_after"] > metrics["contamination_before"] + 1.0e-8:
         raise RuntimeError(f"{name} Source Plate Doctor increased contamination")
@@ -365,9 +374,10 @@ for name in loaded_source_names:
         "pose_status": view.pose_mismatch_status,
         "worst_part": view.pose_mismatch_worst_part,
         "mismatch_before": view.pose_mismatch_error,
-        "mismatch_after": 0.0,
-        "warped_parts": sorted(warped),
-        "warp_atlas_size": list(atlas.size),
+        "mismatch_after": view.pose_mismatch_error,
+        "pose_action": "RETAINED_CONTINUOUS",
+        "warped_parts": sorted(processed_metadata["warped_parts"]),
+        "processed_source_size": list(processed.size),
     }
     cleaned_before_reuse[name] = (
         view.cleaned_image.name,

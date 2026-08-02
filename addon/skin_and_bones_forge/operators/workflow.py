@@ -67,7 +67,11 @@ def _apply_spar3d_preset(settings):
     settings.minimum_weight = 0.001
     settings.lower_front_back_bias = 3.0
     settings.upper_front_back_bias = 10.0
-    settings.head_front_back_bias = 1.25
+    # Keep the identity-bearing front/back plates authoritative across the
+    # broad facial hemisphere.  A near-side-equivalent value lets cheek
+    # normals alternate between front, profile, and diagonal plates, which
+    # appears as repeated vertical facial bands on the baked texture.
+    settings.head_front_back_bias = 10.0
     settings.head_identity_lock = True
     settings.head_blend_sharpness = 3.0
     settings.source_edge_padding = 0.05

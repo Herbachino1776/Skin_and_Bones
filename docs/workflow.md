@@ -78,16 +78,17 @@ Landmarks** before final bake:
    that character right is image right. The Image Editor supports wheel zoom,
    middle-mouse pan, Backspace undo, `S` skip-hidden, Enter accept, and Escape
    cancel.
-4. Click **GENERATE WARPED SOURCES**. Head, torso, both arms/hands, pelvis, and
-   both legs/feet receive separate native-resolution regions inside one bounded
-   GPU-safe warp atlas per view.
+4. Click **PREPARE CONTINUOUS SOURCES**. Pose preflight still evaluates head,
+   torso, both arms/hands, pelvis, and both legs/feet independently, but each
+   view remains one continuous cleaned plate for preview and bake.
 5. Click **REFRESH BEST PREVIEW**.
 
 The pose preflight reports acceptable, moderate, or severe mismatch per view
 and lists every moderate or severe part. Target elbow, wrist, and hand anchors
 come from the isolated outer-arm silhouette band rather than torso or clothing
-vertices at the same height. Moderate mismatch proceeds through bounded warping.
-Severe articulated contradiction stops with
+vertices at the same height. Moderate mismatch remains available for artist
+review without forcing sparse affine patches into the texture. Severe
+articulated contradiction stops with
 `SOURCE_POSE_REVIEW_REQUIRED`; correct the landmarks or supply a pose-compatible
 plate rather than forcing the bake.
 

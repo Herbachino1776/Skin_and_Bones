@@ -5,7 +5,6 @@ from __future__ import annotations
 import bpy
 
 from ..constants import (
-    BODY_PART_ID_ATTRIBUTE,
     PREVIEW_MATERIAL_PREFIX,
     PROJECTION_UV_PREFIX,
     TEMPORARY_PROPERTY,
@@ -13,7 +12,6 @@ from ..constants import (
     VIEW_WEIGHT_PACK_PREFIX,
     WEIGHT_ATTRIBUTE_PREFIX,
 )
-from .body_alignment import BODY_PARTS
 from .source_processing import get_warped_atlas, stamp_preview_source_state
 
 
@@ -167,210 +165,53 @@ def _guarded_view_source(
     view_settings,
     global_uv,
     head_uv,
-    settings,
+    _settings,
     y,
-    part_id,
+    head_mask,
 ):
-    """Sample one native-resolution atlas through one compact part-owner ID."""
+    """Sample global/head UVs separately, then blend their colors smoothly."""
 
-    image, metadata = get_warped_atlas(view_settings)
-    source_width, source_height = metadata["source_size"]
-    atlas_width, atlas_height = metadata["atlas_size"]
+    image, _metadata = get_warped_atlas(view_settings)
+    inverse_head = nodes.new("ShaderNodeMath")
+    inverse_head.operation = "SUBTRACT"
+    inverse_head.inputs[0].default_value = 1.0
+    links.new(head_mask, inverse_head.inputs[1])
 
-    owner_masks = {}
-    selected_source_uv = None
-    selected_offset = None
-    for index, part in enumerate(BODY_PARTS):
-        owner = nodes.new("ShaderNodeMath")
-        owner.operation = "COMPARE"
-        owner.inputs[1].default_value = float(index)
-        owner.inputs[2].default_value = 0.25
-        links.new(part_id, owner.inputs[0])
-        owner_masks[part] = owner.outputs[0]
+    body_texture = nodes.new("ShaderNodeTexImage")
+    body_texture.name = f"SBF_ProcessedSourceBody_{name}"
+    body_texture.label = f"{name.title()} Continuous Body Source"
+    body_texture.image = image
+    body_texture.interpolation = "Linear"
+    body_texture.extension = "CLIP"
+    body_texture.location = (40, y)
+    links.new(global_uv, body_texture.inputs["Vector"])
+    head_texture = nodes.new("ShaderNodeTexImage")
+    head_texture.name = f"SBF_ProcessedSourceHead_{name}"
+    head_texture.label = f"{name.title()} Continuous Head Source"
+    head_texture.image = image
+    head_texture.interpolation = "Linear"
+    head_texture.extension = "CLIP"
+    head_texture.location = (40, y - 80)
+    links.new(head_uv, head_texture.inputs["Vector"])
 
-        source_uv = head_uv if part == "head" else global_uv
-        owned_uv = nodes.new("ShaderNodeVectorMath")
-        owned_uv.operation = "SCALE"
-        links.new(source_uv, owned_uv.inputs[0])
-        links.new(owner.outputs[0], _scale_socket(owned_uv))
-        selected_source_uv = (
-            owned_uv.outputs["Vector"]
-            if selected_source_uv is None
-            else _add_socket(
-                nodes,
-                links,
-                selected_source_uv,
-                owned_uv.outputs["Vector"],
-                vector=True,
-            )
-        )
-
-        minimum_x, minimum_y, _maximum_x, _maximum_y = metadata["parts"][part][
-            "source_bounds"
-        ]
-        atlas_x, atlas_y = metadata["parts"][part]["atlas_origin"]
-        offset_value = (
-            (atlas_x - minimum_x) / max(atlas_width - 1, 1),
-            (atlas_y - minimum_y) / max(atlas_height - 1, 1),
-            0.0,
-        )
-        owned_offset = nodes.new("ShaderNodeVectorMath")
-        owned_offset.operation = "SCALE"
-        owned_offset.inputs[0].default_value = offset_value
-        links.new(owner.outputs[0], _scale_socket(owned_offset))
-        selected_offset = (
-            owned_offset.outputs["Vector"]
-            if selected_offset is None
-            else _add_socket(
-                nodes,
-                links,
-                selected_offset,
-                owned_offset.outputs["Vector"],
-                vector=True,
-            )
-        )
-
-    atlas_scale_value = (
-        (source_width - 1) / max(atlas_width - 1, 1),
-        (source_height - 1) / max(atlas_height - 1, 1),
-        1.0,
-    )
-
-    def atlas_uv(source_uv):
-        scale = nodes.new("ShaderNodeVectorMath")
-        scale.operation = "MULTIPLY"
-        scale.inputs[1].default_value = atlas_scale_value
-        links.new(source_uv, scale.inputs[0])
-        offset = nodes.new("ShaderNodeVectorMath")
-        offset.operation = "ADD"
-        links.new(scale.outputs["Vector"], offset.inputs[0])
-        links.new(selected_offset, offset.inputs[1])
-        return offset.outputs["Vector"]
-
-    def inside_owned_bounds(source_uv):
-        separate = nodes.new("ShaderNodeSeparateXYZ")
-        links.new(source_uv, separate.inputs[0])
-        inside_sum = None
-        for part in BODY_PARTS:
-            minimum_x, minimum_y, maximum_x, maximum_y = metadata["parts"][part][
-                "source_bounds"
-            ]
-            checks = []
-            for socket, operation, threshold in (
-                (
-                    separate.outputs["X"],
-                    "GREATER_THAN",
-                    (minimum_x - 0.5) / max(source_width - 1, 1),
-                ),
-                (
-                    separate.outputs["X"],
-                    "LESS_THAN",
-                    (maximum_x + 0.5) / max(source_width - 1, 1),
-                ),
-                (
-                    separate.outputs["Y"],
-                    "GREATER_THAN",
-                    (minimum_y - 0.5) / max(source_height - 1, 1),
-                ),
-                (
-                    separate.outputs["Y"],
-                    "LESS_THAN",
-                    (maximum_y + 0.5) / max(source_height - 1, 1),
-                ),
-            ):
-                check = nodes.new("ShaderNodeMath")
-                check.operation = operation
-                check.inputs[1].default_value = threshold
-                links.new(socket, check.inputs[0])
-                checks.append(check.outputs[0])
-            inside = checks[0]
-            for check in checks[1:]:
-                product = nodes.new("ShaderNodeMath")
-                product.operation = "MULTIPLY"
-                links.new(inside, product.inputs[0])
-                links.new(check, product.inputs[1])
-                inside = product.outputs[0]
-            owned = nodes.new("ShaderNodeMath")
-            owned.operation = "MULTIPLY"
-            links.new(inside, owned.inputs[0])
-            links.new(owner_masks[part], owned.inputs[1])
-            inside_sum = (
-                owned.outputs[0]
-                if inside_sum is None
-                else _add_socket(nodes, links, inside_sum, owned.outputs[0])
-            )
-        return inside_sum
-
-    primary_uv = atlas_uv(selected_source_uv)
-    safe_factor = 1.0 - settings.source_edge_padding
-    safe_scale = nodes.new("ShaderNodeVectorMath")
-    safe_scale.name = f"SBF_SafeUVScale_{name}"
-    safe_scale.operation = "MULTIPLY"
-    safe_scale.inputs[1].default_value = (safe_factor, safe_factor, 1.0)
-    links.new(selected_source_uv, safe_scale.inputs[0])
-    safe_offset = nodes.new("ShaderNodeVectorMath")
-    safe_offset.name = f"SBF_SafeUVOffset_{name}"
-    safe_offset.operation = "ADD"
-    safe_offset.inputs[1].default_value = (
-        settings.source_edge_padding * 0.5,
-        settings.source_edge_padding * 0.5,
-        0.0,
-    )
-    links.new(safe_scale.outputs["Vector"], safe_offset.inputs[0])
-    safe_source_uv = safe_offset.outputs["Vector"]
-    safe_uv = atlas_uv(safe_source_uv)
-
-    texture = nodes.new("ShaderNodeTexImage")
-    texture.name = f"SBF_WarpAtlas_{name}"
-    texture.label = f"{name.title()} Body-Part Warp Atlas"
-    texture.image = image
-    texture.interpolation = "Linear"
-    texture.extension = "CLIP"
-    texture.location = (40, y)
-    links.new(primary_uv, texture.inputs["Vector"])
-    safe_texture = nodes.new("ShaderNodeTexImage")
-    safe_texture.name = f"SBF_WarpAtlasSafe_{name}"
-    safe_texture.label = f"{name.title()} Safe Warp Atlas"
-    safe_texture.image = image
-    safe_texture.interpolation = "Linear"
-    safe_texture.extension = "CLIP"
-    safe_texture.location = (40, y - 80)
-    links.new(safe_uv, safe_texture.inputs["Vector"])
-
-    primary_alpha = nodes.new("ShaderNodeMath")
-    primary_alpha.operation = "MULTIPLY"
-    links.new(texture.outputs["Alpha"], primary_alpha.inputs[0])
-    links.new(inside_owned_bounds(selected_source_uv), primary_alpha.inputs[1])
-    safe_alpha = nodes.new("ShaderNodeMath")
-    safe_alpha.operation = "MULTIPLY"
-    links.new(safe_texture.outputs["Alpha"], safe_alpha.inputs[0])
-    links.new(inside_owned_bounds(safe_source_uv), safe_alpha.inputs[1])
-
-    primary_valid = nodes.new("ShaderNodeMath")
-    primary_valid.operation = "GREATER_THAN"
-    primary_valid.inputs[1].default_value = view_settings.alpha_threshold
-    links.new(primary_alpha.outputs[0], primary_valid.inputs[0])
-    primary_invalid = nodes.new("ShaderNodeMath")
-    primary_invalid.operation = "SUBTRACT"
-    primary_invalid.inputs[0].default_value = 1.0
-    links.new(primary_valid.outputs[0], primary_invalid.inputs[1])
-    safe_valid = nodes.new("ShaderNodeMath")
-    safe_valid.operation = "GREATER_THAN"
-    safe_valid.inputs[1].default_value = view_settings.alpha_threshold
-    links.new(safe_alpha.outputs[0], safe_valid.inputs[0])
-    fill = nodes.new("ShaderNodeMath")
-    fill.operation = "MULTIPLY"
-    links.new(primary_invalid.outputs[0], fill.inputs[0])
-    links.new(safe_valid.outputs[0], fill.inputs[1])
     color = nodes.new("ShaderNodeMixRGB")
     color.blend_type = "MIX"
-    links.new(fill.outputs[0], color.inputs[0])
-    links.new(texture.outputs["Color"], color.inputs[1])
-    links.new(safe_texture.outputs["Color"], color.inputs[2])
+    links.new(head_mask, color.inputs[0])
+    links.new(body_texture.outputs["Color"], color.inputs[1])
+    links.new(head_texture.outputs["Color"], color.inputs[2])
+    body_alpha = nodes.new("ShaderNodeMath")
+    body_alpha.operation = "MULTIPLY"
+    links.new(body_texture.outputs["Alpha"], body_alpha.inputs[0])
+    links.new(inverse_head.outputs[0], body_alpha.inputs[1])
+    head_alpha = nodes.new("ShaderNodeMath")
+    head_alpha.operation = "MULTIPLY"
+    links.new(head_texture.outputs["Alpha"], head_alpha.inputs[0])
+    links.new(head_mask, head_alpha.inputs[1])
     alpha = nodes.new("ShaderNodeMath")
-    alpha.operation = "MAXIMUM"
-    links.new(primary_alpha.outputs[0], alpha.inputs[0])
-    links.new(safe_alpha.outputs[0], alpha.inputs[1])
+    alpha.operation = "ADD"
+    links.new(body_alpha.outputs[0], alpha.inputs[0])
+    links.new(head_alpha.outputs[0], alpha.inputs[1])
+
     return color.outputs["Color"], alpha.outputs[0]
 
 
@@ -411,9 +252,6 @@ def create_preview_material(info, settings):
     links.new(old_uv.outputs["UV"], old_tex.inputs["Vector"])
     head_mask = nodes.new("ShaderNodeAttribute")
     head_mask.attribute_name = f"{WEIGHT_ATTRIBUTE_PREFIX}head_mask"
-    part_id = nodes.new("ShaderNodeAttribute")
-    part_id.name = "SBF_BodyPartOwnerID"
-    part_id.attribute_name = BODY_PART_ID_ATTRIBUTE
 
     view_weight_sockets = {}
     for pack_index in range(0, len(VIEW_NAMES), 3):
@@ -470,7 +308,7 @@ def create_preview_material(info, settings):
             head_offset.outputs["Vector"],
             settings,
             y,
-            part_id.outputs["Fac"],
+            head_mask.outputs["Fac"],
         )
         threshold = nodes.new("ShaderNodeMath")
         threshold.name = f"SBF_AlphaThreshold_{name}"

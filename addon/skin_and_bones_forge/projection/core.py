@@ -514,7 +514,27 @@ def create_projection_state(context, info, settings):
                         top_coverage * head_lock,
                     )
                     directional = max(directional, top_coverage)
-                    bias = identity_bias
+                    if name in {"front", "back"}:
+                        # Facial identity plates need a wider, continuous
+                        # hemisphere than ordinary Lambert-style projection
+                        # weighting.  Without this smooth broadening, profile
+                        # sources win alternating cheek polygons and produce
+                        # repeated vertical eyes/noses in front renders.
+                        broadened = math.sqrt(directional)
+                        directional = (
+                            directional * (1.0 - head_lock)
+                            + broadened * head_lock
+                        )
+                        bias = identity_bias
+                    else:
+                        # Optional 45-degree sources are valuable on the body,
+                        # but they must not compete as equal identity plates.
+                        # Fade them to side-view authority inside the locked
+                        # head while preserving their normal upper-body bias.
+                        bias = (
+                            identity_bias * (1.0 - head_lock)
+                            + settings.side_bias * head_lock
+                        )
                 else:
                     bias = settings.side_bias
 

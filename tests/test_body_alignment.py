@@ -131,6 +131,39 @@ class BodyAlignmentTests(unittest.TestCase):
         self.assertFalse(visible.all())
         self.assertGreater(float(warped[:, :, 3].max()), 0.9)
 
+    @unittest.skipIf(BODY._np is None, "NumPy runtime is unavailable")
+    def test_continuous_source_keeps_base_and_only_overlays_moderate_limbs(self):
+        base = BODY._np.zeros((8, 8, 4), dtype=BODY._np.float32)
+        base[:, :, 0] = 0.25
+        base[:, :, 3] = 1.0
+        moderate_arm = BODY._np.zeros_like(base)
+        moderate_arm[2:6, 2:6, 1] = 1.0
+        moderate_arm[2:6, 2:6, 3] = 0.5
+        ignored_head = BODY._np.zeros_like(base)
+        ignored_head[:, :, 2] = 1.0
+        ignored_head[:, :, 3] = 1.0
+        result, applied = BODY.compose_continuous_source(
+            base,
+            {"left_arm": moderate_arm, "head": ignored_head},
+            {
+                "left_arm": {"status": "MODERATE"},
+                "head": {"status": "MODERATE"},
+            },
+        )
+        self.assertEqual(applied, ("left_arm",))
+        self.assertTrue(BODY._np.allclose(result[0, 0], base[0, 0]))
+        self.assertAlmostEqual(float(result[3, 3, 0]), 0.125, places=6)
+        self.assertAlmostEqual(float(result[3, 3, 1]), 0.5, places=6)
+        self.assertAlmostEqual(float(result[:, :, 3].min()), 1.0, places=6)
+
+        untouched, applied = BODY.compose_continuous_source(
+            base,
+            {"left_arm": moderate_arm},
+            {"left_arm": {"status": "ACCEPTABLE"}},
+        )
+        self.assertEqual(applied, ())
+        self.assertTrue(BODY._np.array_equal(untouched, base))
+
     def test_processed_state_invalidation_is_stable(self):
         payload = {"source": "front", "doctor": {"despill": 0.85}, "landmarks": [0.4, 0.8]}
         token = BODY.processed_state_token(payload)

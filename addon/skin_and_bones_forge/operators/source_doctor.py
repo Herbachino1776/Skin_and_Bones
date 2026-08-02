@@ -133,9 +133,9 @@ class SBF_OT_reset_body_landmarks(Operator):
 
 class SBF_OT_generate_warped_sources(Operator):
     bl_idname = "sbf.generate_warped_sources"
-    bl_label = "GENERATE WARPED SOURCES"
+    bl_label = "PREPARE CONTINUOUS SOURCES"
     bl_description = (
-        "Run pose preflight and create GPU-safe bounded body-part warp atlases"
+        "Run pose preflight and create continuous GPU-safe projection sources"
     )
     bl_options = {"REGISTER", "UNDO"}
 
@@ -145,11 +145,8 @@ class SBF_OT_generate_warped_sources(Operator):
             results = generate_warped_sources(context, settings)
         except (RuntimeError, ValueError) as exc:
             return _fail(self, settings, exc)
-        moderate = sum(item["status"] == "MODERATE" for item in results.values())
         settings.status_message = (
-            f"Generated {len(results)} atlases with seven bounded body-part "
-            "regions each; "
-            f"{moderate} views required moderate pose correction."
+            f"Prepared {len(results)} continuous sources after per-part pose preflight."
         )
         self.report({"INFO"}, settings.status_message)
         return {"FINISHED"}

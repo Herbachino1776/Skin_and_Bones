@@ -292,7 +292,6 @@ class SBF_PT_head_protection(_SBF_PT_section, Panel):
         controls.enabled = settings.head_identity_lock
         controls.prop(settings, "head_threshold")
         controls.prop(settings, "head_blend_sharpness")
-        controls.prop(settings, "source_edge_padding")
         controls.prop(settings, "head_lock_transition")
         layout.label(
             text="Prevents double faces and duplicate ears.",
@@ -372,7 +371,7 @@ class SBF_PT_source_doctor(_SBF_PT_section, Panel):
         place.view_name = settings.source_doctor_view
         primary.operator(
             "sbf.generate_warped_sources",
-            text="GENERATE WARPED SOURCES",
+            text="PREPARE CONTINUOUS SOURCES",
             icon="MOD_MESHDEFORM",
         )
         primary.operator(

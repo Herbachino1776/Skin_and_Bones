@@ -87,6 +87,16 @@ BODY_PARTS = (
     "right_leg",
 )
 
+# Global and head alignment already handle rigid proportion changes.  Only
+# articulated limb chains benefit from a local deformation overlay; warping
+# the torso, pelvis, or head creates visible affine tiles on production meshes.
+ARTICULATED_WARP_PARTS = (
+    "left_arm",
+    "right_arm",
+    "left_leg",
+    "right_leg",
+)
+
 
 def processed_state_token(payload):
     """Return a stable token used to invalidate warped/preview/bake state."""
@@ -480,3 +490,37 @@ def warp_part_pixels(pixels, width, height, source_landmarks, target_landmarks, 
         replace = sampled[:, 3] >= output[destination_y, destination_x, 3]
         output[destination_y[replace], destination_x[replace]] = sampled[replace]
     return output
+
+
+def compose_continuous_source(base_pixels, part_pixels, mismatch_parts):
+    """Feather moderate limb corrections over one continuous source plate.
+
+    The full cleaned plate remains the default everywhere.  This prevents the
+    empty pixels and hard triangle borders produced when sparse landmark
+    ribbons are treated as complete anatomical textures.
+    """
+
+    if _np is None:
+        raise RuntimeError("Production source compositing requires Blender's NumPy runtime.")
+    output = _np.asarray(base_pixels, dtype=_np.float32).copy()
+    if output.ndim != 3 or output.shape[2] != 4:
+        raise ValueError("Continuous source pixels must be an H x W x RGBA array.")
+    applied = []
+    for part in ARTICULATED_WARP_PARTS:
+        details = mismatch_parts.get(part, {})
+        if details.get("status") != "MODERATE":
+            continue
+        overlay = part_pixels.get(part)
+        if overlay is None:
+            continue
+        overlay = _np.asarray(overlay, dtype=_np.float32)
+        if overlay.shape != output.shape or not _np.isfinite(overlay).all():
+            raise ValueError(f"{part} correction has invalid pixels or dimensions.")
+        opacity = _np.clip(overlay[:, :, 3], 0.0, 1.0)
+        output[:, :, :3] = (
+            overlay[:, :, :3] * opacity[:, :, None]
+            + output[:, :, :3] * (1.0 - opacity[:, :, None])
+        )
+        output[:, :, 3] = _np.maximum(output[:, :, 3], opacity)
+        applied.append(part)
+    return output, tuple(applied)

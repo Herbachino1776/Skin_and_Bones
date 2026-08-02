@@ -11,13 +11,18 @@ import bmesh
 from ..constants import (
     ADDON_VERSION_STRING,
     BASE_COLOR_UV_NAME,
+    BODY_PART_ID_ATTRIBUTE,
     PREVIEW_MATERIAL_PREFIX,
+    PROJECTION_UV_PREFIX,
+    VIEW_NAMES,
+    WEIGHT_ATTRIBUTE_PREFIX,
 )
 from ..projection import cleanup_temporary_data
 from ..projection.source_processing import (
     cleanup_warped_sources,
     validate_preview_source_parity,
 )
+from ..projection.body_alignment import BODY_PARTS
 from .repair_service import (
     begin_repair_session,
     validate_repair_name_availability,
@@ -42,7 +47,149 @@ def _set_material_output_values(info, settings):
             polygon.use_smooth = True
 
 
-def _create_clean_base_color_uv(context, info):
+def _uv_vertex_split_fraction(mesh, layer):
+    """Measure how often one mesh vertex is split into unrelated UV points."""
+
+    coordinates = [[] for _vertex in mesh.vertices]
+    for loop in mesh.loops:
+        uv = layer.data[loop.index].uv
+        coordinates[loop.vertex_index].append(
+            (round(float(uv.x), 6), round(float(uv.y), 6))
+        )
+    used = [values for values in coordinates if len(values) > 1]
+    if not used:
+        return 0.0
+    split = sum(len(set(values)) > 1 for values in used)
+    return split / len(used)
+
+
+def _single_face_vertex_fraction(mesh):
+    """Detect soup-like meshes whose duplicated corners defeat Smart Project."""
+
+    face_uses = [0] * len(mesh.vertices)
+    for polygon in mesh.polygons:
+        for vertex_index in polygon.vertices:
+            face_uses[vertex_index] += 1
+    used = [count for count in face_uses if count]
+    if not used:
+        return 0.0
+    return sum(count == 1 for count in used) / len(used)
+
+
+def _create_projection_base_color_uv(info, settings):
+    """Create a compact view-space atlas for heavily fragmented meshes."""
+
+    mesh = info.mesh
+    existing = mesh.uv_layers.get(BASE_COLOR_UV_NAME)
+    if existing is not None:
+        mesh.uv_layers.remove(existing)
+    layer = mesh.uv_layers.new(name=BASE_COLOR_UV_NAME)
+    active_views = [
+        name
+        for name in VIEW_NAMES
+        if getattr(settings, name).enabled
+        and getattr(settings, name).image is not None
+        and mesh.uv_layers.get(f"{PROJECTION_UV_PREFIX}{name}") is not None
+        and mesh.attributes.get(f"{WEIGHT_ATTRIBUTE_PREFIX}{name}") is not None
+    ]
+    if not active_views:
+        mesh.uv_layers.remove(layer)
+        raise RuntimeError("Projection bake UV requires an active preview view.")
+
+    part_id = mesh.attributes.get(BODY_PART_ID_ATTRIBUTE)
+    if part_id is None:
+        mesh.uv_layers.remove(layer)
+        raise RuntimeError("Projection bake UV requires semantic body ownership.")
+    assignments = {}
+    tile_loops = {}
+    for polygon in mesh.polygons:
+        chosen = max(
+            active_views,
+            key=lambda name: (
+                sum(
+                    mesh.attributes[f"{WEIGHT_ATTRIBUTE_PREFIX}{name}"].data[
+                        loop_index
+                    ].value
+                    for loop_index in polygon.loop_indices
+                ),
+                -active_views.index(name),
+            ),
+        )
+        semantic = max(
+            0,
+            min(
+                len(BODY_PARTS) - 1,
+                int(
+                    round(
+                        sum(part_id.data[index].value for index in polygon.loop_indices)
+                        / max(len(polygon.loop_indices), 1)
+                    )
+                ),
+            ),
+        )
+        key = (chosen, semantic)
+        assignments[polygon.index] = key
+        tile_loops.setdefault(key, []).extend(polygon.loop_indices)
+
+    bounds = {}
+    for key, loop_indices in tile_loops.items():
+        name, _semantic = key
+        source = mesh.uv_layers[f"{PROJECTION_UV_PREFIX}{name}"]
+        values = [source.data[index].uv for index in loop_indices]
+        minimum_x = min(float(value.x) for value in values)
+        minimum_y = min(float(value.y) for value in values)
+        maximum_x = max(float(value.x) for value in values)
+        maximum_y = max(float(value.y) for value in values)
+        bounds[key] = (minimum_x, minimum_y, maximum_x, maximum_y)
+
+    columns = len(active_views)
+    texture_size = max(int(settings.texture_size), 1)
+    row_heights = (0.25, 0.17, 0.10, 0.12, 0.12, 0.12, 0.12)
+    row_origins = []
+    cursor = 0.0
+    for height in row_heights:
+        row_origins.append(cursor)
+        cursor += height
+    tile_width = 1.0 / columns
+    requested_padding = (max(int(settings.bake_margin), 0) + 2) / texture_size
+    # Preserve useful cell area even when an unusually large margin is chosen
+    # for a low-resolution bake.  Twenty-four percent on each side leaves at
+    # least half of every semantic cell available for texture detail.
+    padding = min(
+        requested_padding,
+        tile_width * 0.24,
+        min(row_heights) * 0.24,
+    )
+    for polygon in mesh.polygons:
+        name, semantic = assignments[polygon.index]
+        column = active_views.index(name)
+        row_origin = row_origins[semantic]
+        row_height = row_heights[semantic]
+        minimum_x, minimum_y, maximum_x, maximum_y = bounds[(name, semantic)]
+        span_x = max(maximum_x - minimum_x, 1.0e-8)
+        span_y = max(maximum_y - minimum_y, 1.0e-8)
+        source = mesh.uv_layers[f"{PROJECTION_UV_PREFIX}{name}"]
+        for loop_index in polygon.loop_indices:
+            source_uv = source.data[loop_index].uv
+            normalized_x = (float(source_uv.x) - minimum_x) / span_x
+            normalized_y = (float(source_uv.y) - minimum_y) / span_y
+            layer.data[loop_index].uv = (
+                column * tile_width
+                + padding
+                + normalized_x * max(tile_width - padding * 2.0, 1.0e-8),
+                row_origin
+                + padding
+                + normalized_y * max(row_height - padding * 2.0, 1.0e-8),
+            )
+    mesh.uv_layers.active = layer
+    layer.active_render = True
+    mesh.update()
+    info.obj["sbf_bake_uv_strategy"] = "PROJECTION_ATLAS"
+    info.obj["sbf_bake_uv_views"] = ",".join(active_views)
+    return layer
+
+
+def _create_clean_base_color_uv(context, info, settings):
     """Create a connected bake atlas without changing production geometry."""
 
     target = info.obj
@@ -176,6 +323,13 @@ def _create_clean_base_color_uv(context, info):
         context.view_layer.objects.active = target
 
     mesh.update()
+    fragmentation = _uv_vertex_split_fraction(mesh, layer)
+    target["sbf_bake_uv_smart_fragmentation"] = fragmentation
+    topology_fragmentation = _single_face_vertex_fraction(mesh)
+    target["sbf_bake_uv_topology_fragmentation"] = topology_fragmentation
+    if max(fragmentation, topology_fragmentation) > 0.10:
+        return _create_projection_base_color_uv(info, settings)
+    target["sbf_bake_uv_strategy"] = "SMART_PROJECT"
     return layer
 
 
@@ -307,7 +461,7 @@ def bake_final_texture(context, info, settings):
     target.select_set(True)
     context.view_layer.objects.active = target
     if settings.generate_bake_uv:
-        _create_clean_base_color_uv(context, info)
+        _create_clean_base_color_uv(context, info, settings)
         bake_uv_name = BASE_COLOR_UV_NAME
     else:
         bake_uv = target.data.uv_layers[info.uv_name]

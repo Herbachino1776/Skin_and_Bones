@@ -632,7 +632,7 @@ class SBFSettings(PropertyGroup):
     )
     head_front_back_bias: FloatProperty(
         name="Head Front/Back",
-        default=1.25,
+        default=10.0,
         min=0.0,
         max=200.0,
     )
@@ -659,8 +659,8 @@ class SBFSettings(PropertyGroup):
     source_edge_padding: FloatProperty(
         name="Source Edge Padding",
         description=(
-            "Fill small scalp, jaw, and shoulder projection gaps from a nearby "
-            "valid sample inside each aligned source silhouette"
+            "Compatibility control for preview materials created before the "
+            "continuous-source projection pipeline"
         ),
         default=0.05,
         min=0.0,
@@ -770,8 +770,9 @@ class SBFSettings(PropertyGroup):
     generate_bake_uv: BoolProperty(
         name="Clean Base-Color UV",
         description=(
-            "Generate a dedicated connected UV atlas for the baked base color "
-            "while keeping the original UV assigned to normal and other maps"
+            "Generate a dedicated base-color atlas, automatically switching "
+            "fragmented meshes to a semantic projection layout while keeping "
+            "the original UV assigned to normal and other maps"
         ),
         default=True,
     )

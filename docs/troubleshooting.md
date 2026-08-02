@@ -3,7 +3,7 @@
 ## Source Plate Doctor or body alignment blocks preview
 
 - `STALE` means a source, Doctor setting, or body landmark changed. Run
-  **PROCESS ALL SOURCE PLATES**, **GENERATE WARPED SOURCES**, then **REFRESH BEST
+  **PROCESS ALL SOURCE PLATES**, **PREPARE CONTINUOUS SOURCES**, then **REFRESH BEST
   PREVIEW**.
 - `SOURCE_POSE_REVIEW_REQUIRED` is a deliberate severe-pose gate. Choose the
   reported view, use **PLACE BODY LANDMARKS**, and verify the worst arm/leg
@@ -14,8 +14,14 @@
 - In versions before 2.0.0, a wide torso, belt, or skirt could pull the
   mesh-side wrist estimate inward while the source wrist remained on the arm.
   Nearly symmetric hanging arms could therefore report values around 0.5-0.7,
-  with only the marginally worse side displayed. Install 2.0.0, re-run
-  **GENERATE WARPED SOURCES**, and inspect the expanded per-part results.
+  with only the marginally worse side displayed. Install 2.0.1, re-run
+  **PREPARE CONTINUOUS SOURCES**, and inspect the expanded per-part results.
+- A huge face tile, triangular torso/limb patches, or white projection gaps are
+  the retired sparse-atlas regression from 2.0.0. Install 2.0.1 and refresh the
+  preview; the add-on now rebuilds one continuous source per view.
+- A saved blend whose generated cleaned images reopen black is self-healed by
+  2.0.1 on the next preview refresh. The original projection PNGs are re-read;
+  no manual image deletion is required.
 - An owned-image size mismatch indicates stale or artist-resized
   `SBF_CLEAN_SOURCE_*` data. **RESTORE ORIGINAL SOURCE** and process that view
   again; the source PNG is never changed.

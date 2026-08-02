@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 
 import bpy
 import numpy
@@ -28,20 +29,20 @@ from ..rigging.landmarks import (
 )
 from .alignment import _alpha_bounds
 from .body_alignment import (
+    ARTICULATED_WARP_PARTS,
     BODY_LANDMARK_NAMES,
     BODY_PARTS,
     body_part_ownership,
+    compose_continuous_source,
     normalize_landmark_metadata,
     pose_mismatch,
-    warp_part_pixels,
 )
 from .core import view_directions, world_bounds
 from .source_doctor import process_source_plate_pixels, validate_cleaned_pixels
 
 
-WARP_ATLAS_SCHEMA = 2
-WARP_ATLAS_GUTTER = 2
-WARP_ATLAS_MAX_SIZE = 16384
+WARP_ATLAS_SCHEMA = 3
+_RUNTIME_SESSION_TOKEN = uuid.uuid4().hex
 
 
 def _stable_json(value):
@@ -172,8 +173,15 @@ def process_source_plate(settings, view_name, *, force=False):
         and view.cleaned_fingerprint == fingerprint
         and existing.get(SOURCE_OWNER_PROPERTY, False)
     ):
-        validate_cleaned_source(view, view_name)
-        return existing, json.loads(view.source_doctor_metrics_json or "{}"), False
+        try:
+            validate_cleaned_source(view, view_name)
+        except ValueError:
+            # Generated image pixels are not serialized in a .blend unless
+            # explicitly packed.  Rebuild stale black placeholders after a
+            # saved file is reopened instead of trusting their datablocks.
+            pass
+        else:
+            return existing, json.loads(view.source_doctor_metrics_json or "{}"), False
 
     original_alpha = source_pixels[:, :, 3].copy()
     result = process_source_plate_pixels(
@@ -197,6 +205,7 @@ def process_source_plate(settings, view_name, *, force=False):
     clean["sbf_original_image"] = original.name
     clean["sbf_doctor_fingerprint"] = fingerprint
     clean["sbf_doctor_metrics"] = _stable_json(result["diagnostics"])
+    clean["sbf_runtime_session"] = _RUNTIME_SESSION_TOKEN
     clean.update()
 
     diagnostic = _owned_image(
@@ -226,6 +235,7 @@ def process_source_plate(settings, view_name, *, force=False):
     confidence.pixels.foreach_set(confidence_pixels.reshape(-1))
     confidence["sbf_original_image"] = original.name
     confidence["sbf_doctor_fingerprint"] = fingerprint
+    confidence["sbf_runtime_session"] = _RUNTIME_SESSION_TOKEN
     confidence.update()
 
     view.cleaned_image = clean
@@ -281,6 +291,13 @@ def validate_cleaned_source(view, view_name):
         raise ValueError(f"{view_name} cleaned source belongs to a different original.")
     if view.cleaned_fingerprint != clean.get("sbf_doctor_fingerprint", ""):
         raise ValueError(f"{view_name} cleaned source state is stale.")
+    if (
+        clean.get("sbf_runtime_session", "") != _RUNTIME_SESSION_TOKEN
+        or confidence.get("sbf_runtime_session", "") != _RUNTIME_SESSION_TOKEN
+    ):
+        raise ValueError(
+            f"{view_name} generated source pixels must be rebuilt after reopening the blend."
+        )
     return clean
 
 
@@ -502,6 +519,8 @@ def _warp_owned_image_names(view):
     except (AttributeError, json.JSONDecodeError):
         return ()
     if payload.get("schema") == WARP_ATLAS_SCHEMA:
+        return (payload.get("image", ""),)
+    if payload.get("schema") == 2:
         return (payload.get("atlas", ""),)
     # Version 1.1 stored one full-size image name per body part.
     return tuple(value for value in payload.values() if isinstance(value, str))
@@ -514,109 +533,6 @@ def _remove_view_warps(view):
             bpy.data.images.remove(image, do_unlink=True)
     view.warp_images_json = ""
     view.warp_fingerprint = ""
-
-
-def _next_power_of_two(value):
-    result = 1
-    while result < max(1, int(value)):
-        result *= 2
-    return result
-
-
-def _pack_warp_crops(crops):
-    """Pack native-resolution transparent crops into one GPU-safe atlas."""
-
-    gutter = WARP_ATLAS_GUTTER
-    rectangles = {
-        part: (int(crop.shape[1]) + gutter * 2, int(crop.shape[0]) + gutter * 2)
-        for part, crop in crops.items()
-    }
-    minimum_width = _next_power_of_two(
-        max(width for width, _height in rectangles.values())
-    )
-    candidates = []
-    atlas_width = minimum_width
-    ordered = sorted(
-        BODY_PARTS,
-        key=lambda part: (
-            -rectangles[part][1],
-            -rectangles[part][0],
-            BODY_PARTS.index(part),
-        ),
-    )
-    while atlas_width <= WARP_ATLAS_MAX_SIZE:
-        x = y = row_height = 0
-        positions = {}
-        valid = True
-        for part in ordered:
-            width, height = rectangles[part]
-            if width > atlas_width:
-                valid = False
-                break
-            if x and x + width > atlas_width:
-                y += row_height
-                x = 0
-                row_height = 0
-            positions[part] = (x + gutter, y + gutter)
-            x += width
-            row_height = max(row_height, height)
-        required_height = y + row_height
-        atlas_height = _next_power_of_two(required_height)
-        if valid and atlas_height <= WARP_ATLAS_MAX_SIZE:
-            area = atlas_width * atlas_height
-            aspect_penalty = abs(
-                atlas_width.bit_length() - atlas_height.bit_length()
-            )
-            candidates.append(
-                (area, aspect_penalty, atlas_width, atlas_height, positions)
-            )
-        atlas_width *= 2
-    if not candidates:
-        raise RuntimeError(
-            "Body-part warp atlas exceeds Blender's safe 16K texture limit."
-        )
-    _area, _aspect, width, height, positions = min(candidates)
-    return width, height, positions
-
-
-def _build_warp_atlas(part_pixels, source_width, source_height):
-    crops = {}
-    source_bounds = {}
-    for part in BODY_PARTS:
-        pixels = part_pixels[part]
-        visible_y, visible_x = numpy.nonzero(pixels[:, :, 3] > 1.0e-8)
-        if len(visible_x):
-            minimum_x = max(0, int(visible_x.min()) - 1)
-            maximum_x = min(source_width - 1, int(visible_x.max()) + 1)
-            minimum_y = max(0, int(visible_y.min()) - 1)
-            maximum_y = min(source_height - 1, int(visible_y.max()) + 1)
-            crop = pixels[
-                minimum_y : maximum_y + 1,
-                minimum_x : maximum_x + 1,
-            ].copy()
-        else:
-            minimum_x = maximum_x = minimum_y = maximum_y = 0
-            crop = numpy.zeros((1, 1, 4), dtype=numpy.float32)
-        crops[part] = crop
-        source_bounds[part] = (minimum_x, minimum_y, maximum_x, maximum_y)
-
-    atlas_width, atlas_height, positions = _pack_warp_crops(crops)
-    atlas = numpy.zeros((atlas_height, atlas_width, 4), dtype=numpy.float32)
-    parts = {}
-    for part in BODY_PARTS:
-        crop = crops[part]
-        atlas_x, atlas_y = positions[part]
-        crop_height, crop_width = crop.shape[:2]
-        atlas[
-            atlas_y : atlas_y + crop_height,
-            atlas_x : atlas_x + crop_width,
-        ] = crop
-        parts[part] = {
-            "source_bounds": list(source_bounds[part]),
-            "atlas_origin": [atlas_x, atlas_y],
-            "crop_size": [crop_width, crop_height],
-        }
-    return atlas, parts
 
 
 def generate_warped_sources(context, settings, view_name=None):
@@ -681,48 +597,42 @@ def generate_warped_sources(context, settings, view_name=None):
             results[name] = mismatch
             continue
         _remove_view_warps(view)
+        # Sparse triangle ribbons are useful as pose diagnostics, but they are
+        # not complete surface textures.  Keep the production plate continuous
+        # and let camera/head alignment handle this conservative preview path.
         part_pixels = {}
-        for part in BODY_PARTS:
-            pixels = warp_part_pixels(
-                clean_pixels,
-                width,
-                height,
-                source,
-                target_metadata,
-                part,
-                feather=settings.warp_joint_feather,
-            )
-            if not numpy.isfinite(pixels).all():
-                raise RuntimeError(f"{name} {part} warp contains non-finite pixels.")
-            part_pixels[part] = pixels
-        atlas_pixels, parts = _build_warp_atlas(part_pixels, width, height)
-        atlas_visible_fraction = float((atlas_pixels[:, :, 3] > 1.0e-8).mean())
-        if atlas_visible_fraction <= 0.0:
+        processed_pixels, warped_parts = compose_continuous_source(
+            clean_pixels,
+            part_pixels,
+            mismatch["parts"],
+        )
+        visible_fraction = float((processed_pixels[:, :, 3] > 1.0e-8).mean())
+        if visible_fraction <= 0.0:
             raise RuntimeError(
-                f"{name} body-part warp is transparent; projection preview cancelled."
+                f"{name} processed source is transparent; projection preview cancelled."
             )
-        atlas_height, atlas_width = atlas_pixels.shape[:2]
         image = _owned_image(
-            f"{SOURCE_WARP_PREFIX}{name.upper()}_ATLAS",
-            atlas_width,
-            atlas_height,
+            f"{SOURCE_WARP_PREFIX}{name.upper()}_CONTINUOUS",
+            width,
+            height,
             clean,
-            "WARP_ATLAS",
+            "CONTINUOUS_SOURCE",
             temporary=True,
         )
-        image.pixels.foreach_set(atlas_pixels.reshape(-1))
+        image.pixels.foreach_set(processed_pixels.reshape(-1))
         image["sbf_source_view"] = name
         image["sbf_warp_fingerprint"] = fingerprint
-        image["sbf_warp_atlas_schema"] = WARP_ATLAS_SCHEMA
+        image["sbf_processed_source_schema"] = WARP_ATLAS_SCHEMA
+        image["sbf_runtime_session"] = _RUNTIME_SESSION_TOKEN
         image.update()
         view.warp_images_json = _stable_json(
             {
                 "schema": WARP_ATLAS_SCHEMA,
-                "atlas": image.name,
+                "image": image.name,
                 "source_size": [width, height],
-                "atlas_size": [atlas_width, atlas_height],
-                "visible_fraction": round(atlas_visible_fraction, 8),
-                "parts": parts,
+                "processed_size": [width, height],
+                "visible_fraction": round(visible_fraction, 8),
+                "warped_parts": list(warped_parts),
             }
         )
         view.warp_fingerprint = fingerprint
@@ -739,59 +649,74 @@ def generate_warped_sources(context, settings, view_name=None):
             name,
         ),
     )
+    review_count = sum(
+        details["status"] == "MODERATE"
+        for result in results.values()
+        for part, details in result["parts"].items()
+        if part in ARTICULATED_WARP_PARTS
+    )
     settings.source_alignment_status = (
-        f"Warped {len(results)} views; worst {worst_view} "
+        f"Prepared {len(results)} continuous views; {review_count} moderate limb "
+        f"review flag{'s' if review_count != 1 else ''} retained without fragment "
+        f"warping; worst {worst_view} "
         f"{results[worst_view]['worst_part']} {results[worst_view]['status'].lower()} "
-        f"({results[worst_view]['error']:.4f} -> 0.0000)."
+        f"({results[worst_view]['error']:.4f})."
     )
     return results
 
 
 def get_warped_atlas(view, *, require=True):
+    """Return the schema-3 continuous processed source.
+
+    The legacy function name is retained for API compatibility with scripts
+    built against the 2.0 preview pipeline.
+    """
+
     try:
         metadata = json.loads(view.warp_images_json or "{}")
     except json.JSONDecodeError as exc:
         if require:
-            raise ValueError("Warped source metadata is invalid.") from exc
+            raise ValueError("Processed source metadata is invalid.") from exc
         return None, {}
     if metadata.get("schema") != WARP_ATLAS_SCHEMA:
         if require:
             raise ValueError(
-                "Warped source uses a legacy over-limit preview layout; refresh it."
+                "Processed source uses a legacy preview layout; refresh it."
             )
         return None, {}
-    image = bpy.data.images.get(metadata.get("atlas", ""))
+    image = bpy.data.images.get(metadata.get("image", ""))
     if image is None:
         if require:
-            raise ValueError("Missing projection-only body-part warp atlas.")
+            raise ValueError("Missing continuous processed projection source.")
         return None, {}
     valid = (
         image.get(SOURCE_OWNER_PROPERTY, False)
-        and image.get("sbf_source_kind", "") == "WARP_ATLAS"
+        and image.get("sbf_source_kind", "") == "CONTINUOUS_SOURCE"
         and image.get("sbf_warp_fingerprint", "") == view.warp_fingerprint
-        and image.get("sbf_warp_atlas_schema", 0) == WARP_ATLAS_SCHEMA
-        and tuple(image.size) == tuple(metadata.get("atlas_size", ()))
+        and image.get("sbf_processed_source_schema", 0) == WARP_ATLAS_SCHEMA
+        and image.get("sbf_runtime_session", "") == _RUNTIME_SESSION_TOKEN
+        and tuple(image.size) == tuple(metadata.get("processed_size", ()))
         and view.cleaned_image is not None
         and tuple(view.cleaned_image.size)
         == tuple(metadata.get("source_size", ()))
-        and set(metadata.get("parts", {})) == set(BODY_PARTS)
+        and set(metadata.get("warped_parts", ())).issubset(ARTICULATED_WARP_PARTS)
         and float(metadata.get("visible_fraction", 0.0)) > 0.0
         and image.has_data
     )
     if not valid:
         if require:
-            raise ValueError("Warped source atlas ownership or dimensions are stale.")
+            raise ValueError("Processed source ownership or dimensions are stale.")
         return None, {}
     return image, metadata
 
 
 def get_warped_images(view, *, require=True):
-    """Compatibility view of the atlas as seven strictly owned regions."""
+    """Compatibility view of one continuous image for all semantic regions."""
 
     image, metadata = get_warped_atlas(view, require=require)
     if image is None:
         return {}
-    return {part: image for part in metadata["parts"]}
+    return {part: image for part in BODY_PARTS}
 
 
 def processed_source_payload(settings, *, require_warp=True):
@@ -821,12 +746,12 @@ def processed_source_payload(settings, *, require_warp=True):
         }
         if require_warp:
             image, metadata = get_warped_atlas(view)
-            item["warp_atlas"] = {
+            item["processed_source"] = {
                 "image": image.name,
-                "atlas_size": metadata["atlas_size"],
+                "processed_size": metadata["processed_size"],
                 "source_size": metadata["source_size"],
                 "visible_fraction": metadata["visible_fraction"],
-                "parts": metadata["parts"],
+                "warped_parts": metadata["warped_parts"],
             }
             item["warp_fingerprint"] = view.warp_fingerprint
         views[name] = item
@@ -860,19 +785,19 @@ def validate_preview_source_parity(material, settings):
     expected = processed_source_payload(settings)["views"]
     nodes = material.node_tree.nodes if material.node_tree else ()
     for view_name, item in expected.items():
-        image_name = item["warp_atlas"]["image"]
+        image_name = item["processed_source"]["image"]
         for node_name in (
-            f"SBF_WarpAtlas_{view_name}",
-            f"SBF_WarpAtlasSafe_{view_name}",
+            f"SBF_ProcessedSourceBody_{view_name}",
+            f"SBF_ProcessedSourceHead_{view_name}",
         ):
             node = nodes.get(node_name)
             if node is None or node.image is None or node.image.name != image_name:
                 raise RuntimeError(
-                    "Preview and final bake do not use the same body-part warp atlas."
+                    "Preview and final bake do not use the same continuous processed source."
                 )
             if not node.image.has_data:
                 raise RuntimeError(
-                    "Projection atlas pixel data is unavailable; refresh the preview before baking."
+                    "Processed projection pixels are unavailable; refresh the preview before baking."
                 )
     texture_nodes = [node for node in nodes if node.bl_idname == "ShaderNodeTexImage"]
     if len(texture_nodes) > 13 or any(node.image is None for node in texture_nodes):

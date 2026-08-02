@@ -2,6 +2,27 @@
 
 All notable changes follow semantic versioning.
 
+## 2.0.1 - 2026-08-01
+
+### Fixed
+
+- Replace sparse body-part warp-atlas sampling with one continuous processed
+  source per view. Landmark triangles remain pose diagnostics and can no longer
+  become pasted texture islands, enlarge the face, or expose large empty
+  white/pink regions across the torso and limbs.
+- Make front/back identity sources authoritative over the facial hemisphere and
+  reduce optional 45-degree head competition, preventing repeated eyes, noses,
+  and vertical face bands while preserving intermediate-angle body coverage.
+- Rebuild generated Source Doctor images after reopening a saved `.blend`;
+  Blender's black placeholder pixels are no longer mistaken for valid cached
+  cleaned/confidence data.
+- Detect fragmented Smart Project bake UVs and switch them to a semantic,
+  view-space projection atlas with bake-margin-safe cells and extra head texel
+  allocation. A 2K bake now retains coherent face detail instead of splitting
+  it across hundreds of tiny polygon islands.
+- Add a user-blend diagnostic that renders preview and baked verification sets
+  without saving over the supplied scene.
+
 ## 2.0.0 - 2026-08-01
 
 ### Fixed

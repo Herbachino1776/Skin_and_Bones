@@ -4,7 +4,7 @@ Skin & Bones Forge is a Blender 5.1.2 add-on for rebuilding the base-color
 texture of a SPAR3D human mesh and building a validated production rig from
 the canonical Animate Anything humanoid skeleton.
 
-Version 2.0.0 implements one-click SPAR3D production-mesh intake, the Folsom
+Version 2.0.1 implements one-click SPAR3D production-mesh intake, the Folsom
 visual workflow, production **Bones**, and non-destructive texture repair:
 
 - Import a raw SPAR3D GLB, weld only exactly coincident seam vertices, prove
@@ -22,9 +22,9 @@ visual workflow, production **Bones**, and non-destructive texture repair:
 - Store 18 labeled image-space body landmarks per view, isolate projected arm
   joints from torso/clothing cross-sections, explicitly skip hidden profile
   sides, and block only genuine `SOURCE_POSE_REVIEW_REQUIRED` contradictions.
-- Pack seven native-resolution bounded body-part warps into one GPU-safe atlas
-  per view and guard them with a compact anatomical owner ID so hands and
-  left/right limbs cannot cross.
+- Keep each processed projection plate continuous while using labeled body
+  landmarks for per-part pose preflight. Sparse diagnostic triangles never
+  become the visible head, torso, or limb texture.
 - Prefer front/back identity detail on the upper body and head.
 - Reject arm, hand, and other foreground pixels on surfaces hidden behind them.
 - Calibrate eyes and mouth corners in a zoomable Image Editor without altering
@@ -32,10 +32,11 @@ visual workflow, production **Bones**, and non-destructive texture repair:
 - Use an identity-safe confidence blend instead of stacking several full faces
   or switching photographs on hard polygon boundaries.
 - Auto-fit source silhouettes and update image alignment controls live.
-- Pad valid source edges to prevent pale scalp, jaw, and shoulder holes.
+- Despill source edges and confidence-gate their silhouettes before projection.
 - Preview the material before committing in a compact, collapsible workflow.
-- Bake a 1024-8192 pixel atlas into a clean base-color UV (4096 by default)
-  while the normal and other PBR maps stay explicitly bound to the original UV.
+- Bake a 1024-8192 pixel atlas into a clean base-color UV (4096 by default),
+  automatically replacing fragmented polygon-island layouts with a semantic
+  view-space atlas while normal and other PBR maps stay on the original UV.
 - Preserve the raw bake as `SBF_BaseColor_Baked`, paint Clone/Heal changes into
   owned correction and mask layers, and bind the composited
   `SBF_BaseColor_Final` for preview, packing, PNG output, and GLB delivery.
@@ -74,7 +75,7 @@ visual workflow, production **Bones**, and non-destructive texture repair:
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v2.0.0.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v2.0.1.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -164,18 +165,18 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v2.0.0` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v2.0.1` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 
 ## Scope
 
-Version 2.0.0 adds anatomically reliable target-arm isolation, complete per-part
-pose diagnostics, named body-landmark overlays, and explicit front/back
-anatomical-right guidance on top of the GPU-safe projection preview, working
-bounded warp raster output, and permanent Texture Repair Studio correction-layer
-slice. It does not change production topology, original UVs, normal maps, or
-other PBR textures. Optional hand shape-key authoring, animation polish,
+Version 2.0.1 adds anatomically reliable target-arm isolation, complete per-part
+pose diagnostics, named body-landmark overlays, continuous projection sources,
+saved-session cache recovery, and an adaptive production base-color atlas on
+top of the GPU-safe projection preview and permanent Texture Repair Studio
+correction-layer slice. It does not change production topology, original UVs,
+normal maps, or other PBR textures. Optional hand shape-key authoring, animation polish,
 gore/damage authoring, batch processing, Rigify, and runtime game editing remain
 downstream milestones.
 
