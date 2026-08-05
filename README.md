@@ -2,9 +2,9 @@
 
 Skin & Bones Forge is a Blender 5.1.2 add-on for rebuilding the base-color
 texture of a SPAR3D human mesh and building a validated production rig from
-the canonical Animate Anything humanoid skeleton.
+the bundled Townsman-derived Y+ canonical humanoid skeleton.
 
-Version 2.0.5 implements one-click SPAR3D production-mesh intake, the Folsom
+Version 2.1.0 implements one-click SPAR3D production-mesh intake, the Folsom
 visual workflow, production **Bones**, and non-destructive texture repair:
 
 - Import a raw SPAR3D GLB, weld only exactly coincident seam vertices, prove
@@ -51,16 +51,19 @@ visual workflow, production **Bones**, and non-destructive texture repair:
 - Restore roughness and normal strength with adjustable defaults of 1.0 and 0.25.
 - Remove all temporary data, save a new `.blend`, export a new GLB, and emit
   optional processing manifests and verification renders.
-- Fingerprint all 57 canonical rest bones while inventorying—but excluding—
-  Actions and NLA from the fingerprint.
+- Load the armature-only `SBF_HUMANOID_YPLUS_V1` template from the installed
+  add-on, verify all 21 rest bones against its manifest, and reuse the one
+  tagged template instead of importing an external rig GLB.
+- Treat Blender +Y as character forward, +Z as up, +X as anatomical right,
+  and stamp that versioned coordinate contract on the rig and mesh.
 - Analyze evaluated target geometry, topology, materials, UVs, connected
   components, symmetry, and 26 confidence-scored humanoid landmarks.
 - Fit an exact-name, exact-hierarchy armature duplicate to target proportions.
 - Expose 16 persistent artist-correction handles and validate that fitting
   leaves topology, vertex order, UVs, materials, groups, and modifiers intact.
-- Derive the versioned `DSB_SIMPLE_HANDS_V1` production profile from the full
-  immutable 57-bone source contract. It retains both canonical hand bones and
-  excludes all 36 verified finger descendants, leaving 21 production bones.
+- Use the versioned `DSB_SIMPLE_HANDS_V1` 21-bone production profile directly.
+  Legacy 57-bone sources can still derive it by excluding the 36 verified
+  finger descendants.
 - Merge removed finger donor weights into the matching retained hand group and
   generate owned, deterministic production Action copies with only removed
   finger channels filtered out.
@@ -69,15 +72,16 @@ visual workflow, production **Bones**, and non-destructive texture repair:
   fallback, deterministic cleanup, and four-influence normalization.
 - Roll back failed binds, prevent duplicate deform groups/modifiers, and emit a
   machine-readable weight/component report.
-- Run 63 isolated-bone stress checks and every frame of all five canonical
-  Actions using non-destructive Blender 5 Action-slot adaptation.
-- Finalize a clean 21-bone production hierarchy, export a skinned GLB with five
-  filtered production Actions, validate a clean reimport, and call Dreadstone
+- Run 63 isolated-bone stress checks. The bundled rest template intentionally
+  contains no Actions or NLA; animation-library generation remains an
+  Animation Forge responsibility.
+- Finalize a clean 21-bone production hierarchy, export a skinned GLB with
+  version/axis metadata, validate a clean reimport, and call Dreadstone
   Animation Forge's actual rig analyzer in an isolated Blender process.
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v2.0.5.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v2.1.0.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -111,16 +115,18 @@ required top-level `skin_and_bones_forge` module.
 9. Use **Render Verification Set**, **Save New Base Asset**, and
    **Export New GLB**.
 
-For Bones, open/import the production target alongside the canonical rig,
-choose both objects, then follow **BONES 1-4** in order:
-**Analyze Canonical Rig**, **Analyze Target Humanoid**, **Generate Landmark
+For Bones, select the production target and follow **BONES 1-4** in order. The
+packaged canonical rig loads automatically; **Load Bundled Canonical Rig** is
+available for explicit verification. Continue with **Analyze Canonical Rig**,
+**Analyze Target Humanoid**, **Generate Landmark
 Preview**, **Fit Skeleton Preview**, and **Validate Fitted Skeleton**. Move
 cyan handles—including the two whole-hand endpoints—and use **Refit From
 Corrections** when validation requests artist correction. Do not rotate fitted
 rest bones directly in Edit Mode. Then continue through **Bind
 Production Character**, weight validation, pose tests, canonical Action tests,
 finalization, rigged GLB export, clean reimport, and Animation Forge
-acceptance. See [the rigging workflow](docs/rigging_workflow.md).
+acceptance. See [the rigging workflow](docs/rigging_workflow.md) and the
+[canonical humanoid handoff contract](docs/canonical_humanoid_contract.md).
 
 The source `.blend` is not overwritten unless **Allow Source Overwrite** is
 explicitly enabled. See [the complete workflow](docs/workflow.md) and
@@ -169,13 +175,13 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v2.0.5` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v2.1.0` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 
 ## Scope
 
-Version 2.0.5 adds a standardized high-A rig-landmark profile, anatomically
+Version 2.1.0 adds a standardized high-A rig-landmark profile, anatomically
 reliable target-arm isolation, complete per-part
 pose diagnostics, named body-landmark overlays, continuous projection sources,
 saved-session cache recovery, and an adaptive production base-color atlas on

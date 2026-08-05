@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import json
 import zipfile
 from pathlib import Path
 
@@ -12,6 +13,36 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "addon" / "skin_and_bones_forge"
 DIST = ROOT / "dist"
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
+CANONICAL_ASSET = PACKAGE / "assets" / "canonical_humanoid_yplus_v1.blend"
+CANONICAL_MANIFEST = (
+    PACKAGE / "assets" / "canonical_humanoid_yplus_v1.contract.json"
+)
+
+
+def _validate_canonical_asset():
+    missing = [
+        path.name
+        for path in (CANONICAL_ASSET, CANONICAL_MANIFEST)
+        if not path.is_file()
+    ]
+    if missing:
+        raise RuntimeError(
+            "Canonical rig packaging failed; missing: " + ", ".join(missing)
+        )
+    manifest = json.loads(CANONICAL_MANIFEST.read_text(encoding="utf-8"))
+    digest = hashlib.sha256(CANONICAL_ASSET.read_bytes()).hexdigest()
+    if digest != manifest.get("asset_sha256"):
+        raise RuntimeError(
+            "Canonical rig packaging failed; asset checksum differs from manifest."
+        )
+    if (
+        manifest.get("rig_version") != "SBF_HUMANOID_YPLUS_V1"
+        or manifest.get("forward_axis") != "+Y"
+        or manifest.get("up_axis") != "+Z"
+    ):
+        raise RuntimeError(
+            "Canonical rig packaging failed; version or axis contract is invalid."
+        )
 
 
 def _addon_version():
@@ -30,6 +61,7 @@ def _addon_version():
 VERSION = _addon_version()
 OUTPUT = DIST / f"Skin_and_Bones_Forge_v{VERSION}.zip"
 
+_validate_canonical_asset()
 DIST.mkdir(parents=True, exist_ok=True)
 for pattern in ("Skin_and_Bones_Forge_v*.zip", "skin_and_bones_forge-*.zip"):
     for old_output in DIST.glob(pattern):

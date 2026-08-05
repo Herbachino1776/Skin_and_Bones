@@ -2,6 +2,28 @@
 
 All notable changes follow semantic versioning.
 
+## 2.1.0 - 2026-08-03
+
+### Added
+
+- Adopt the Townsman production armature as the armature-only
+  `SBF_HUMANOID_YPLUS_V1` canonical asset and package its full rest contract.
+- Load and fingerprint the bundled template automatically, prevent duplicate
+  templates, and fail release builds when the asset/manifest is absent or stale.
+- Stamp Blender +Y/+Z, meter scale, root, semantic bone mapping, rig version,
+  and orientation revision on fitted rigs, characters, GLBs, and manifests.
+- Add one-time unrigged axis normalization and an explicit static legacy Y-
+  conversion operator that refuses ambiguous or animated rigs.
+
+### Changed
+
+- Make the direct 21-bone `DSB_SIMPLE_HANDS_V1` template canonical while
+  retaining legacy 57-to-21 contract derivation support.
+- Keep the canonical asset rest-only. Idle, walk, hurt, death, grounding, and
+  animation direction logic remain Animation Forge responsibilities.
+- Scope Action inventory to Actions actually assigned to the analyzed armature.
+- Validate Y+ geometry and metadata after a GLB export/clean-reimport round trip.
+
 ## 2.0.5 - 2026-08-02
 
 ### Performance

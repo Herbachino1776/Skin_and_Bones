@@ -277,11 +277,12 @@ boneless base asset for a separate rigging project.
 
 ## Build the production Bones rig
 
-Version 2.0.0 fits, binds, tests, and exports the production rig. Keep the
-canonical rig and production target in the same file, then follow **BONES 1-4**
+Version 2.1.0 fits, binds, tests, and exports the production rig. Select the
+production target; the canonical Y+ template loads from the add-on automatically.
+Then follow **BONES 1-4**
 and the focused workflow in
 [rigging_workflow.md](rigging_workflow.md). Preview objects live in the owned
 `SBF_RigPreview` collection; donor/proxy data live only in
-`SBF_RiggingTemporary`. Production binding intentionally adds the exact 57
+`SBF_RiggingTemporary`. Production binding intentionally adds the exact 21
 deform groups, one Armature modifier, and safe armature parenting while
 preserving protected geometry, vertex order, UVs, materials, and textures.

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import ast
+import hashlib
+import json
 import sys
 import tomllib
 from pathlib import Path
@@ -10,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "addon" / "skin_and_bones_forge"
-EXPECTED_VERSION = (2, 0, 5)
+EXPECTED_VERSION = (2, 1, 0)
 EXPECTED_BLENDER = (5, 1, 2)
 REQUIRED_FILES = (
     PACKAGE / "__init__.py",
@@ -33,6 +35,7 @@ REQUIRED_FILES = (
     PACKAGE / "projection" / "body_alignment.py",
     PACKAGE / "projection" / "source_processing.py",
     PACKAGE / "rigging" / "contract.py",
+    PACKAGE / "rigging" / "canonical.py",
     PACKAGE / "rigging" / "analysis.py",
     PACKAGE / "rigging" / "landmarks.py",
     PACKAGE / "rigging" / "landmark_math.py",
@@ -51,6 +54,8 @@ REQUIRED_FILES = (
     PACKAGE / "operators" / "rigging.py",
     PACKAGE / "operators" / "source_doctor.py",
     PACKAGE / "validation" / "core.py",
+    PACKAGE / "assets" / "canonical_humanoid_yplus_v1.blend",
+    PACKAGE / "assets" / "canonical_humanoid_yplus_v1.contract.json",
 )
 
 
@@ -118,6 +123,22 @@ def main():
         int(part) for part in project["project"]["version"].split(".")
     )
     assert project_version == EXPECTED_VERSION
+
+    asset = PACKAGE / "assets" / "canonical_humanoid_yplus_v1.blend"
+    manifest_path = (
+        PACKAGE / "assets" / "canonical_humanoid_yplus_v1.contract.json"
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["rig_version"] == "SBF_HUMANOID_YPLUS_V1"
+    assert manifest["forward_axis"] == "+Y"
+    assert manifest["up_axis"] == "+Z"
+    assert manifest["bone_count"] == 21
+    assert manifest["animation_count"] == 0
+    assert manifest["reference_mesh_count"] == 0
+    assert hashlib.sha256(asset.read_bytes()).hexdigest() == manifest[
+        "asset_sha256"
+    ]
+    assert b"D:\\Blender" not in asset.read_bytes()
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert f"Skin_and_Bones_Forge_v{'.'.join(map(str, EXPECTED_VERSION))}.zip" in readme

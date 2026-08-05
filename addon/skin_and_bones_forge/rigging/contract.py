@@ -1,4 +1,4 @@
-"""Canonical Animate Anything rest-skeleton contract extraction."""
+"""Canonical humanoid rest-skeleton contract extraction."""
 
 from __future__ import annotations
 
@@ -11,8 +11,19 @@ from pathlib import Path
 import bpy
 from mathutils import Vector
 
+from ..constants import (
+    CANONICAL_BONE_MAPPING_PROPERTY,
+    CANONICAL_CONTRACT_VERSION_PROPERTY,
+    CANONICAL_FORWARD_PROPERTY,
+    CANONICAL_ORIENTATION_PROPERTY,
+    CANONICAL_RIG_VERSION_PROPERTY,
+    CANONICAL_ROOT_PROPERTY,
+    CANONICAL_UNIT_PROPERTY,
+    CANONICAL_UP_PROPERTY,
+)
 
-CONTRACT_SCHEMA = 1
+
+CONTRACT_SCHEMA = 2
 QUANTIZE_DIGITS = 6
 
 
@@ -117,6 +128,14 @@ def fingerprint_payload(contract):
 
     return {
         "schema": CONTRACT_SCHEMA,
+        "rig_version": contract.get("rig_version", ""),
+        "contract_version": contract.get("contract_version", 0),
+        "forward_axis": contract.get("forward_axis", ""),
+        "up_axis": contract.get("up_axis", ""),
+        "root_bone": contract.get("root_bone", ""),
+        "unit_scale_meters": contract.get("unit_scale_meters", 0.0),
+        "orientation_revision": contract.get("orientation_revision", 0),
+        "bone_mapping": contract.get("bone_mapping", ""),
         "bones": [
             {
                 "name": bone["name"],
@@ -225,6 +244,14 @@ def _reference_meshes(context, armature):
 def _action_inventory(armature):
     animation = armature.animation_data
     active = animation.action.name if animation and animation.action else None
+    referenced = {}
+    if animation is not None:
+        if animation.action is not None:
+            referenced[animation.action.name] = animation.action
+        for track in animation.nla_tracks:
+            for strip in track.strips:
+                if strip.action is not None:
+                    referenced[strip.action.name] = strip.action
     actions = [
         {
             "name": action.name,
@@ -232,7 +259,7 @@ def _action_inventory(armature):
             "users": int(action.users),
             "slots": [slot.name_display for slot in action.slots],
         }
-        for action in sorted(bpy.data.actions, key=lambda item: item.name)
+        for action in sorted(referenced.values(), key=lambda item: item.name)
     ]
     nla = []
     if animation is not None:
@@ -290,6 +317,18 @@ def analyze_canonical_rig(context, armature):
             )
         contract = {
             "schema": CONTRACT_SCHEMA,
+            "rig_version": armature.get(CANONICAL_RIG_VERSION_PROPERTY, ""),
+            "contract_version": armature.get(
+                CANONICAL_CONTRACT_VERSION_PROPERTY, 0
+            ),
+            "forward_axis": armature.get(CANONICAL_FORWARD_PROPERTY, ""),
+            "up_axis": armature.get(CANONICAL_UP_PROPERTY, ""),
+            "root_bone": armature.get(CANONICAL_ROOT_PROPERTY, ""),
+            "unit_scale_meters": armature.get(CANONICAL_UNIT_PROPERTY, 0.0),
+            "orientation_revision": armature.get(
+                CANONICAL_ORIENTATION_PROPERTY, 0
+            ),
+            "bone_mapping": armature.get(CANONICAL_BONE_MAPPING_PROPERTY, ""),
             "armature_object": armature.name,
             "armature_data": armature.data.name,
             "armature_object_transform": {

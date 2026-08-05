@@ -1,0 +1,1600 @@
+{
+  "animation_count": 0,
+  "asset_filename": "canonical_humanoid_yplus_v1.blend",
+  "asset_sha256": "0b4b58d7b1c1e6909cc35108d58e9cfe24d5161d36baf8b3e1279f79c4685a4b",
+  "bone_count": 21,
+  "bone_names": [
+    "root",
+    "body",
+    "body_top0",
+    "body_top1",
+    "body_top2",
+    "shoulder_right",
+    "arm_right_top",
+    "arm_right_bot",
+    "arm_right_hand",
+    "neck",
+    "head",
+    "shoulder_left",
+    "arm_left_top",
+    "arm_left_bot",
+    "arm_left_hand",
+    "leg_right_top",
+    "leg_right_bot",
+    "leg_right_foot",
+    "leg_left_top",
+    "leg_left_bot",
+    "leg_left_foot"
+  ],
+  "contract": {
+    "animation_inventory": {
+      "actions": [],
+      "active_action": null,
+      "nla_tracks": []
+    },
+    "armature_custom_properties": {
+      "sbf_bone_mapping": "{\"chest\":\"body_top2\",\"foot_left\":\"leg_left_foot\",\"foot_right\":\"leg_right_foot\",\"hand_left\":\"arm_left_hand\",\"hand_right\":\"arm_right_hand\",\"head\":\"head\",\"lower_arm_left\":\"arm_left_bot\",\"lower_arm_right\":\"arm_right_bot\",\"lower_leg_left\":\"leg_left_bot\",\"lower_leg_right\":\"leg_right_bot\",\"neck\":\"neck\",\"pelvis\":\"body\",\"root\":\"root\",\"shoulder_left\":\"shoulder_left\",\"shoulder_right\":\"shoulder_right\",\"spine_lower\":\"body_top0\",\"spine_middle\":\"body_top1\",\"upper_arm_left\":\"arm_left_top\",\"upper_arm_right\":\"arm_right_top\",\"upper_leg_left\":\"leg_left_top\",\"upper_leg_right\":\"leg_right_top\"}",
+      "sbf_canonical_asset": true,
+      "sbf_canonical_asset_role": "TEMPLATE",
+      "sbf_canonical_rig_version": "SBF_HUMANOID_YPLUS_V1",
+      "sbf_forward_axis": "+Y",
+      "sbf_orientation_revision": 1,
+      "sbf_orientation_state": "CANONICAL_Y_PLUS",
+      "sbf_rig_contract_version": 1,
+      "sbf_root_bone": "root",
+      "sbf_unit_scale_meters": 1.0,
+      "sbf_up_axis": "+Z"
+    },
+    "armature_data": "SBF_CanonicalHumanoid_YPlus_V1_Data",
+    "armature_object": "SBF_CanonicalHumanoid_YPlus_V1",
+    "armature_object_transform": {
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "matrix_local": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "matrix_world": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "bone_mapping": "{\"chest\":\"body_top2\",\"foot_left\":\"leg_left_foot\",\"foot_right\":\"leg_right_foot\",\"hand_left\":\"arm_left_hand\",\"hand_right\":\"arm_right_hand\",\"head\":\"head\",\"lower_arm_left\":\"arm_left_bot\",\"lower_arm_right\":\"arm_right_bot\",\"lower_leg_left\":\"leg_left_bot\",\"lower_leg_right\":\"leg_right_bot\",\"neck\":\"neck\",\"pelvis\":\"body\",\"root\":\"root\",\"shoulder_left\":\"shoulder_left\",\"shoulder_right\":\"shoulder_right\",\"spine_lower\":\"body_top0\",\"spine_middle\":\"body_top1\",\"upper_arm_left\":\"arm_left_top\",\"upper_arm_right\":\"arm_right_top\",\"upper_leg_left\":\"leg_left_top\",\"upper_leg_right\":\"leg_right_top\"}",
+    "bones": [
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          -0.006199,
+          -0.078544,
+          0.0375
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.593255,
+        "local_axes": {
+          "x": [
+            0.999904,
+            -0.010449,
+            -0.009146
+          ],
+          "y": [
+            0.010449,
+            0.132395,
+            0.991142
+          ],
+          "z": [
+            -0.009146,
+            -0.991142,
+            0.132492
+          ]
+        },
+        "matrix_local": [
+          [
+            0.999904,
+            0.010449,
+            -0.009146,
+            -0.006199
+          ],
+          [
+            -0.010449,
+            0.132395,
+            -0.991142,
+            -0.078544
+          ],
+          [
+            -0.009146,
+            0.991142,
+            0.132492,
+            0.0375
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "root",
+        "parent": null,
+        "roll": 0.0,
+        "tail": [
+          0.0,
+          0.0,
+          0.6255
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          0.0,
+          0.0,
+          0.6255
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.237,
+        "local_axes": {
+          "x": [
+            0.999978,
+            0.006674,
+            0.0
+          ],
+          "y": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "z": [
+            0.006674,
+            -0.999978,
+            0.0
+          ]
+        },
+        "matrix_local": [
+          [
+            0.999978,
+            0.0,
+            0.006674,
+            0.0
+          ],
+          [
+            0.006674,
+            0.0,
+            -0.999978,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.6255
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "body",
+        "parent": "root",
+        "roll": 0.006674,
+        "tail": [
+          0.0,
+          0.0,
+          0.8625
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          0.0,
+          0.0,
+          0.8625
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.1125,
+        "local_axes": {
+          "x": [
+            0.999987,
+            -0.00503,
+            0.0
+          ],
+          "y": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "z": [
+            -0.00503,
+            -0.999987,
+            0.0
+          ]
+        },
+        "matrix_local": [
+          [
+            0.999987,
+            0.0,
+            -0.00503,
+            0.0
+          ],
+          [
+            -0.00503,
+            0.0,
+            -0.999987,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.8625
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "body_top0",
+        "parent": "body",
+        "roll": -0.00503,
+        "tail": [
+          0.0,
+          0.0,
+          0.975
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          0.0,
+          0.0,
+          0.975
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.12,
+        "local_axes": {
+          "x": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "y": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "z": [
+            0.0,
+            -1.0,
+            0.0
+          ]
+        },
+        "matrix_local": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            -1.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.975
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "body_top1",
+        "parent": "body_top0",
+        "roll": 0.0,
+        "tail": [
+          0.0,
+          0.0,
+          1.095
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          0.0,
+          0.0,
+          1.095
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.154793,
+        "local_axes": {
+          "x": [
+            0.999514,
+            0.024142,
+            0.019733
+          ],
+          "y": [
+            -0.019775,
+            0.001499,
+            0.999803
+          ],
+          "z": [
+            0.024107,
+            -0.999707,
+            0.001976
+          ]
+        },
+        "matrix_local": [
+          [
+            0.999514,
+            -0.019775,
+            0.024107,
+            0.0
+          ],
+          [
+            0.024142,
+            0.001499,
+            -0.999707,
+            0.0
+          ],
+          [
+            0.019733,
+            0.999803,
+            0.001976,
+            1.095
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "body_top2",
+        "parent": "body_top1",
+        "roll": 0.004368,
+        "tail": [
+          -0.003061,
+          0.000232,
+          1.249763
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          0.066588,
+          -0.018645,
+          1.120425
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.124615,
+        "local_axes": {
+          "x": [
+            -0.646381,
+            -0.640192,
+            0.415146
+          ],
+          "y": [
+            0.653096,
+            -0.182873,
+            0.734863
+          ],
+          "z": [
+            -0.394535,
+            0.746131,
+            0.536312
+          ]
+        },
+        "matrix_local": [
+          [
+            -0.646381,
+            0.653096,
+            -0.394535,
+            0.066588
+          ],
+          [
+            -0.640192,
+            -0.182873,
+            0.746131,
+            -0.018645
+          ],
+          [
+            0.415146,
+            0.734863,
+            0.536312,
+            1.120425
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "shoulder_right",
+        "parent": "body_top2",
+        "roll": -1.705908,
+        "tail": [
+          0.147974,
+          -0.041434,
+          1.212
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          0.147974,
+          -0.041434,
+          1.212
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.203309,
+        "local_axes": {
+          "x": [
+            -0.391472,
+            -0.916499,
+            -0.082338
+          ],
+          "y": [
+            0.475843,
+            -0.125036,
+            -0.870597
+          ],
+          "z": [
+            0.787606,
+            -0.379994,
+            0.485058
+          ]
+        },
+        "matrix_local": [
+          [
+            -0.391472,
+            0.475843,
+            0.787606,
+            0.147974
+          ],
+          [
+            -0.916499,
+            -0.125036,
+            -0.379994,
+            -0.041434
+          ],
+          [
+            -0.082338,
+            -0.870597,
+            0.485058,
+            1.212
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "arm_right_top",
+        "parent": "shoulder_right",
+        "roll": 1.463632,
+        "tail": [
+          0.244717,
+          -0.066855,
+          1.035
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          0.244717,
+          -0.066855,
+          1.035
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.146599,
+        "local_axes": {
+          "x": [
+            -0.465845,
+            -0.751329,
+            -0.467432
+          ],
+          "y": [
+            0.501492,
+            0.211052,
+            -0.839025
+          ],
+          "z": [
+            0.729037,
+            -0.625269,
+            0.278468
+          ]
+        },
+        "matrix_local": [
+          [
+            -0.465845,
+            0.501492,
+            0.729037,
+            0.244717
+          ],
+          [
+            -0.751329,
+            0.211052,
+            -0.625269,
+            -0.066855
+          ],
+          [
+            -0.467432,
+            -0.839025,
+            0.278468,
+            1.035
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "arm_right_bot",
+        "parent": "arm_right_top",
+        "roll": 1.726143,
+        "tail": [
+          0.318235,
+          -0.035915,
+          0.912
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          0.318235,
+          -0.035915,
+          0.912
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.107556,
+        "local_axes": {
+          "x": [
+            -0.231506,
+            -0.856672,
+            -0.460998
+          ],
+          "y": [
+            0.495649,
+            0.303889,
+            -0.813624
+          ],
+          "z": [
+            0.8371,
+            -0.416852,
+            0.354257
+          ]
+        },
+        "matrix_local": [
+          [
+            -0.231506,
+            0.495649,
+            0.8371,
+            0.318235
+          ],
+          [
+            -0.856672,
+            0.303889,
+            -0.416852,
+            -0.035915
+          ],
+          [
+            -0.460998,
+            -0.813624,
+            0.354257,
+            0.912
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "arm_right_hand",
+        "parent": "arm_right_bot",
+        "roll": 1.476515,
+        "tail": [
+          0.371545,
+          -0.00323,
+          0.82449
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          -0.003061,
+          0.000232,
+          1.249763
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.167501,
+        "local_axes": {
+          "x": [
+            0.996309,
+            -0.083866,
+            -0.018326
+          ],
+          "y": [
+            0.018275,
+            -0.001385,
+            0.999832
+          ],
+          "z": [
+            -0.083878,
+            -0.996476,
+            0.000153
+          ]
+        },
+        "matrix_local": [
+          [
+            0.996309,
+            0.018275,
+            -0.083878,
+            -0.003061
+          ],
+          [
+            -0.083866,
+            -0.001385,
+            -0.996476,
+            0.000232
+          ],
+          [
+            -0.018326,
+            0.999832,
+            0.000153,
+            1.249763
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "neck",
+        "parent": "body_top2",
+        "roll": -0.06569,
+        "tail": [
+          0.0,
+          0.0,
+          1.417236
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          0.0,
+          0.0,
+          1.417236
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.075264,
+        "local_axes": {
+          "x": [
+            0.99762,
+            -0.068951,
+            0.0
+          ],
+          "y": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "z": [
+            -0.068951,
+            -0.99762,
+            0.0
+          ]
+        },
+        "matrix_local": [
+          [
+            0.99762,
+            0.0,
+            -0.068951,
+            0.0
+          ],
+          [
+            -0.068951,
+            0.0,
+            -0.99762,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            1.417236
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "head",
+        "parent": "neck",
+        "roll": -0.069005,
+        "tail": [
+          0.0,
+          0.0,
+          1.4925
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          -0.066902,
+          -0.017487,
+          1.120425
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.124615,
+        "local_axes": {
+          "x": [
+            -0.703193,
+            0.492299,
+            -0.512992
+          ],
+          "y": [
+            -0.656171,
+            -0.171516,
+            0.734861
+          ],
+          "z": [
+            0.273785,
+            0.853361,
+            0.443641
+          ]
+        },
+        "matrix_local": [
+          [
+            -0.703193,
+            -0.656171,
+            0.273785,
+            -0.066902
+          ],
+          [
+            0.492299,
+            -0.171516,
+            0.853361,
+            -0.017487
+          ],
+          [
+            -0.512992,
+            0.734861,
+            0.443641,
+            1.120425
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "shoulder_left",
+        "parent": "body_top2",
+        "roll": 1.889447,
+        "tail": [
+          -0.148671,
+          -0.038861,
+          1.212
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          -0.148671,
+          -0.038861,
+          1.212
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.205202,
+        "local_axes": {
+          "x": [
+            -0.868122,
+            0.013997,
+            0.496153
+          ],
+          "y": [
+            -0.494688,
+            -0.106135,
+            -0.862565
+          ],
+          "z": [
+            0.040586,
+            -0.994253,
+            0.099062
+          ]
+        },
+        "matrix_local": [
+          [
+            -0.868122,
+            -0.494688,
+            0.040586,
+            -0.148671
+          ],
+          [
+            0.013997,
+            -0.106135,
+            -0.994253,
+            -0.038861
+          ],
+          [
+            0.496153,
+            -0.862565,
+            0.099062,
+            1.212
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "arm_left_top",
+        "parent": "shoulder_left",
+        "roll": -2.606803,
+        "tail": [
+          -0.250182,
+          -0.06064,
+          1.035
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          -0.250182,
+          -0.06064,
+          1.035
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.14855,
+        "local_axes": {
+          "x": [
+            0.390279,
+            0.915124,
+            0.101142
+          ],
+          "y": [
+            -0.47691,
+            0.294904,
+            -0.828003
+          ],
+          "z": [
+            -0.787553,
+            0.274917,
+            0.551526
+          ]
+        },
+        "matrix_local": [
+          [
+            0.390279,
+            -0.47691,
+            -0.787553,
+            -0.250182
+          ],
+          [
+            0.915124,
+            0.294904,
+            0.274917,
+            -0.06064
+          ],
+          [
+            0.101142,
+            -0.828003,
+            0.551526,
+            1.035
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "arm_left_bot",
+        "parent": "arm_left_top",
+        "roll": -0.756392,
+        "tail": [
+          -0.321027,
+          -0.016832,
+          0.912
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          -0.321027,
+          -0.016832,
+          0.912
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.107556,
+        "local_axes": {
+          "x": [
+            -0.056342,
+            0.923567,
+            0.379275
+          ],
+          "y": [
+            -0.495649,
+            0.303889,
+            -0.813624
+          ],
+          "z": [
+            -0.866693,
+            -0.233829,
+            0.440644
+          ]
+        },
+        "matrix_local": [
+          [
+            -0.056342,
+            -0.495649,
+            -0.866693,
+            -0.321027
+          ],
+          [
+            0.923567,
+            0.303889,
+            -0.233829,
+            -0.016832
+          ],
+          [
+            0.379275,
+            -0.813624,
+            0.440644,
+            0.912
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "arm_left_hand",
+        "parent": "arm_left_bot",
+        "roll": -1.271618,
+        "tail": [
+          -0.374337,
+          0.015853,
+          0.82449
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          0.118843,
+          -0.019137,
+          0.7065
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.279056,
+        "local_axes": {
+          "x": [
+            -1.0,
+            -0.000481,
+            -0.000605
+          ],
+          "y": [
+            0.000595,
+            0.020057,
+            -0.999799
+          ],
+          "z": [
+            0.000493,
+            -0.999799,
+            -0.020056
+          ]
+        },
+        "matrix_local": [
+          [
+            -1.0,
+            0.000595,
+            0.000493,
+            0.118843
+          ],
+          [
+            -0.000481,
+            0.020057,
+            -0.999799,
+            -0.019137
+          ],
+          [
+            -0.000605,
+            -0.999799,
+            -0.020056,
+            0.7065
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "leg_right_top",
+        "parent": "body",
+        "roll": 3.140516,
+        "tail": [
+          0.119009,
+          -0.01354,
+          0.4275
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          0.119009,
+          -0.01354,
+          0.4275
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.333475,
+        "local_axes": {
+          "x": [
+            -0.993731,
+            -0.08367,
+            -0.074146
+          ],
+          "y": [
+            0.083701,
+            -0.117151,
+            -0.989581
+          ],
+          "z": [
+            0.074112,
+            -0.989583,
+            0.12342
+          ]
+        },
+        "matrix_local": [
+          [
+            -0.993731,
+            0.083701,
+            0.074112,
+            0.119009
+          ],
+          [
+            -0.08367,
+            -0.117151,
+            -0.989583,
+            -0.01354
+          ],
+          [
+            -0.074146,
+            -0.989581,
+            0.12342,
+            0.4275
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "leg_right_bot",
+        "parent": "leg_right_top",
+        "roll": 2.972862,
+        "tail": [
+          0.146921,
+          -0.052607,
+          0.0975
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          0.146921,
+          -0.052607,
+          0.0975
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.171355,
+        "local_axes": {
+          "x": [
+            -1.0,
+            4.5e-05,
+            0.000104
+          ],
+          "y": [
+            0.0,
+            0.919145,
+            -0.393919
+          ],
+          "z": [
+            -0.000114,
+            -0.393919,
+            -0.919145
+          ]
+        },
+        "matrix_local": [
+          [
+            -1.0,
+            0.0,
+            -0.000114,
+            0.146921
+          ],
+          [
+            4.5e-05,
+            0.919145,
+            -0.393919,
+            -0.052607
+          ],
+          [
+            0.000104,
+            -0.393919,
+            -0.919145,
+            0.0975
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "leg_right_foot",
+        "parent": "leg_right_bot",
+        "roll": -3.141479,
+        "tail": [
+          0.146921,
+          0.104893,
+          0.03
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          -0.123476,
+          -0.00508,
+          0.7065
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.279653,
+        "local_axes": {
+          "x": [
+            -0.999586,
+            0.019681,
+            0.021006
+          ],
+          "y": [
+            -0.019678,
+            0.065381,
+            -0.997666
+          ],
+          "z": [
+            -0.021012,
+            -0.997671,
+            -0.064967
+          ]
+        },
+        "matrix_local": [
+          [
+            -0.999586,
+            -0.019678,
+            -0.021012,
+            -0.123476
+          ],
+          [
+            0.019681,
+            0.065381,
+            -0.997671,
+            -0.00508
+          ],
+          [
+            0.021006,
+            -0.997666,
+            -0.064967,
+            0.7065
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "leg_left_top",
+        "parent": "body",
+        "roll": -3.102145,
+        "tail": [
+          -0.128979,
+          0.013204,
+          0.4275
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          -0.128979,
+          0.013204,
+          0.4275
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.334129,
+        "local_axes": {
+          "x": [
+            -0.992695,
+            0.090726,
+            0.079532
+          ],
+          "y": [
+            -0.090803,
+            -0.12775,
+            -0.987641
+          ],
+          "z": [
+            -0.079447,
+            -0.987653,
+            0.135053
+          ]
+        },
+        "matrix_local": [
+          [
+            -0.992695,
+            -0.090803,
+            -0.079447,
+            -0.128979
+          ],
+          [
+            0.090726,
+            -0.12775,
+            -0.987653,
+            0.013204
+          ],
+          [
+            0.079532,
+            -0.987641,
+            0.135053,
+            0.4275
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "leg_left_bot",
+        "parent": "leg_left_top",
+        "roll": -2.958307,
+        "tail": [
+          -0.159319,
+          -0.029481,
+          0.0975
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      },
+      {
+        "connected": false,
+        "custom_properties": {},
+        "deform": true,
+        "head": [
+          -0.159319,
+          -0.029481,
+          0.0975
+        ],
+        "inherit_scale": "FULL",
+        "length": 0.171354,
+        "local_axes": {
+          "x": [
+            -1.0,
+            9.1e-05,
+            0.000219
+          ],
+          "y": [
+            0.0,
+            0.919149,
+            -0.393921
+          ],
+          "z": [
+            -0.000238,
+            -0.393923,
+            -0.919144
+          ]
+        },
+        "matrix_local": [
+          [
+            -1.0,
+            0.0,
+            -0.000238,
+            -0.159319
+          ],
+          [
+            9.1e-05,
+            0.919149,
+            -0.393923,
+            -0.029481
+          ],
+          [
+            0.000219,
+            -0.393921,
+            -0.919144,
+            0.0975
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "name": "leg_left_foot",
+        "parent": "leg_left_bot",
+        "roll": -3.141355,
+        "tail": [
+          -0.159319,
+          0.128019,
+          0.03
+        ],
+        "use_local_location": true,
+        "use_relative_parent": false
+      }
+    ],
+    "contract_version": 1,
+    "fingerprint": "1e8ad2407ac7b6fce0b27042eb6dbcdaff3b80e7a6597f6deccc5a39503b8085",
+    "forward_axis": "+Y",
+    "object_hierarchy": [
+      {
+        "custom_properties": {
+          "sbf_bone_mapping": "{\"chest\":\"body_top2\",\"foot_left\":\"leg_left_foot\",\"foot_right\":\"leg_right_foot\",\"hand_left\":\"arm_left_hand\",\"hand_right\":\"arm_right_hand\",\"head\":\"head\",\"lower_arm_left\":\"arm_left_bot\",\"lower_arm_right\":\"arm_right_bot\",\"lower_leg_left\":\"leg_left_bot\",\"lower_leg_right\":\"leg_right_bot\",\"neck\":\"neck\",\"pelvis\":\"body\",\"root\":\"root\",\"shoulder_left\":\"shoulder_left\",\"shoulder_right\":\"shoulder_right\",\"spine_lower\":\"body_top0\",\"spine_middle\":\"body_top1\",\"upper_arm_left\":\"arm_left_top\",\"upper_arm_right\":\"arm_right_top\",\"upper_leg_left\":\"leg_left_top\",\"upper_leg_right\":\"leg_right_top\"}",
+          "sbf_canonical_asset": true,
+          "sbf_canonical_asset_role": "TEMPLATE",
+          "sbf_canonical_rig_version": "SBF_HUMANOID_YPLUS_V1",
+          "sbf_forward_axis": "+Y",
+          "sbf_orientation_revision": 1,
+          "sbf_orientation_state": "CANONICAL_Y_PLUS",
+          "sbf_rig_contract_version": 1,
+          "sbf_root_bone": "root",
+          "sbf_unit_scale_meters": 1.0,
+          "sbf_up_axis": "+Z"
+        },
+        "data": "SBF_CanonicalHumanoid_YPlus_V1_Data",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "matrix_local": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "matrix_world": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "object": "SBF_CanonicalHumanoid_YPlus_V1",
+        "parent": null,
+        "parent_type": "OBJECT",
+        "rotation_euler": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation_mode": "QUATERNION",
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "type": "ARMATURE"
+      }
+    ],
+    "orientation_revision": 1,
+    "reference_meshes": [],
+    "rig_version": "SBF_HUMANOID_YPLUS_V1",
+    "root_bone": "root",
+    "schema": 2,
+    "unit_scale_meters": 1.0,
+    "up_axis": "+Z"
+  },
+  "deform_bone_count": 21,
+  "fingerprint": "1e8ad2407ac7b6fce0b27042eb6dbcdaff3b80e7a6597f6deccc5a39503b8085",
+  "forward_axis": "+Y",
+  "object": "SBF_CanonicalHumanoid_YPlus_V1",
+  "reference_mesh_count": 0,
+  "rig_version": "SBF_HUMANOID_YPLUS_V1",
+  "root_bone": "root",
+  "schema": "skin-and-bones-canonical-asset-v1",
+  "source_filename": "Townsman,blend.blend",
+  "source_sha256": "d29a3884f905ae28a594afd00ddb52aa31cb647b90a6acf74903dc716410633c",
+  "unit_scale_meters": 1.0,
+  "up_axis": "+Z"
+}

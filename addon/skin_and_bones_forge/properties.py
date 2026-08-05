@@ -1080,8 +1080,11 @@ class SBFSettings(PropertyGroup):
     status_message: StringProperty(name="Status", default="Ready")
 
     canonical_armature: PointerProperty(
-        name="Canonical Rig Source",
-        description="Known-good Animate Anything armature in the current file",
+        name="Bundled Canonical Rig",
+        description=(
+            "Automatically loaded Y+ humanoid template packaged with "
+            "Skin & Bones Forge"
+        ),
         type=Object,
         poll=_armature_object_poll,
     )
@@ -1122,6 +1125,9 @@ class SBFSettings(PropertyGroup):
     )
     rig_blocking_warnings: StringProperty(default="", options={"HIDDEN"})
     rig_validation_json: StringProperty(default="", options={"HIDDEN"})
+    rig_legacy_conversion_json: StringProperty(
+        default="", options={"HIDDEN"}
+    )
     rig_production_profile: StringProperty(
         name="Simplified Production Profile",
         default="DSB_SIMPLE_HANDS_V1",

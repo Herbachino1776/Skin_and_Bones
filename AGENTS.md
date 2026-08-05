@@ -64,11 +64,16 @@ Do not trust an old task prompt over the current repository. Confirm names, vers
 
 ### 4.2 Canonical rig authority
 
-- The known-good Animate Anything source `.blend` is the canonical rest-skeleton authority.
-- The canonical source armature, reference mesh, parent-scale hierarchy, Actions, and NLA are immutable fixtures.
-- Never apply transforms, rename bones, edit rest bones, overwrite Actions, or destructively clean the canonical source.
-- The canonical contract contains 57 rest bones.
-- Canonical fingerprints cover stable rest data and exclude Actions/NLA from the hash while inventorying them separately.
+- `addon/skin_and_bones_forge/assets/canonical_humanoid_yplus_v1.blend` and its
+  sibling manifest are the canonical rest-skeleton authority.
+- The canonical asset contains one Townsman-derived 21-bone armature and no
+  character mesh, Actions, or NLA.
+- Never rename bones, edit canonical rest data, or weaken the packaged
+  fingerprint/axis checks.
+- Canonical native axes are forward **+Y**, up **+Z**, anatomical right **+X**;
+  object transforms and scale remain identity with one Blender unit = one meter.
+- Canonical fingerprints cover versioned axes plus stable rest data. Animation
+  libraries remain Dreadstone Animation Forge responsibilities.
 - Exact names and hierarchy are necessary but not sufficient: local rest orientation, roll, axes, and matrices must remain animation-compatible.
 
 ### 4.3 Production rig profile
@@ -76,8 +81,8 @@ Do not trust an old task prompt over the current repository. Confirm names, vers
 The current production profile is `DSB_SIMPLE_HANDS_V1` unless the user explicitly authorizes a contract change.
 
 - Retain both canonical hand bones.
-- Exclude the verified 36 finger descendants.
-- Final production skeleton: 21 retained bones.
+- The direct canonical template is already the final 21-bone skeleton.
+- Legacy 57-bone sources may still exclude the verified 36 finger descendants.
 - Do not silently reintroduce hidden finger bones.
 - Do not change the profile because a pose looks unattractive.
 - Hand aesthetics are secondary to structural correctness unless the task specifically targets hands.

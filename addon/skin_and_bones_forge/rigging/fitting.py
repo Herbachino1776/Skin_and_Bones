@@ -15,6 +15,7 @@ from ..constants import (
 )
 from .hands import apply_hand_pose
 from .landmarks import EDITABLE_LANDMARKS
+from .canonical import apply_canonical_metadata
 
 
 OWNER = "AUTOMATIC_HUMANOID_RIG_PREVIEW"
@@ -224,6 +225,8 @@ def fit_skeleton_preview(
     fitted.parent = None
     fitted.matrix_world = Matrix.Identity(4)
     fitted.show_in_front = True
+    fitted.hide_viewport = False
+    fitted.hide_render = False
     fitted.display_type = "WIRE"
     fitted.data.pose_position = "REST"
     fitted[RIG_OWNER_PROPERTY] = OWNER
@@ -302,6 +305,7 @@ def fit_skeleton_preview(
     fitted["sbf_removed_finger_bones"] = len(
         contract.get("removed_bones", [])
     )
+    apply_canonical_metadata(fitted, target=target)
     apply_hand_pose(fitted, "RELAXED")
     context.view_layer.update()
     return fitted

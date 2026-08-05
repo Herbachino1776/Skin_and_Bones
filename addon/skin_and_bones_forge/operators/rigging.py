@@ -10,6 +10,8 @@ from bpy.types import Operator
 from mathutils import Vector
 
 from ..constants import (
+    CANONICAL_FORWARD_AXIS,
+    CANONICAL_UP_AXIS,
     RIG_ANALYSIS_PROPERTY,
     RIG_OWNER_PROPERTY,
     RIG_PREVIEW_ARMATURE,
@@ -17,6 +19,7 @@ from ..constants import (
 from ..rigging import (
     analyze_canonical_rig,
     analyze_target,
+    apply_canonical_metadata,
     audit_bind_space,
     audit_production_weights,
     audit_rest_orientation,
@@ -27,9 +30,12 @@ from ..rigging import (
     clean_owned_production_actions,
     clean_weighting_temporary_data,
     confidence_summary,
+    convert_legacy_character_yminus,
     create_landmark_preview,
     derive_simplified_contract,
     estimate_landmarks,
+    ensure_canonical_rig,
+    ensure_unrigged_target_yplus,
     export_rigged_glb,
     fit_skeleton_preview,
     finalize_production_rig,
@@ -169,15 +175,12 @@ def _target(context, settings):
     return target
 
 
-def _canonical(settings):
-    armature = settings.canonical_armature
-    if armature is None or armature.type != "ARMATURE":
-        raise ValueError("Choose a Canonical Rig Source armature.")
-    return armature
+def _canonical(context, settings):
+    return ensure_canonical_rig(context, settings)
 
 
 def _contract(context, settings):
-    armature = _canonical(settings)
+    armature = _canonical(context, settings)
     if settings.canonical_contract_json:
         try:
             contract = json.loads(settings.canonical_contract_json)
@@ -225,7 +228,66 @@ def _production_contract(context, settings):
     return contract
 
 
+def _bound_armatures(target):
+    result = {
+        modifier.object
+        for modifier in target.modifiers
+        if modifier.type == "ARMATURE" and modifier.object is not None
+    }
+    if target.parent is not None and target.parent.type == "ARMATURE":
+        result.add(target.parent)
+    return result
+
+
+def _identity_object_transform(obj, tolerance=1.0e-7):
+    return all(
+        abs(
+            float(
+                obj.matrix_world[row][column]
+                - (1.0 if row == column else 0.0)
+            )
+        )
+        <= tolerance
+        for row in range(4)
+        for column in range(4)
+    )
+
+
+def _prepare_target_orientation(context, settings, target):
+    """Normalize new meshes or adopt an already-proven persisted Y+ analysis."""
+
+    bound = _bound_armatures(target)
+    persisted = target.get(RIG_ANALYSIS_PROPERTY, settings.target_analysis_json)
+    if bound and persisted:
+        try:
+            payload = json.loads(persisted)
+            analysis = payload.get("analysis", payload)
+        except (TypeError, json.JSONDecodeError):
+            analysis = {}
+        if (
+            analysis.get("target_data") == target.data.name
+            and analysis.get("forward_axis") == CANONICAL_FORWARD_AXIS
+            and analysis.get("up_axis") == CANONICAL_UP_AXIS
+            and len(bound) == 1
+            and all(
+                _identity_object_transform(obj)
+                for obj in [target, *bound]
+            )
+        ):
+            apply_canonical_metadata(next(iter(bound)), target=target)
+            settings.forward_axis = CANONICAL_FORWARD_AXIS
+            settings.up_axis = CANONICAL_UP_AXIS
+            return {"status": "ADOPTED_PERSISTED_YPLUS", "rotated": False}
+    result = ensure_unrigged_target_yplus(
+        context, target, settings.forward_axis, settings.up_axis
+    )
+    settings.forward_axis = CANONICAL_FORWARD_AXIS
+    settings.up_axis = CANONICAL_UP_AXIS
+    return result
+
+
 def _analyze(context, settings, target):
+    _prepare_target_orientation(context, settings, target)
     analysis = analyze_target(
         context, target, settings.forward_axis, settings.up_axis
     )
@@ -246,6 +308,8 @@ def _analyze(context, settings, target):
 
 
 def _analysis(context, settings, target, refresh=False):
+    orientation = _prepare_target_orientation(context, settings, target)
+    refresh = refresh or bool(orientation.get("rotated"))
     if not refresh and settings.target_analysis_json:
         try:
             payload = json.loads(settings.target_analysis_json)
@@ -314,6 +378,34 @@ def _load_json(value, label):
         raise ValueError(f"{label} report is invalid; rerun that test.") from exc
 
 
+class SBF_OT_load_canonical_rig(Operator):
+    bl_idname = "sbf.load_canonical_rig"
+    bl_label = "Load Bundled Canonical Rig"
+    bl_description = (
+        "Append or reuse the verified Y+ canonical humanoid packaged with "
+        "Skin & Bones Forge"
+    )
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        settings = _settings(context)
+        try:
+            with _OperationState(context):
+                armature = ensure_canonical_rig(context, settings)
+                contract = _contract(context, settings)
+                production = _production_contract(context, settings)
+            settings.rig_recommended_action = "Analyze the target humanoid."
+            settings.status_message = (
+                f"Bundled canonical rig ready: {armature.name}; "
+                f"{len(contract['bones'])} bones; "
+                f"{production['profile_id']}."
+            )
+            self.report({"INFO"}, settings.status_message)
+            return {"FINISHED"}
+        except (OSError, RuntimeError, ValueError, KeyError) as exc:
+            return _fail(self, settings, exc)
+
+
 class SBF_OT_analyze_canonical_rig(Operator):
     bl_idname = "sbf.analyze_canonical_rig"
     bl_label = "Analyze Canonical Rig"
@@ -323,7 +415,9 @@ class SBF_OT_analyze_canonical_rig(Operator):
         settings = _settings(context)
         try:
             with _OperationState(context):
-                contract = analyze_canonical_rig(context, _canonical(settings))
+                contract = analyze_canonical_rig(
+                    context, _canonical(context, settings)
+                )
             settings.canonical_contract_json = json.dumps(
                 contract, sort_keys=True, separators=(",", ":")
             )
@@ -425,7 +519,7 @@ class SBF_OT_fit_skeleton_preview(Operator):
         try:
             with _OperationState(context):
                 target = _target(context, settings)
-                source = _canonical(settings)
+                source = _canonical(context, settings)
                 contract = _production_contract(context, settings)
                 _analysis_data, landmarks = _analysis(context, settings, target)
                 if not landmark_objects(target):
@@ -474,7 +568,7 @@ class SBF_OT_refit_from_corrections(Operator):
                     {name: handle.matrix_world.translation for name, handle in handles.items()},
                 )
                 analysis, landmarks = _analyze(context, settings, target)
-                source = _canonical(settings)
+                source = _canonical(context, settings)
                 contract = _production_contract(context, settings)
                 fitted = fit_skeleton_preview(
                     context,
@@ -559,7 +653,7 @@ class SBF_OT_validate_fitted_skeleton(Operator):
         try:
             with _OperationState(context):
                 target = _target(context, settings)
-                source = _canonical(settings)
+                source = _canonical(context, settings)
                 contract = _production_contract(context, settings)
                 analysis, landmarks = _analysis(context, settings, target)
                 result = validate_fitted_rig(
@@ -634,7 +728,7 @@ class SBF_OT_bind_production_character(Operator):
         try:
             with _OperationState(context):
                 target = _target(context, settings)
-                source = _canonical(settings)
+                source = _canonical(context, settings)
                 contract = _production_contract(context, settings)
                 analysis, landmarks = _analysis(context, settings, target)
                 fitted = _fitted(target)
@@ -783,7 +877,7 @@ class SBF_OT_test_canonical_actions(Operator):
             with _OperationState(context):
                 target = _target(context, settings)
                 armature = _fitted(target)
-                source = _canonical(settings)
+                source = _canonical(context, settings)
                 contract = _production_contract(context, settings)
                 analysis, _landmarks = _analysis(context, settings, target)
                 weight_report = load_weight_report(target)
@@ -852,19 +946,31 @@ class SBF_OT_test_canonical_actions(Operator):
             )
             settings.rig_recommended_action = (
                 "Finalize the production rig."
-                if report["status"] == "CANONICAL_ACTIONS_PASSED"
+                if report["status"]
+                in {
+                    "CANONICAL_ACTIONS_PASSED",
+                    "CANONICAL_ACTIONS_NOT_BUNDLED",
+                }
                 else "Resolve canonical Action compatibility failures."
             )
             settings.status_message = f"Canonical Actions: {report['status']}."
             self.report(
                 {"INFO"}
-                if report["status"] == "CANONICAL_ACTIONS_PASSED"
+                if report["status"]
+                in {
+                    "CANONICAL_ACTIONS_PASSED",
+                    "CANONICAL_ACTIONS_NOT_BUNDLED",
+                }
                 else {"ERROR"},
                 settings.status_message,
             )
             return (
                 {"FINISHED"}
-                if report["status"] == "CANONICAL_ACTIONS_PASSED"
+                if report["status"]
+                in {
+                    "CANONICAL_ACTIONS_PASSED",
+                    "CANONICAL_ACTIONS_NOT_BUNDLED",
+                }
                 else {"CANCELLED"}
             )
         except (RuntimeError, ValueError, KeyError) as exc:
@@ -1027,6 +1133,59 @@ class SBF_OT_run_animation_forge_acceptance(Operator):
             return _fail(self, settings, exc)
 
 
+class SBF_OT_convert_legacy_yminus(Operator):
+    bl_idname = "sbf.convert_legacy_yminus"
+    bl_label = "Convert Legacy Y- Character"
+    bl_description = (
+        "Permanently rotate a verified static legacy Y- armature and every "
+        "bound mesh into the Y+ canonical basis; animated rigs are refused"
+    )
+    bl_options = {"REGISTER", "UNDO"}
+
+    def invoke(self, context, _event):
+        return context.window_manager.invoke_confirm(
+            self,
+            event=None,
+            title="Convert Legacy Y- Character?",
+            message=(
+                "This changes armature rest data and bound mesh coordinates. "
+                "Save a copy first. Rigs with Actions or NLA are refused."
+            ),
+            confirm_text="Convert Once",
+            icon="ERROR",
+        )
+
+    def execute(self, context):
+        settings = _settings(context)
+        try:
+            with _OperationState(context):
+                target = _target(context, settings)
+                armatures = _bound_armatures(target)
+                if len(armatures) != 1:
+                    raise ValueError(
+                        "Choose a target bound to exactly one legacy armature."
+                    )
+                report = convert_legacy_character_yminus(
+                    context, next(iter(armatures)), target
+                )
+            settings.rig_legacy_conversion_json = json.dumps(
+                report, sort_keys=True, separators=(",", ":")
+            )
+            settings.forward_axis = CANONICAL_FORWARD_AXIS
+            settings.up_axis = CANONICAL_UP_AXIS
+            settings.target_analysis_json = ""
+            settings.rig_recommended_action = (
+                "Re-analyze the converted Y+ target and validate the rig."
+            )
+            settings.status_message = (
+                "Legacy orientation: " + report["status"]
+            )
+            self.report({"INFO"}, settings.status_message)
+            return {"FINISHED"}
+        except (RuntimeError, ValueError, KeyError) as exc:
+            return _fail(self, settings, exc)
+
+
 class SBF_OT_clean_temporary_rigging_data(Operator):
     bl_idname = "sbf.clean_temporary_rigging_data"
     bl_label = "Clean Temporary Rigging Data"
@@ -1060,6 +1219,7 @@ class SBF_OT_clean_temporary_rigging_data(Operator):
 
 
 RIGGING_OPERATOR_CLASSES = (
+    SBF_OT_load_canonical_rig,
     SBF_OT_analyze_canonical_rig,
     SBF_OT_write_rig_report,
     SBF_OT_analyze_target_humanoid,
@@ -1078,5 +1238,6 @@ RIGGING_OPERATOR_CLASSES = (
     SBF_OT_export_rigged_glb,
     SBF_OT_validate_clean_reimport,
     SBF_OT_run_animation_forge_acceptance,
+    SBF_OT_convert_legacy_yminus,
     SBF_OT_clean_temporary_rigging_data,
 )

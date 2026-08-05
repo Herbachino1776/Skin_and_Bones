@@ -2,6 +2,18 @@
 
 from .analysis import analyze_target, encode_analysis, topology_snapshot
 from .compatibility import run_animation_forge_acceptance
+from .canonical import (
+    CANONICAL_BONE_MAPPING,
+    apply_canonical_metadata,
+    canonical_asset_path,
+    canonical_manifest_path,
+    convert_legacy_character_yminus,
+    ensure_canonical_rig,
+    ensure_unrigged_target_yplus,
+    load_canonical_manifest,
+    rig_orientation_state,
+    verify_canonical_template,
+)
 from .contract import (
     analyze_canonical_rig,
     canonical_fingerprint,
@@ -49,6 +61,7 @@ from .poses import (
 from .profile import (
     HAND_BONES,
     SIMPLE_HANDS_PROFILE,
+    PRODUCTION_BONE_NAMES,
     derive_simplified_contract,
     identify_finger_descendants,
     simplified_fingerprint,
@@ -77,6 +90,9 @@ __all__ = (
     "RESERVED_HAND_SHAPE_KEYS",
     "HAND_BONES",
     "SIMPLE_HANDS_PROFILE",
+    "PRODUCTION_BONE_NAMES",
+    "CANONICAL_BONE_MAPPING",
+    "apply_canonical_metadata",
     "analyze_canonical_rig",
     "analyze_target",
     "analysis_from_points",
@@ -86,6 +102,8 @@ __all__ = (
     "apply_saved_corrections",
     "apply_hand_pose",
     "canonical_fingerprint",
+    "canonical_asset_path",
+    "canonical_manifest_path",
     "bind_production_character",
     "clean_rig_preview",
     "clean_owned_production_actions",
@@ -95,7 +113,10 @@ __all__ = (
     "create_landmark_preview",
     "create_production_actions",
     "derive_simplified_contract",
+    "convert_legacy_character_yminus",
     "encode_analysis",
+    "ensure_canonical_rig",
+    "ensure_unrigged_target_yplus",
     "estimate_landmarks",
     "estimate_projection_landmarks",
     "refresh_hand_landmarks",
@@ -107,6 +128,7 @@ __all__ = (
     "iter_action_fcurves",
     "landmark_objects",
     "load_weight_report",
+    "load_canonical_manifest",
     "reset_corrections",
     "pose_transforms_finite",
     "production_armature",
@@ -114,6 +136,7 @@ __all__ = (
     "save_corrections",
     "simplified_fingerprint",
     "run_animation_forge_acceptance",
+    "rig_orientation_state",
     "run_isolated_bone_forensics",
     "run_pose_torture_tests",
     "scan_action_deformation",
@@ -123,5 +146,6 @@ __all__ = (
     "validate_simplified_contract",
     "validate_clean_reimport",
     "validate_production_weights",
+    "verify_canonical_template",
     "write_contract_report",
 )

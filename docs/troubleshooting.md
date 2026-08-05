@@ -132,21 +132,21 @@ Map node. Re-run validation and address its warning before baking.
 The save path matches the source file. Choose a new path. Source overwrite is
 blocked unless **Allow Source Overwrite** is explicitly enabled.
 
-## The canonical rig looks huge in armature space
+## The bundled canonical rig is missing
 
-The supplied Animate Anything rig is normalized by uniformly scaled parent
-empties. Do not apply those transforms. Bones reads the exact rest data from
-the armature and measures visible reference height from evaluated mesh
-world-space bounds; object dimensions and `DSB_SIZE_ROOT_*` names are not used
-as scale authority.
+Install the complete release ZIP. The add-on requires both
+`assets/canonical_humanoid_yplus_v1.blend` and its `.contract.json` manifest.
+Static validation and release building fail when either is absent or when the
+asset checksum differs from the manifest. Do not browse to a canonical GLB or
+replace the asset with an arbitrary armature.
 
 ## Animation changes the canonical report
 
-Action and NLA names are inventory fields, so their inventory can differ after
-an artist adds animation. The canonical fingerprint must remain unchanged
-while Actions play because it is derived only from ordered rest bones,
-hierarchy, flags, heads/tails, rolls, and quantized rest matrices. If it does
-change, confirm the armature rest data itself was not edited.
+Only Actions assigned to the analyzed armature are inventory fields. The
+canonical fingerprint must remain unchanged while Actions play because it is
+derived from versioned axes and ordered rest bones, hierarchy, flags,
+heads/tails, rolls, and quantized rest matrices. If it changes, confirm the
+armature rest data or contract metadata was not edited.
 
 ## Validation requests landmark correction
 
@@ -199,14 +199,13 @@ intact because child bones inherit root transforms. Any transferred root weight
 is redistributed before final normalization, preventing pelvis or groin cloth
 from remaining near the origin while the body collapses.
 
-## Canonical Actions explode on the fitted rig
+## Test Canonical Actions reports NOT BUNDLED
 
-Do not apply the original source Actions directly to the identity-space fitted
-armature. The canonical fixture stores pose translations in its scaled source
-rest space. **Test Canonical Actions** creates temporary adapted copies and
-scales only location channels by each fitted/source rest-bone length ratio.
-**Finalize Production Rig** creates the five owned export Actions without
-editing the originals.
+`CANONICAL_ACTIONS_NOT_BUNDLED` is the expected accepted result for
+`SBF_HUMANOID_YPLUS_V1`. The canonical asset is intentionally rest-only; Skin &
+Bones does not create idle, walk, hurt, or death libraries. Run pose torture
+tests for structural deformation, then finalize. Animation Forge owns Action
+generation, direction, retargeting, and death grounding.
 
 If only pelvis or robe vertices fan outward during a collapse, re-run **Bind
 Production Character** with version 1.0.1 or later. The binder detects connected
@@ -255,12 +254,19 @@ the mapping, missing roles, operator result, and process output.
 
 ## Finger bones appear in the production preview or export
 
-Re-run **Analyze Canonical Rig**, then rebuild the preview. The
-`DSB_SIMPLE_HANDS_V1` profile must report 36 removed finger descendants and 21
-remaining production bones for the supplied canonical fixture. Do not hide or
-collapse finger bones to satisfy an old fingerprint: the full 57-bone
-fingerprint describes the immutable source, while the separate production
-fingerprint describes the simplified output.
+Reinstall the complete add-on, run **Load Bundled Canonical Rig**, and rebuild
+the preview. The direct `DSB_SIMPLE_HANDS_V1` canonical asset contains exactly
+21 bones and zero finger descendants. A report of 36 removed fingers applies
+only when opening an older 57-bone legacy source.
+
+## A character is facing Y- or flips twice
+
+Current rigs must report `SBF_HUMANOID_YPLUS_V1`, `sbf_forward_axis = +Y`, and
+`sbf_orientation_state = CANONICAL_Y_PLUS`. New unrigged targets are transformed
+into that basis once. Skin & Bones never auto-rotates an already-rigged unknown
+character. Use **Convert Legacy Y- Character** only for a verified static legacy
+rig; it refuses Actions/NLA and records a migration so repeating it is a no-op.
+Animated legacy conversion belongs in Animation Forge.
 
 If a singular hand needs an open-palm or closed-grip silhouette, that requires
 future mesh deformation (for example the reserved `DSB_HAND_OPEN_MAGIC` or

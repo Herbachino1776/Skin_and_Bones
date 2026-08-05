@@ -56,7 +56,26 @@ python scripts/build_release.py
 ```
 
 The release ZIP must contain a single top-level `skin_and_bones_forge/`
-package and no `__pycache__` or fixture assets.
+package, the canonical `.blend`/manifest assets, and no `__pycache__`.
+
+## Canonical Y+ runtime and release checks
+
+Run the factory-clean bundled-asset/idempotence regression:
+
+```powershell
+E:\Blender\blender.exe --background --factory-startup `
+  --python scripts\run_canonical_asset_runtime_test.py -- `
+  --addon addon --report build\canonical_asset_runtime.json
+```
+
+Use `scripts/run_canonical_fit_fixture_test.py` with Townsman and the Folsom
+reference blend to verify automatic loading, repeated execution, exact 21-bone
+fit, identity transforms, +Y foot direction, and labeled proof renders. Use
+`scripts/run_townsman_canonical_roundtrip.py` to export Townsman through the
+real rigged-GLB path and run the factory-clean reimport gate. Finally run
+`scripts/test_release_canonical_install.py` against the built ZIP in a new
+install directory; registration alone is insufficient because the installed
+operator must also find and append its packaged `.blend` asset.
 
 Run the pure repair matrix inside Blender's bundled NumPy runtime:
 
@@ -79,7 +98,7 @@ transaction rollback, re-bake preservation/invalidation, preview/data leak
 safety, delivery gates, packed PNG output, and byte-identical GLB embedding.
 
 Every push to `main` runs these static checks on GitHub Actions and uploads
-`Skin_and_Bones_Forge_v2.0.5` as a 30-day workflow artifact.
+`Skin_and_Bones_Forge_v2.1.0` as a 30-day workflow artifact.
 
 To exercise texture projection and baking on the exact-welded production mesh,
 run the Blender harness directly with `--prepare-spar3d`. The ordinary wrapper

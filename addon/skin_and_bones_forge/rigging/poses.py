@@ -490,6 +490,20 @@ def test_canonical_actions(
     scene = context.scene
     snapshot = _pose_snapshot(armature, scene)
     actions, missing_actions = canonical_source_actions(contract)
+    if not canonical_expected_action_names(contract):
+        return {
+            "status": "CANONICAL_ACTIONS_NOT_BUNDLED",
+            "production_profile": contract.get("profile_id", ""),
+            "expected_actions": [],
+            "missing_actions": [],
+            "filtered_action_count": 0,
+            "removed_finger_channel_count": 0,
+            "actions": [],
+            "note": (
+                "The canonical asset is rest-skeleton only. Animation-library "
+                "generation and direction correction belong to Animation Forge."
+            ),
+        }
     animation = armature.animation_data_create()
     reports = []
     temporary_actions = []

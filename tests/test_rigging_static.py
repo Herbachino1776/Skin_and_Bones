@@ -158,6 +158,7 @@ class RiggingStaticTests(unittest.TestCase):
         required = {
             "__init__.py",
             "contract.py",
+            "canonical.py",
             "deformation.py",
             "glb_skin.py",
             "analysis.py",
@@ -198,6 +199,7 @@ class RiggingStaticTests(unittest.TestCase):
             PACKAGE / "operators" / "rigging.py"
         ).read_text(encoding="utf-8")
         for identifier in (
+            "sbf.load_canonical_rig",
             "sbf.analyze_canonical_rig",
             "sbf.write_rig_report",
             "sbf.analyze_target_humanoid",
@@ -216,9 +218,24 @@ class RiggingStaticTests(unittest.TestCase):
             "sbf.export_rigged_glb",
             "sbf.validate_clean_reimport",
             "sbf.run_animation_forge_acceptance",
+            "sbf.convert_legacy_yminus",
             "sbf.clean_temporary_rigging_data",
         ):
             self.assertIn(identifier, source)
+
+    def test_canonical_action_inventory_is_scoped_to_the_armature(self):
+        tree = ast.parse(
+            (RIGGING / "contract.py").read_text(encoding="utf-8")
+        )
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_action_inventory"
+        )
+        source = ast.unparse(function)
+        self.assertIn("animation.nla_tracks", source)
+        self.assertNotIn("bpy.data.actions", source)
 
     def test_binding_is_proxy_heat_first_and_transactional(self):
         source = (RIGGING / "weights.py").read_text(encoding="utf-8")
@@ -361,6 +378,14 @@ class RiggingStaticTests(unittest.TestCase):
         self.assertIn("bpy.ops.daf.walk()", source)
         self.assertIn("bpy.ops.daf.hurt_left()", source)
         self.assertIn("scan_action_deformation", source)
+
+    def test_animation_forge_accepts_rest_only_canonical_delivery(self):
+        source = (RIGGING / "acceptance_runner.py").read_text(encoding="utf-8")
+        self.assertIn("filtered_actions_accepted = not unresolved_action_bones", source)
+        self.assertIn('"source_actions_optional": True', source)
+        self.assertNotIn(
+            "filtered_actions_accepted = bool(action_inventory)", source
+        )
 
     def test_canonical_actions_deduplicate_blender_numeric_suffixes(self):
         source = (RIGGING / "poses.py").read_text(encoding="utf-8")

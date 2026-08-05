@@ -1,6 +1,6 @@
 [project]
 name = "skin-and-bones-forge"
-version = "2.0.5"
+version = "2.1.0"
 description = "Visual finishing and automatic humanoid skeleton fitting for SPAR3D Blender characters"
 readme = "README.md"
 requires-python = ">=3.11"

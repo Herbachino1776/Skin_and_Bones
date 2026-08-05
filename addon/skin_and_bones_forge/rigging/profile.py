@@ -13,6 +13,29 @@ HAND_BONES = {
     "left": "arm_left_hand",
     "right": "arm_right_hand",
 }
+PRODUCTION_BONE_NAMES = (
+    "root",
+    "body",
+    "body_top0",
+    "body_top1",
+    "body_top2",
+    "shoulder_right",
+    "arm_right_top",
+    "arm_right_bot",
+    "arm_right_hand",
+    "neck",
+    "head",
+    "shoulder_left",
+    "arm_left_top",
+    "arm_left_bot",
+    "arm_left_hand",
+    "leg_right_top",
+    "leg_right_bot",
+    "leg_right_foot",
+    "leg_left_top",
+    "leg_left_bot",
+    "leg_left_foot",
+)
 FINGER_ROOT_PATTERN = re.compile(
     r"^(thumb|index|middle|ring|little|pinky)_(left|right)(?:[._-]?\d+)?"
     r"(?:[._-]?(?:end|tip))?$",
@@ -115,7 +138,15 @@ def simplified_fingerprint(contract):
 
 
 def derive_simplified_contract(full_contract):
-    discovery = identify_finger_descendants(full_contract)
+    names = tuple(bone["name"] for bone in full_contract["bones"])
+    direct_profile = names == PRODUCTION_BONE_NAMES
+    if direct_profile:
+        discovery = {
+            "removed_to_hand": {},
+            "finger_roots": {"left": [], "right": []},
+        }
+    else:
+        discovery = identify_finger_descendants(full_contract)
     removed_to_hand = discovery["removed_to_hand"]
     removed = set(removed_to_hand)
     result = deepcopy(full_contract)
@@ -134,6 +165,7 @@ def derive_simplified_contract(full_contract):
     )
     result["retained_hand_bones"] = dict(HAND_BONES)
     result["source_bones"] = deepcopy(full_contract["bones"])
+    result["canonical_template_is_production_profile"] = direct_profile
     result["finger_roots"] = discovery["finger_roots"]
     result["removed_to_hand"] = removed_to_hand
     result["removed_bones"] = [
@@ -168,7 +200,19 @@ def validate_simplified_contract(full_contract, production_contract):
         bone["name"]: bone for bone in production_contract["bones"]
     }
     removed = set(production_contract.get("removed_bones", []))
-    expected = identify_finger_descendants(full_contract)["removed_to_hand"]
+    direct_profile = bool(
+        production_contract.get("canonical_template_is_production_profile")
+    )
+    if direct_profile:
+        expected = {}
+        if tuple(full) != PRODUCTION_BONE_NAMES:
+            errors.append(
+                "Direct canonical template does not match the 21-bone profile."
+            )
+    else:
+        expected = identify_finger_descendants(full_contract)[
+            "removed_to_hand"
+        ]
     expected_removed = set(expected)
     if production_contract.get("profile_id") != SIMPLE_HANDS_PROFILE:
         errors.append("Unexpected simplified production profile identifier.")
@@ -224,6 +268,7 @@ def validate_simplified_contract(full_contract, production_contract):
             bool(bone["deform"]) for bone in production.values()
         ),
         "retained_hand_bones": dict(HAND_BONES),
+        "canonical_template_is_production_profile": direct_profile,
         "hierarchy_mismatches": hierarchy_mismatches,
         "deform_flag_mismatches": deform_mismatches,
         "fingerprint_match": fingerprint_match,

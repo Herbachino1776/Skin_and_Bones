@@ -111,7 +111,9 @@ try:
         for action in bpy.data.actions
         if _action_bones(action) - available_bones
     }
-    filtered_actions_accepted = bool(action_inventory) and not unresolved_action_bones
+    # The bundled canonical asset is deliberately rest-only. Incoming Actions
+    # are optional, but any that are present must resolve entirely on the rig.
+    filtered_actions_accepted = not unresolved_action_bones
     text = bpy.data.texts.get("DSB_Rig_Mapping.txt")
     mapping_report = text.as_string() if text else ""
     walk_result = bpy.ops.daf.walk()
@@ -174,6 +176,8 @@ try:
         "required_simplified_roles": sorted(required),
         "mapping_report": mapping_report,
         "filtered_action_inventory": action_inventory,
+        "source_actions_optional": True,
+        "source_action_count": len(action_inventory),
         "filtered_actions_accepted": filtered_actions_accepted,
         "unresolved_action_bones": unresolved_action_bones,
         "removed_finger_dependency_reported": (

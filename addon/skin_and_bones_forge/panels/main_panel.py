@@ -734,7 +734,17 @@ class SBF_PT_bones(_SBF_PT_section, Panel):
     def draw(self, context):
         layout = self.layout
         settings = context.scene.sbf_settings
-        layout.prop(settings, "canonical_armature")
+        canonical = layout.box()
+        canonical.label(text="Bundled Y+ Canonical Humanoid", icon="ASSET_MANAGER")
+        canonical.operator("sbf.load_canonical_rig", icon="APPEND_BLEND")
+        canonical.label(
+            text=(
+                settings.canonical_armature.name
+                if settings.canonical_armature is not None
+                else "Loads automatically when rigging starts"
+            )
+        )
+        canonical.label(text="Forward +Y  |  Up +Z  |  Scale 1 m")
         row = layout.row(align=True)
         row.operator("sbf.analyze_canonical_rig", icon="ARMATURE_DATA")
         row.operator("sbf.write_rig_report", icon="TEXT")
@@ -809,6 +819,11 @@ class SBF_PT_bones(_SBF_PT_section, Panel):
             warnings.alert = settings.rig_validation_state == "FAILED"
             for message in settings.rig_blocking_warnings.split(" | ")[:4]:
                 warnings.label(text=message, icon="ERROR")
+
+        legacy = layout.box()
+        legacy.label(text="Legacy Y- Compatibility", icon="ERROR")
+        legacy.label(text="Static rigs only; save a copy before conversion")
+        legacy.operator("sbf.convert_legacy_yminus", icon="FILE_REFRESH")
 
 
 class SBF_PT_bone_binding(_SBF_PT_section, Panel):

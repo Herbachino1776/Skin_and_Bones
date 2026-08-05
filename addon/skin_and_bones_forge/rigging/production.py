@@ -19,6 +19,7 @@ from ..constants import (
     RIG_PRODUCTION_PROPERTY,
 )
 from .analysis import evaluated_points
+from .canonical import CANONICAL_BONE_MAPPING, apply_canonical_metadata
 from .deformation import (
     run_isolated_bone_forensics,
     scan_action_deformation,
@@ -66,8 +67,15 @@ def finalize_production_rig(target, armature, contract, pose_report, action_repo
         raise RuntimeError("Production weights must validate before finalization.")
     if pose_report.get("status") != "POSE_TESTS_PASSED":
         raise RuntimeError("Pose torture tests must pass before finalization.")
-    if action_report.get("status") != "CANONICAL_ACTIONS_PASSED":
-        raise RuntimeError("Canonical Action compatibility must pass before finalization.")
+    allowed_action_statuses = {
+        "CANONICAL_ACTIONS_PASSED",
+        "CANONICAL_ACTIONS_NOT_BUNDLED",
+    }
+    if action_report.get("status") not in allowed_action_statuses:
+        raise RuntimeError(
+            "Canonical Action compatibility or the rest-only action exemption "
+            "must pass before finalization."
+        )
     production_names = [bone["name"] for bone in contract["bones"]]
     if [bone.name for bone in armature.data.bones] != production_names:
         raise RuntimeError(
@@ -115,6 +123,7 @@ def finalize_production_rig(target, armature, contract, pose_report, action_repo
     target["sbf_rig_stage"] = "PRODUCTION"
     target["sbf_pose_test_status"] = pose_report["status"]
     target["sbf_canonical_action_status"] = action_report["status"]
+    apply_canonical_metadata(armature, target=target)
     production_actions = create_production_actions(armature, contract)
     armature["sbf_production_action_count"] = len(production_actions)
     armature["sbf_removed_finger_channel_count"] = sum(
@@ -192,6 +201,14 @@ def _rigging_manifest(
         ),
         "canonical_action_count": contract.get("source_action_count"),
         "canonical_nla_track_count": contract.get("source_nla_track_count"),
+        "canonical_rig_version": contract.get("rig_version"),
+        "rig_contract_version": contract.get("contract_version"),
+        "forward_axis": contract.get("forward_axis"),
+        "up_axis": contract.get("up_axis"),
+        "root_bone": contract.get("root_bone"),
+        "unit_scale_meters": contract.get("unit_scale_meters"),
+        "orientation_revision": contract.get("orientation_revision"),
+        "bone_mapping": CANONICAL_BONE_MAPPING,
         "production_profile": contract.get("profile_id"),
         "production_fingerprint": contract["fingerprint"],
         "production_bone_count": len(contract["bones"]),
@@ -420,6 +437,33 @@ def _validate_clean_reimport_in_process(
         expected_hierarchy = {
             bone["name"]: bone["parent"] for bone in contract["bones"]
         }
+        def world_bone(name):
+            bone = armature.data.bones.get(name)
+            if bone is None:
+                return None, None
+            return (
+                armature.matrix_world @ bone.head_local,
+                armature.matrix_world @ bone.tail_local,
+            )
+
+        foot_deltas = {}
+        for side in ("left", "right"):
+            head, tail = world_bone(f"leg_{side}_foot")
+            if head is not None:
+                foot_deltas[side] = float(tail.y - head.y)
+        left_hip, _left_tail = world_bone("leg_left_top")
+        right_hip, _right_tail = world_bone("leg_right_top")
+        root_head, root_tail = world_bone("root")
+        orientation_geometry_match = (
+            len(foot_deltas) == 2
+            and min(foot_deltas.values()) > 1.0e-5
+            and left_hip is not None
+            and right_hip is not None
+            and right_hip.x > left_hip.x
+            and root_head is not None
+            and root_tail.z > root_head.z
+            and armature.matrix_world.to_3x3().determinant() > 0.0
+        )
         pose_before = armature.data.pose_position
         armature.data.pose_position = "REST"
         context.view_layer.update()
@@ -481,6 +525,8 @@ def _validate_clean_reimport_in_process(
         # source Actions that cannot exist here.
         expected_action_names = canonical_expected_action_names(contract)
         expected_action_count = len(expected_action_names)
+        if expected_action_count == 0:
+            action_meaningful = True
         imported_action_names = sorted(
             {
                 production_action_semantic_name(action.name)
@@ -492,6 +538,14 @@ def _validate_clean_reimport_in_process(
             == contract.get("profile_id")
             and armature.get("sbf_production_fingerprint")
             == contract["fingerprint"]
+        )
+        orientation_metadata_match = (
+            armature.get("sbf_canonical_rig_version")
+            == contract.get("rig_version")
+            and armature.get("sbf_forward_axis")
+            == contract.get("forward_axis")
+            and armature.get("sbf_up_axis") == contract.get("up_axis")
+            and armature.get("sbf_root_bone") == contract.get("root_bone")
         )
         accepted = (
             names == expected_names
@@ -505,6 +559,8 @@ def _validate_clean_reimport_in_process(
             and imported_action_names == expected_action_names
             and not removed_action_channels
             and profile_metadata_match
+            and orientation_metadata_match
+            and orientation_geometry_match
             and abs(float(height) - expected_height)
             <= max(expected_height * 0.02, 1.0e-4)
             and action_safe
@@ -522,6 +578,22 @@ def _validate_clean_reimport_in_process(
             "production_profile": contract.get("profile_id"),
             "production_fingerprint": contract["fingerprint"],
             "profile_metadata_match": profile_metadata_match,
+            "orientation_metadata_match": orientation_metadata_match,
+            "orientation_geometry_match": orientation_geometry_match,
+            "foot_forward_y_deltas": {
+                side: round(value, 6)
+                for side, value in foot_deltas.items()
+            },
+            "right_minus_left_hip_x": (
+                round(float(right_hip.x - left_hip.x), 6)
+                if left_hip is not None and right_hip is not None
+                else None
+            ),
+            "canonical_rig_version": armature.get(
+                "sbf_canonical_rig_version", ""
+            ),
+            "forward_axis": armature.get("sbf_forward_axis", ""),
+            "up_axis": armature.get("sbf_up_axis", ""),
             "removed_finger_bones": sorted(removed_bones),
             "removed_finger_action_channels": removed_action_channels,
             "deform_bone_count": deform_count,

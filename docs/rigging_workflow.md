@@ -2,22 +2,24 @@
 
 ## Prepare
 
-Use Blender 5.1.2. Keep the known-good Animate Anything armature, its reference
-mesh, parent scale hierarchy, Actions, and NLA intact. Import the retextured
-SPAR3D GLB into the same working file. Set the production mesh as **Target
-Mesh** and the known-good armature as **Canonical Rig Source**.
+Use Blender 5.1.2 and set the production mesh as **Target Mesh**. Skin & Bones
+loads `assets/canonical_humanoid_yplus_v1.blend` automatically from the
+installed add-on. No external canonical GLB, source `.blend`, or absolute local
+path is required. **Load Bundled Canonical Rig** explicitly appends the same
+armature-only template for verification and reuses it on repeated execution.
 
-The source `.blend` remains the rest-skeleton authority. The exported rigged
-GLB is useful for external GLB compatibility inspection but does not override
-rest heads, tails, matrices, hierarchy, or bone names.
+The packaged asset and sibling contract manifest are the rest-skeleton
+authority. They contain the Townsman-derived 21-bone armature, no character
+mesh, and no Actions/NLA. See
+[canonical_humanoid_contract.md](canonical_humanoid_contract.md).
 
 ## Analyze
 
 Open **BONES 1. Build & Fit Skeleton**.
 
-1. Click **Analyze Canonical Rig**. The fingerprint covers stable rest data;
-   Actions and NLA are inventoried but excluded. Use **Write Rig Report** for
-   the JSON-compatible full report.
+1. Click **Analyze Canonical Rig**. It loads and verifies the bundled asset if
+   necessary. The fingerprint covers versioned axes and stable rest data. Use
+   **Write Rig Report** for the JSON-compatible full report.
 2. Confirm the existing Forward and Up axes describe the target, then click
    **Analyze Target Humanoid**.
 3. Review target height, connected-component/bone-heat warnings, and landmark
@@ -28,9 +30,9 @@ Open **BONES 1. Build & Fit Skeleton**.
 1. Click **Generate Landmark Preview** to create 18 cyan editable handles in
    `SBF_RigPreview`.
 2. Click **Fit Skeleton Preview**. The add-on duplicates the armature object
-   and data, removes animation/constraints from the duplicate, derives
-   `DSB_SIMPLE_HANDS_V1`, excludes verified finger descendants, fits the 21
-   remaining bone endpoints, and displays it in front. Exact retained names,
+   and data, removes animation from the duplicate, uses
+   `DSB_SIMPLE_HANDS_V1`, fits all 21 bone endpoints, and displays it in front.
+   Exact retained names,
    hierarchy, and deform flags remain intact.
 3. Move uncertain handles in Object mode. Click **Refit From Corrections** to
    serialize their world positions on the target and rebuild the preview.
@@ -46,11 +48,10 @@ by the animation gate.
 
 ## Simplified production hands
 
-The full canonical rig remains immutable and retains all 57 bones. The
-versioned production profile retains `arm_left_hand` and `arm_right_hand`,
-attached to their canonical forearm parents, while excluding all 36 verified
-thumb/finger descendants. No finger landmarks or hidden compatibility bones
-are created.
+The canonical asset is already the final 21-bone profile. It retains
+`arm_left_hand` and `arm_right_hand` attached to their forearm parents and has
+no finger descendants or hidden compatibility bones. The older 57-bone source
+derivation remains readable for legacy projects but is not packaged or needed.
 
 `RELAXED` is the default whole-hand alignment. `OPEN_MAGIC` and `GRIP_SHAFT`
 aim the singular hand bones for casting direction and weapon-shaft alignment;
@@ -111,16 +112,14 @@ Open **BONES 3. Test & Finalize Rig**.
 
 Run **Run Pose Torture Tests** followed by **Test Canonical Actions**. The first
 operation evaluates every retained production bone around all three local axes
-and removes its owned test Action. The second evaluates every frame of all five
-canonical fixtures through Blender 5 Action slots.
-Owned copies remove only channels targeting excluded finger bones, then scale
-remaining pose-bone location channels by fitted/source rest length. Frame
-ranges, markers, interpolation, non-finger channels, source Actions, and source
-NLA tracks remain unchanged.
+and removes its owned test Action. The second records
+`CANONICAL_ACTIONS_NOT_BUNDLED` for this rest-only asset; that is an accepted
+finalization state, not a skipped structural test. Animation Forge owns idle,
+walk, hurt, and death Action generation.
 
 When both pass, use **Finalize Production Rig**. This removes landmark/preview
-helpers, names the armature `SBF_ProductionRig`, creates five owned
-production-compatible Actions/NLA tracks, and retains rigging metadata.
+helpers, names the armature `SBF_ProductionRig`, and retains the versioned
+rig/axis/bone-map metadata. It does not create an animation library.
 
 ## Export and compatibility acceptance
 
@@ -130,7 +129,8 @@ All output fields default under `E:\Skin_And_Bones_Exports`: `Textures`,
 `Blender`, `GLB`, `Rigged_GLB`, `Proof_Renders`, and `Reports`. Directories are
 created when an export is written; changing a field remains supported.
 
-Set **Rigged GLB**, leave **Export Filtered Actions** enabled when desired,
+Set **Rigged GLB**, enable **Export Filtered Actions** only when the working
+character already has intentionally authored Actions,
 and click **Export Rigged GLB**. The adjacent `.sbf.json` manifest records the
 fingerprint, binding/component statistics, pose/Action results, delivery
 results, and the deferred hand-aesthetics warning. Export also restores the
@@ -138,10 +138,15 @@ authoritative source weights onto every UV/normal-split GLB vertex and blocks
 if even one exported position cannot be mapped safely.
 
 Then run **Validate Clean Reimport**. It verifies the exact simplified bone
-list and hierarchy, 21 deform bones, no removed finger Action channels, one
-skinned mesh and Armature relationship, materials/textures, both UV maps, five
-Actions, height/bounds, identical weights at coincident split seams, and
-meaningful finite deformation with zero seam opening across every Action.
+list and hierarchy, 21 deform bones, +Y foot/root geometry, versioned axis
+metadata, one skinned mesh and Armature relationship, materials/textures, UV
+maps, height/bounds, identical weights at coincident split seams, and finite
+isolated-bone deformation. Zero Actions is correct for a rest-only delivery.
+
+For an existing static Y- project, **Convert Legacy Y- Character** rotates the
+armature rest data and all bound mesh/shape-key coordinates exactly once and
+adds current metadata. It refuses unknown rigs and any rig with Actions/NLA;
+animated legacy migration belongs in Animation Forge.
 
 Finally set the local Dreadstone Animation Forge package directory and run
 **Run Animation Forge Acceptance**. The add-on launches a factory-clean Blender
@@ -149,8 +154,10 @@ Finally set the local Dreadstone Animation Forge package directory and run
 calls its actual `daf.analyze`, `daf.walk`, and `daf.hurt_left` operators.
 `ANIMATION_FORGE_ACCEPTED` requires the Animate Anything body/limb profile, a
 skinned mesh, resolved hierarchy, required body/arm/forearm/hand mappings,
-accepted filtered Actions, the real mapping report, and safe all-frame walk
-and hurt deformation. Finger equality is intentionally not required.
+the real mapping report, and safe all-frame walk and hurt deformation. A
+rest-only zero-Action delivery is valid; if source Actions are present, every
+channel must resolve on the production rig. Finger equality is intentionally
+not required.
 
 **Clean Temporary Rigging Data** removes only owned donor, proxy, and temporary
 test data. It does not delete the finalized production rig.
