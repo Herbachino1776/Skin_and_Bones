@@ -27,6 +27,7 @@ from ..rigging.landmarks import (
     apply_saved_corrections,
     estimate_projection_landmarks,
 )
+from ..variants.runtime import image_name_for_settings, stamp_image_owner
 from .alignment import _alpha_bounds
 from .body_alignment import (
     ARTICULATED_WARP_PARTS,
@@ -195,7 +196,9 @@ def process_source_plate(settings, view_name, *, force=False):
         raise RuntimeError("Source Plate Doctor changed the original alpha values.")
 
     clean = _owned_image(
-        f"{SOURCE_CLEAN_PREFIX}{view_name.upper()}",
+        image_name_for_settings(
+            settings, f"{SOURCE_CLEAN_PREFIX}{view_name.upper()}"
+        ),
         width,
         height,
         original,
@@ -206,10 +209,13 @@ def process_source_plate(settings, view_name, *, force=False):
     clean["sbf_doctor_fingerprint"] = fingerprint
     clean["sbf_doctor_metrics"] = _stable_json(result["diagnostics"])
     clean["sbf_runtime_session"] = _RUNTIME_SESSION_TOKEN
+    stamp_image_owner(settings, clean)
     clean.update()
 
     diagnostic = _owned_image(
-        f"{SOURCE_DIAGNOSTIC_PREFIX}{view_name.upper()}",
+        image_name_for_settings(
+            settings, f"{SOURCE_DIAGNOSTIC_PREFIX}{view_name.upper()}"
+        ),
         width,
         height,
         original,
@@ -220,10 +226,13 @@ def process_source_plate(settings, view_name, *, force=False):
     )
     diagnostic.pixels.foreach_set(diagnostic_pixels.reshape(-1))
     diagnostic["sbf_original_image"] = original.name
+    stamp_image_owner(settings, diagnostic)
     diagnostic.update()
 
     confidence = _owned_image(
-        f"{SOURCE_CONFIDENCE_PREFIX}{view_name.upper()}",
+        image_name_for_settings(
+            settings, f"{SOURCE_CONFIDENCE_PREFIX}{view_name.upper()}"
+        ),
         width,
         height,
         original,
@@ -236,6 +245,7 @@ def process_source_plate(settings, view_name, *, force=False):
     confidence["sbf_original_image"] = original.name
     confidence["sbf_doctor_fingerprint"] = fingerprint
     confidence["sbf_runtime_session"] = _RUNTIME_SESSION_TOKEN
+    stamp_image_owner(settings, confidence)
     confidence.update()
 
     view.cleaned_image = clean
@@ -612,7 +622,9 @@ def generate_warped_sources(context, settings, view_name=None):
                 f"{name} processed source is transparent; projection preview cancelled."
             )
         image = _owned_image(
-            f"{SOURCE_WARP_PREFIX}{name.upper()}_CONTINUOUS",
+            image_name_for_settings(
+                settings, f"{SOURCE_WARP_PREFIX}{name.upper()}_CONTINUOUS"
+            ),
             width,
             height,
             clean,
@@ -624,6 +636,7 @@ def generate_warped_sources(context, settings, view_name=None):
         image["sbf_warp_fingerprint"] = fingerprint
         image["sbf_processed_source_schema"] = WARP_ATLAS_SCHEMA
         image["sbf_runtime_session"] = _RUNTIME_SESSION_TOKEN
+        stamp_image_owner(settings, image)
         image.update()
         view.warp_images_json = _stable_json(
             {
@@ -896,7 +909,11 @@ def restore_original_source(settings, view_name):
     for image in (
         view.cleaned_image,
         view.source_confidence_image,
-        bpy.data.images.get(f"{SOURCE_DIAGNOSTIC_PREFIX}{view_name.upper()}"),
+        bpy.data.images.get(
+            image_name_for_settings(
+                settings, f"{SOURCE_DIAGNOSTIC_PREFIX}{view_name.upper()}"
+            )
+        ),
     ):
         if image is not None and image.get(SOURCE_OWNER_PROPERTY, False):
             bpy.data.images.remove(image, do_unlink=True)

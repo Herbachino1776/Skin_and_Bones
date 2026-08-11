@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "addon" / "skin_and_bones_forge"
-EXPECTED_VERSION = (2, 1, 0)
+EXPECTED_VERSION = (2, 2, 0)
 EXPECTED_BLENDER = (5, 1, 2)
 REQUIRED_FILES = (
     PACKAGE / "__init__.py",
@@ -28,6 +28,7 @@ REQUIRED_FILES = (
     PACKAGE / "export" / "core.py",
     PACKAGE / "operators" / "workflow.py",
     PACKAGE / "operators" / "texture_repair.py",
+    PACKAGE / "operators" / "variants.py",
     PACKAGE / "panels" / "main_panel.py",
     PACKAGE / "projection" / "core.py",
     PACKAGE / "projection" / "material.py",
@@ -54,6 +55,9 @@ REQUIRED_FILES = (
     PACKAGE / "operators" / "rigging.py",
     PACKAGE / "operators" / "source_doctor.py",
     PACKAGE / "validation" / "core.py",
+    PACKAGE / "variants" / "__init__.py",
+    PACKAGE / "variants" / "model.py",
+    PACKAGE / "variants" / "runtime.py",
     PACKAGE / "assets" / "canonical_humanoid_yplus_v1.blend",
     PACKAGE / "assets" / "canonical_humanoid_yplus_v1.contract.json",
 )

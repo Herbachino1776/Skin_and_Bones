@@ -1,5 +1,24 @@
 # Troubleshooting
 
+## Appearance family is stale or approval disappeared
+
+**STALE / INCOMPATIBLE** means the current production mesh ID, ordered
+topology/vertices, UV contract, canonical/production rig rest data, weights,
+transform/scale, or coordinate axes no longer match the family fingerprint.
+Click **Validate Shared Technical Body** after reverting an accidental change.
+If the body was intentionally changed, do not force the old approvals back;
+adopt the changed character as a new family and rebake its appearances.
+
+An individual variant becomes **DIRTY** when its source, calibration, bake,
+repair composite, repair pixels, or committed Blender paint changes. Re-run
+delivery diagnostics and click **APPROVE VARIANT** again. Export also hashes the
+actual source and repair image pixels, so native image edits that bypass a UI
+callback are still detected before delivery.
+
+If **Export New GLB** or the ordinary Bones exporter redirects you, use
+**Appearance Variants > EXPORT ACTIVE** or **EXPORT APPROVED**. Those paths use
+the same rigged exporter while adding the required family handoff record.
+
 ## Source Plate Doctor or body alignment blocks preview
 
 - `STALE` means a source, Doctor setting, or body landmark changed. Run

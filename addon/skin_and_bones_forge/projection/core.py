@@ -114,6 +114,13 @@ def _remove_datablock_if_unused(datablock_collection, datablock):
 def cleanup_temporary_data(context, target=None, production_material=None):
     """Restore production state and remove add-on-owned temporary datablocks."""
 
+    settings = getattr(context.scene, "sbf_settings", None)
+    active_variant_id = (
+        getattr(settings, "appearance_loaded_variant_id", "")
+        if settings is not None
+        else ""
+    )
+
     if target is not None and target.type == "MESH":
         original_name = target.get(ORIGINAL_MATERIAL_PROPERTY, "")
         slot_index = int(target.get(ORIGINAL_SLOT_PROPERTY, -1))
@@ -168,8 +175,14 @@ def cleanup_temporary_data(context, target=None, production_material=None):
             bpy.data.materials.remove(material, do_unlink=True)
 
     for image in list(bpy.data.images):
-        if image.get(SOURCE_OWNER_PROPERTY, False) and image.get(
-            TEMPORARY_PROPERTY, False
+        image_variant_id = image.get("sbf_appearance_variant_id", "")
+        owned_active_variant = (
+            not image_variant_id or image_variant_id == active_variant_id
+        )
+        if (
+            image.get(SOURCE_OWNER_PROPERTY, False)
+            and image.get(TEMPORARY_PROPERTY, False)
+            and owned_active_variant
         ):
             bpy.data.images.remove(image, do_unlink=True)
 

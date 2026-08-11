@@ -58,6 +58,23 @@ python scripts/build_release.py
 The release ZIP must contain a single top-level `skin_and_bones_forge/`
 package, the canonical `.blend`/manifest assets, and no `__pycache__`.
 
+Run the synthetic Appearance Variant Family regression in Blender 5.1.2:
+
+```powershell
+E:\Blender\blender.exe --background --factory-startup `
+  --python scripts\run_appearance_variants_runtime_test.py -- `
+  --forge-repo E:\DeVForge\dreadstone_animation_forge
+```
+
+It proves three source/final-image states switch on one mesh/armature/weight
+set, approval becomes dirty after edits, weight changes stale compatibility,
+variant deletion preserves the shared technical body, packed images and active
+selection survive save/reopen, two approved rigged GLBs and manifests carry
+distinct appearance IDs under one family fingerprint, and the current
+Animation Forge analyzer accepts the canonical export. Omit `--forge-repo`
+when that separate checkout is unavailable; only the downstream acceptance
+step is skipped.
+
 ## Canonical Y+ runtime and release checks
 
 Run the factory-clean bundled-asset/idempotence regression:
@@ -98,7 +115,7 @@ transaction rollback, re-bake preservation/invalidation, preview/data leak
 safety, delivery gates, packed PNG output, and byte-identical GLB embedding.
 
 Every push to `main` runs these static checks on GitHub Actions and uploads
-`Skin_and_Bones_Forge_v2.1.0` as a 30-day workflow artifact.
+`Skin_and_Bones_Forge_v2.2.0` as a 30-day workflow artifact.
 
 To exercise texture projection and baking on the exact-welded production mesh,
 run the Blender harness directly with `--prepare-spar3d`. The ordinary wrapper

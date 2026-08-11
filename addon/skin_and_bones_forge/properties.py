@@ -6,6 +6,7 @@ import bpy
 from bpy.props import (
     BoolProperty,
     BoolVectorProperty,
+    CollectionProperty,
     EnumProperty,
     FloatProperty,
     FloatVectorProperty,
@@ -42,6 +43,38 @@ SOURCE_VIEW_ITEMS = tuple(
 )
 
 
+def _mark_appearance_changed(context, reason):
+    if context is None or context.scene is None:
+        return
+    settings = getattr(context.scene, "sbf_settings", None)
+    if settings is None or getattr(settings, "appearance_syncing", False):
+        return
+    try:
+        from .variants.runtime import mark_active_variant_dirty
+
+        mark_active_variant_dirty(settings, reason)
+    except (AttributeError, ReferenceError, RuntimeError):
+        return
+
+
+def _switch_active_variant(_settings, context):
+    if context is None or context.scene is None:
+        return
+    settings = getattr(context.scene, "sbf_settings", None)
+    if settings is None or settings.appearance_syncing:
+        return
+    try:
+        from .variants.runtime import switch_active_variant
+
+        switch_active_variant(context.scene, context)
+    except (AttributeError, ReferenceError, RuntimeError, ValueError):
+        return
+
+
+def _mark_appearance_only(_settings, context):
+    _mark_appearance_changed(context, "Projection or appearance setting changed")
+
+
 def _mesh_object_poll(_self, obj):
     return obj is not None and obj.type == "MESH"
 
@@ -53,6 +86,7 @@ def _armature_object_poll(_self, obj):
 def _update_view_preview(view, context):
     """Push inexpensive source-view edits into an existing preview material."""
 
+    _mark_appearance_changed(context, "Projection view setting changed")
     if context is None or context.scene is None:
         return
     settings = getattr(context.scene, "sbf_settings", None)
@@ -69,6 +103,7 @@ def _update_view_preview(view, context):
 
 
 def _update_view_image(view, context):
+    _mark_appearance_changed(context, "Projection source changed")
     if (
         view.image is not None
         and view.landmark_image_name
@@ -112,6 +147,7 @@ def _update_view_image(view, context):
 
 
 def _update_all_preview_views(_settings, context):
+    _mark_appearance_changed(context, "Projection blend setting changed")
     if context is None or context.scene is None:
         return
     settings = getattr(context.scene, "sbf_settings", None)
@@ -126,6 +162,7 @@ def _update_all_preview_views(_settings, context):
 
 
 def _invalidate_doctor_settings(_settings, context):
+    _mark_appearance_changed(context, "Source processing setting changed")
     if context is None or context.scene is None:
         return
     settings = getattr(context.scene, "sbf_settings", None)
@@ -144,6 +181,7 @@ def _invalidate_doctor_settings(_settings, context):
 
 
 def _update_repair_composite(_settings, context):
+    _mark_appearance_changed(context, "Texture repair composite changed")
     if context is None or context.scene is None:
         return
     settings = getattr(context.scene, "sbf_settings", None)
@@ -407,7 +445,86 @@ class SBFViewSettings(PropertyGroup):
         soft_max=2.0,
         update=_update_view_preview,
     )
-    occlusion: BoolProperty(name="Occlusion", default=True)
+    occlusion: BoolProperty(
+        name="Occlusion", default=True, update=_update_view_preview
+    )
+
+
+class SBFAppearanceViewState(PropertyGroup):
+    """Persistent source/calibration snapshot for one variant view."""
+
+    view_name: StringProperty(default="", options={"HIDDEN"})
+    state_json: StringProperty(default="{}", options={"HIDDEN"})
+    source_image: PointerProperty(type=Image, options={"HIDDEN"})
+    cleaned_image: PointerProperty(type=Image, options={"HIDDEN"})
+    confidence_image: PointerProperty(type=Image, options={"HIDDEN"})
+
+
+class SBFAppearanceVariant(PropertyGroup):
+    """Appearance-owned state; never owns a mesh, armature, or weights."""
+
+    variant_id: StringProperty(default="", options={"HIDDEN"})
+    display_name: StringProperty(name="Appearance", default="Appearance")
+    export_name: StringProperty(name="Export Identity", default="appearance")
+    artist_notes: StringProperty(name="Artist Notes", default="")
+    approval_state: EnumProperty(
+        name="Approval",
+        items=(
+            ("UNAPPROVED", "Unapproved", "This appearance is not approved"),
+            ("DIRTY", "Dirty", "Appearance changed after approval"),
+            ("APPROVED", "Approved", "Current appearance is approved"),
+            (
+                "STALE",
+                "Stale",
+                "Shared technical-body compatibility no longer matches",
+            ),
+        ),
+        default="UNAPPROVED",
+    )
+    technical_state: EnumProperty(
+        name="Technical Body",
+        items=(
+            ("VALID", "Shared / Valid", "Shared technical body is compatible"),
+            ("STALE", "Stale / Incompatible", "Technical body changed"),
+        ),
+        default="VALID",
+    )
+    bake_state: EnumProperty(
+        name="Bake",
+        items=(
+            ("NOT_BAKED", "Not Baked", "No variant-owned final bake exists"),
+            ("READY", "Ready", "Variant-owned final bake exists"),
+        ),
+        default="NOT_BAKED",
+    )
+    repair_state: EnumProperty(
+        name="Repair",
+        items=(
+            ("CLEAN", "Clean", "No unresolved blocking repair state"),
+            ("NEEDS_REVIEW", "Needs Review", "Repair diagnostics need review"),
+        ),
+        default="CLEAN",
+    )
+    dirty: BoolProperty(default=True, options={"HIDDEN"})
+    dirty_reason: StringProperty(default="New appearance", options={"HIDDEN"})
+    revision: IntProperty(default=1, min=1, options={"HIDDEN"})
+    approved_revision: IntProperty(default=0, min=0, options={"HIDDEN"})
+    approval_fingerprint: StringProperty(default="", options={"HIDDEN"})
+    approved_at_utc: StringProperty(default="", options={"HIDDEN"})
+    bake_output_path: StringProperty(default="", options={"HIDDEN"})
+    last_export_path: StringProperty(default="", options={"HIDDEN"})
+    diagnostics_json: StringProperty(default="{}", options={"HIDDEN"})
+    state_json: StringProperty(default="{}", options={"HIDDEN"})
+    target_state_json: StringProperty(default="{}", options={"HIDDEN"})
+    views: CollectionProperty(type=SBFAppearanceViewState)
+    baked_image: PointerProperty(type=Image, options={"HIDDEN"})
+    correction_image: PointerProperty(type=Image, options={"HIDDEN"})
+    mask_image: PointerProperty(type=Image, options={"HIDDEN"})
+    final_image: PointerProperty(type=Image, options={"HIDDEN"})
+    classification_image: PointerProperty(type=Image, options={"HIDDEN"})
+    target_mask_image: PointerProperty(type=Image, options={"HIDDEN"})
+    donor_mask_image: PointerProperty(type=Image, options={"HIDDEN"})
+    forbidden_mask_image: PointerProperty(type=Image, options={"HIDDEN"})
 
 
 class SBFSettings(PropertyGroup):
@@ -476,6 +593,46 @@ class SBFSettings(PropertyGroup):
     base_color_node: StringProperty(name="Base Color Node", default="")
     normal_map_node: StringProperty(name="Normal Map Node", default="")
 
+    appearance_family_schema: IntProperty(default=1, options={"HIDDEN"})
+    appearance_family_id: StringProperty(default="", options={"HIDDEN"})
+    appearance_family_name: StringProperty(
+        name="Family Name",
+        default="",
+    )
+    appearance_family_status: EnumProperty(
+        name="Technical Body",
+        items=(
+            ("NONE", "No Family", "No appearance family has been created"),
+            ("VALID", "Shared / Valid", "Technical body matches the family"),
+            ("STALE", "Stale / Incompatible", "Technical body changed"),
+        ),
+        default="NONE",
+    )
+    appearance_technical_body_fingerprint: StringProperty(
+        name="Technical Fingerprint",
+        default="",
+        options={"HIDDEN"},
+    )
+    appearance_technical_body_json: StringProperty(
+        default="{}", options={"HIDDEN"}
+    )
+    appearance_variants: CollectionProperty(type=SBFAppearanceVariant)
+    active_variant_index: IntProperty(
+        name="Active Appearance",
+        default=0,
+        min=0,
+        update=_switch_active_variant,
+    )
+    appearance_loaded_variant_id: StringProperty(
+        default="", options={"HIDDEN"}
+    )
+    appearance_syncing: BoolProperty(default=False, options={"HIDDEN"})
+    appearance_export_directory: StringProperty(
+        name="Appearance Export Folder",
+        subtype="DIR_PATH",
+        default=EXPORT_RIGGED_GLB_DIR + "\\Appearance_Variants\\",
+    )
+
     forward_axis: EnumProperty(
         name="Forward Axis",
         description="Outward direction of the character's front",
@@ -501,6 +658,7 @@ class SBFSettings(PropertyGroup):
         default=0.90,
         min=0.25,
         max=1.25,
+        update=_mark_appearance_only,
     )
     show_projection_cameras: BoolProperty(
         name="Show Projection Cameras",
@@ -610,6 +768,7 @@ class SBFSettings(PropertyGroup):
         default=4.0,
         min=0.25,
         max=16.0,
+        update=_mark_appearance_only,
     )
     minimum_weight: FloatProperty(
         name="Minimum Weight",
@@ -617,24 +776,28 @@ class SBFSettings(PropertyGroup):
         min=0.0,
         max=0.1,
         precision=4,
+        update=_mark_appearance_only,
     )
     lower_front_back_bias: FloatProperty(
         name="Lower Front/Back",
         default=3.0,
         min=0.0,
         max=100.0,
+        update=_mark_appearance_only,
     )
     upper_front_back_bias: FloatProperty(
         name="Upper Front/Back",
         default=10.0,
         min=0.0,
         max=100.0,
+        update=_mark_appearance_only,
     )
     head_front_back_bias: FloatProperty(
         name="Head Front/Back",
         default=10.0,
         min=0.0,
         max=200.0,
+        update=_mark_appearance_only,
     )
     head_identity_lock: BoolProperty(
         name="Identity-Safe Head Blend",
@@ -643,6 +806,7 @@ class SBFSettings(PropertyGroup):
             "aligned sources transition without duplicate faces or hard seams"
         ),
         default=True,
+        update=_mark_appearance_only,
     )
     head_blend_sharpness: FloatProperty(
         name="Head Blend Sharpness",
@@ -677,12 +841,14 @@ class SBFSettings(PropertyGroup):
         max=0.2,
         soft_max=0.08,
         precision=3,
+        update=_mark_appearance_only,
     )
     side_bias: FloatProperty(
         name="Side Bias",
         default=1.0,
         min=0.0,
         max=20.0,
+        update=_mark_appearance_only,
     )
     upper_threshold: FloatProperty(
         name="Upper Threshold",
@@ -690,6 +856,7 @@ class SBFSettings(PropertyGroup):
         min=0.0,
         max=1.0,
         subtype="FACTOR",
+        update=_mark_appearance_only,
     )
     head_threshold: FloatProperty(
         name="Head Threshold",
@@ -697,12 +864,14 @@ class SBFSettings(PropertyGroup):
         min=0.0,
         max=1.0,
         subtype="FACTOR",
+        update=_mark_appearance_only,
     )
     top_surface_coverage: FloatProperty(
         name="Top Coverage",
         default=0.90,
         min=0.0,
         max=2.0,
+        update=_mark_appearance_only,
     )
     fallback_threshold: FloatProperty(
         name="Fallback Threshold",
@@ -710,12 +879,14 @@ class SBFSettings(PropertyGroup):
         min=0.0,
         max=1.0,
         precision=3,
+        update=_mark_appearance_only,
     )
 
     occlusion_protection: BoolProperty(
         name="Occlusion Protection",
         description="Reject source views when the target point is not the first surface hit",
         default=True,
+        update=_mark_appearance_only,
     )
     visibility_method: EnumProperty(
         name="Visibility Method",
@@ -727,6 +898,7 @@ class SBFSettings(PropertyGroup):
             ),
         ),
         default="RAY_CAST",
+        update=_mark_appearance_only,
     )
     visibility_samples: EnumProperty(
         name="Visibility Samples",
@@ -739,6 +911,7 @@ class SBFSettings(PropertyGroup):
             ),
         ),
         default="CENTER_VERTEX",
+        update=_mark_appearance_only,
     )
     depth_tolerance_factor: FloatProperty(
         name="Depth Tolerance",
@@ -747,6 +920,7 @@ class SBFSettings(PropertyGroup):
         min=0.00001,
         max=0.05,
         precision=5,
+        update=_mark_appearance_only,
     )
     occlusion_feather: FloatProperty(
         name="Occlusion Feather",
@@ -754,6 +928,7 @@ class SBFSettings(PropertyGroup):
         default=0.25,
         min=0.0,
         max=4.0,
+        update=_mark_appearance_only,
     )
 
     texture_size: EnumProperty(
@@ -765,8 +940,15 @@ class SBFSettings(PropertyGroup):
             ("8192", "8192", "8192 x 8192"),
         ),
         default="4096",
+        update=_mark_appearance_only,
     )
-    bake_margin: IntProperty(name="Bake Margin", default=24, min=0, max=256)
+    bake_margin: IntProperty(
+        name="Bake Margin",
+        default=24,
+        min=0,
+        max=256,
+        update=_mark_appearance_only,
+    )
     generate_bake_uv: BoolProperty(
         name="Clean Base-Color UV",
         description=(
@@ -775,6 +957,7 @@ class SBFSettings(PropertyGroup):
             "the original UV assigned to normal and other maps"
         ),
         default=True,
+        update=_mark_appearance_only,
     )
     roughness: FloatProperty(
         name="Roughness",
@@ -1278,7 +1461,12 @@ class SBFSettings(PropertyGroup):
     )
 
 
-PROPERTY_CLASSES = (SBFViewSettings, SBFSettings)
+PROPERTY_CLASSES = (
+    SBFViewSettings,
+    SBFAppearanceViewState,
+    SBFAppearanceVariant,
+    SBFSettings,
+)
 
 
 def register():

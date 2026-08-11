@@ -28,6 +28,10 @@ from ..baking.repair_service import (
 )
 from ..projection import view_directions, world_bounds
 from ..validation import ValidationError, validate_target
+from ..variants.runtime import (
+    mark_active_variant_dirty,
+    sync_variant_from_settings,
+)
 
 
 def _settings(context):
@@ -41,6 +45,11 @@ def _fail(operator, settings, exc):
     settings.status_message = f"Texture Repair: {message}"
     operator.report({"ERROR"}, message)
     return {"CANCELLED"}
+
+
+def _variant_changed(settings, reason):
+    mark_active_variant_dirty(settings, reason)
+    sync_variant_from_settings(settings)
 
 
 def _require_repair(context):
@@ -130,6 +139,7 @@ class SBF_OT_texture_repair_set_source(Operator):
                 if sample is None:
                     raise RuntimeError("Click directly on the active target mesh.")
                 set_clone_source(settings, sample)
+                _variant_changed(settings, "Texture repair source changed")
                 context.window.cursor_modal_restore()
                 self.report({"INFO"}, settings.repair_source_status)
                 return {"FINISHED"}
@@ -233,6 +243,7 @@ class SBF_OT_texture_repair_paint(Operator):
                 result = apply_repair_strokes(
                     info, settings, clone_source(settings), self._samples
                 )
+                _variant_changed(settings, "Texture repair stroke applied")
                 context.window.cursor_modal_restore()
                 self.report(
                     {"INFO"},
@@ -255,6 +266,7 @@ class SBF_OT_texture_smart_fill(Operator):
         try:
             info, settings = _require_repair(context)
             metrics = smart_fill(info, settings)
+            _variant_changed(settings, "Texture smart fill changed the appearance")
             self.report(
                 {"INFO"},
                 f"Filled {metrics['filled']:,}; unresolved {metrics['unresolved']:,}.",
@@ -273,6 +285,7 @@ class SBF_OT_texture_detect_seams(Operator):
         try:
             info, settings = _require_repair(context)
             detect_color_seams(info, settings)
+            _variant_changed(settings, "Texture seam diagnostics changed")
             self.report({"INFO"}, settings.repair_status)
             return {"FINISHED"}
         except (ValidationError, RuntimeError, ValueError) as exc:
@@ -290,6 +303,7 @@ class SBF_OT_texture_heal_seams(Operator):
         try:
             info, settings = _require_repair(context)
             heal_seams(info, settings, all_safe=self.all_safe)
+            _variant_changed(settings, "Texture seams were repaired")
             self.report({"INFO"}, settings.repair_status)
             return {"FINISHED"}
         except (ValidationError, RuntimeError, ValueError) as exc:
@@ -307,6 +321,7 @@ class SBF_OT_texture_clear(Operator):
         try:
             info, settings = _require_repair(context)
             clear_repairs(info, settings, selected=self.selected)
+            _variant_changed(settings, "Texture repairs were cleared")
             self.report({"INFO"}, settings.repair_status)
             return {"FINISHED"}
         except (ValidationError, RuntimeError, ValueError) as exc:
@@ -326,6 +341,7 @@ class SBF_OT_texture_commit_final(Operator):
         try:
             info, settings = _require_repair(context)
             _image, path, metrics = commit_final_base_color(info, settings)
+            _variant_changed(settings, "Final base color was committed")
             settings.status_message = f"Committed final base color: {path}"
             self.report(
                 {"INFO"},

@@ -371,7 +371,8 @@ class RiggingStaticTests(unittest.TestCase):
         source = (RIGGING / "acceptance_runner.py").read_text(encoding="utf-8")
         self.assertIn("bpy.ops.daf.analyze()", source)
         self.assertIn("module.map_bones", source)
-        self.assertIn("module.detect_animate_anything_profile", source)
+        self.assertIn("detect_canonical_humanoid_profile", source)
+        self.assertIn("detect_animate_anything_profile", source)
 
     def test_animation_forge_generates_and_scans_real_drafts(self):
         source = (RIGGING / "acceptance_runner.py").read_text(encoding="utf-8")

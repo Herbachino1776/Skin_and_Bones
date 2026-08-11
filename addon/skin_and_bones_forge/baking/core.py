@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 
 import bpy
 import bmesh
@@ -23,14 +22,17 @@ from ..projection.source_processing import (
     validate_preview_source_parity,
 )
 from ..projection.body_alignment import BODY_PARTS
+from ..variants.runtime import (
+    active_variant,
+    adopt_initial_bake_uv,
+    mark_active_variant_dirty,
+    sync_variant_from_settings,
+    variant_texture_path,
+)
 from .repair_service import (
     begin_repair_session,
     validate_repair_name_availability,
 )
-
-
-def _absolute_path(path_value):
-    return Path(bpy.path.abspath(path_value)).resolve()
 
 
 def _set_material_output_values(info, settings):
@@ -404,7 +406,7 @@ def bake_final_texture(context, info, settings):
         if node.name.startswith("SBF_BakeTarget"):
             nodes.remove(node)
 
-    output_path = _absolute_path(settings.output_image_path)
+    output_path = variant_texture_path(settings, settings.output_image_path)
     original_path = info.original_base_image.filepath
     original_is_owned_repair = info.original_base_image.get(
         "sbf_texture_repair_owned", False
@@ -424,7 +426,7 @@ def bake_final_texture(context, info, settings):
                 "Choose a new path or explicitly enable Allow Source Overwrite."
             )
 
-    validate_repair_name_availability()
+    validate_repair_name_availability(settings)
     size = int(settings.texture_size)
     image_name = f"SBF_BaseColor_BakeWork_{target.name}_{size}"
     baked_image = bpy.data.images.new(
@@ -534,4 +536,10 @@ def bake_final_texture(context, info, settings):
 
     cleanup_temporary_data(context, target, info.material)
     cleanup_warped_sources(settings)
+    variant = active_variant(settings)
+    if variant is not None:
+        variant.bake_output_path = str(output_path)
+        mark_active_variant_dirty(settings, "Appearance was baked or rebaked")
+        adopt_initial_bake_uv(settings)
+        sync_variant_from_settings(settings, variant)
     return final_image, output_path

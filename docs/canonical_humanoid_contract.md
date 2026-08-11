@@ -2,7 +2,7 @@
 
 ## Authority and identification
 
-Skin & Bones Forge 2.1.0 packages the armature-only Blender asset
+Skin & Bones Forge 2.2.0 packages the armature-only Blender asset
 `skin_and_bones_forge/assets/canonical_humanoid_yplus_v1.blend` and the sibling
 `canonical_humanoid_yplus_v1.contract.json`. The asset contains exactly one
 armature named `SBF_CanonicalHumanoid_YPlus_V1`, 21 deform bones, no mesh, no

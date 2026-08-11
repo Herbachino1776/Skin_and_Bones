@@ -81,7 +81,15 @@ try:
     bpy.context.view_layer.objects.active = armature
     operator_result = bpy.ops.daf.analyze()
     mapping = module.map_bones(armature, bpy.context.scene.daf_settings)
-    exact_profile = bool(module.detect_animate_anything_profile(armature))
+    profile_detector = getattr(
+        module, "detect_canonical_humanoid_profile", None
+    ) or getattr(module, "detect_animate_anything_profile", None)
+    if profile_detector is None:
+        raise RuntimeError(
+            "Animation Forge exposes no canonical humanoid profile detector."
+        )
+    exact_profile = bool(profile_detector(armature))
+    profile_detector_name = profile_detector.__name__
     required = {
         "hips",
         "thigh_l",
@@ -171,6 +179,7 @@ try:
             for modifier in mesh.modifiers
         ),
         "exact_animate_anything_profile": exact_profile,
+        "canonical_profile_detector": profile_detector_name,
         "mapping": dict(sorted(mapping.items())),
         "missing_required_roles": missing,
         "required_simplified_roles": sorted(required),

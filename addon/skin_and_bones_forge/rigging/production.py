@@ -181,6 +181,7 @@ def _rigging_manifest(
     contract,
     settings,
     weight_report,
+    appearance_handoff=None,
 ):
     def load(name):
         raw = getattr(settings, name, "")
@@ -253,6 +254,8 @@ def _rigging_manifest(
         ),
         "weight_report": weight_report,
     }
+    if appearance_handoff:
+        payload["appearance_family"] = appearance_handoff
     manifest_path = path.with_suffix(path.suffix + ".sbf.json")
     manifest_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
@@ -287,11 +290,16 @@ def export_rigged_glb(
     armature,
     contract,
     settings,
+    *,
+    output_path=None,
+    appearance_handoff=None,
 ):
     weight_report = load_weight_report(target)
     if weight_report is None or weight_report["status"] == "FAILED":
         raise RuntimeError("Validate production weights before rigged export.")
-    output = Path(bpy.path.abspath(settings.rigged_export_glb_path)).resolve()
+    output = Path(
+        bpy.path.abspath(str(output_path or settings.rigged_export_glb_path))
+    ).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary_output = output.with_name(
         f"{output.stem}.sbf-export.tmp{output.suffix}"
@@ -301,7 +309,31 @@ def export_rigged_glb(
     selected = list(context.selected_objects)
     active = context.view_layer.objects.active
     state = _animation_state(armature, context.scene)
+    appearance_keys = (
+        "sbf_appearance_family_handoff",
+        "sbf_appearance_family_id",
+        "sbf_appearance_variant_id",
+        "sbf_technical_body_fingerprint",
+    )
+    appearance_before = {
+        obj: {
+            key: (key in obj, obj.get(key))
+            for key in appearance_keys
+        }
+        for obj in (target, armature)
+    }
     try:
+        if appearance_handoff:
+            encoded_handoff = json.dumps(
+                appearance_handoff, sort_keys=True, separators=(",", ":")
+            )
+            for obj in (target, armature):
+                obj["sbf_appearance_family_handoff"] = encoded_handoff
+                obj["sbf_appearance_family_id"] = appearance_handoff["family_id"]
+                obj["sbf_appearance_variant_id"] = appearance_handoff["variant_id"]
+                obj["sbf_technical_body_fingerprint"] = appearance_handoff[
+                    "technical_body_fingerprint"
+                ]
         if armature.animation_data is not None:
             for track in armature.animation_data.nla_tracks:
                 if track.name.startswith(PRODUCTION_TRACK_PREFIX):
@@ -373,8 +405,20 @@ def export_rigged_glb(
                 obj.select_set(True)
         if active and active.name in context.view_layer.objects:
             context.view_layer.objects.active = active
+        for obj, values in appearance_before.items():
+            for key, (existed, value) in values.items():
+                if existed:
+                    obj[key] = value
+                elif key in obj:
+                    del obj[key]
     manifest = _rigging_manifest(
-        output, target, armature, contract, settings, weight_report
+        output,
+        target,
+        armature,
+        contract,
+        settings,
+        weight_report,
+        appearance_handoff=appearance_handoff,
     )
     return output, manifest
 

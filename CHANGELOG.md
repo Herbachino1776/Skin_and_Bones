@@ -2,6 +2,35 @@
 
 All notable changes follow semantic versioning.
 
+## 2.2.0 - 2026-08-11
+
+### Added
+
+- Add persistent Appearance Variant Families with stable family/variant IDs,
+  source/calibration snapshots, independent namespaced bake/repair images,
+  per-variant notes, revisions, approval, and export identity.
+- Add instant shared-body variant switching, previous/next controls, blank and
+  settings-only duplication, confirmed safe deletion, active export, and
+  export-all-approved workflow controls.
+- Add a versioned technical-body fingerprint over production identity,
+  topology/vertex order, UV contract, canonical/production rig rest data,
+  weights, transforms, scale, and coordinate axes. Incompatible edits stale
+  existing approvals.
+- Add compact `skin-and-bones-appearance-family-handoff-v1` metadata to rigged
+  GLB extras and rigging manifests for downstream Animation Forge grouping.
+- Add pure model/static tests and a Blender 5.1.2 runtime regression covering
+  switching, independent sources/textures, approval invalidation, technical
+  mismatch, deletion, save/reopen, packed-image restoration, and real GLB
+  export metadata.
+
+### Changed
+
+- Make source-processing caches, raw/final bakes, correction/mask layers, and
+  repair diagnostics use stable family/variant-aware names when a family is
+  active, while preserving legacy generic names outside the optional workflow.
+- Route family exports through the canonical rigged-GLB exporter; ordinary
+  legacy export buttons now direct family users to the identity-safe controls.
+
 ## 2.1.0 - 2026-08-03
 
 ### Added

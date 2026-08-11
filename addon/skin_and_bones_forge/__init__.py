@@ -12,7 +12,7 @@ bl_info = {
     "name": "Skin & Bones Forge",
     "author": "Skin & Bones Forge contributors",
     # Blender's add-on scanner parses bl_info with ast.literal_eval.
-    "version": (2, 1, 0),
+    "version": (2, 2, 0),
     "blender": (5, 1, 2),
     "location": "3D Viewport > Sidebar > Skin & Bones Forge",
     "description": (
@@ -29,9 +29,15 @@ def register():
     properties.register()
     for cls in CLASSES:
         bpy.utils.register_class(cls)
+    from .variants.runtime import register_handlers
+
+    register_handlers()
 
 
 def unregister():
+    from .variants.runtime import unregister_handlers
+
+    unregister_handlers()
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)
     from .baking.repair_service import clear_runtime_cache

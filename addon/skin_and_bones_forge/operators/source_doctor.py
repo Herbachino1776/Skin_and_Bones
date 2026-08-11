@@ -33,6 +33,7 @@ from ..projection.source_processing import (
     reset_body_landmarks,
     restore_original_source,
 )
+from ..variants.runtime import image_name_for_settings, mark_active_variant_dirty
 
 
 VIEW_ITEMS = tuple(
@@ -70,6 +71,7 @@ class SBF_OT_process_all_source_plates(Operator):
             f"Cleaned {len(results)} plates; edge contamination {before:.4f} -> {after:.4f}."
         )
         settings.status_message = settings.source_alignment_status
+        mark_active_variant_dirty(settings, "Source plates were processed")
         self.report({"INFO"}, settings.status_message)
         return {"FINISHED"}
 
@@ -95,6 +97,7 @@ class SBF_OT_process_source_plate(Operator):
             f"{VIEW_LABELS[self.view_name]} cleaned as {image.name}; contamination "
             f"{metrics['contamination_before']:.4f} -> {metrics['contamination_after']:.4f}."
         )
+        mark_active_variant_dirty(settings, "A source plate was processed")
         self.report({"INFO"}, settings.status_message)
         return {"FINISHED"}
 
@@ -112,6 +115,7 @@ class SBF_OT_auto_body_landmarks(Operator):
         except (RuntimeError, ValueError) as exc:
             return _fail(self, settings, exc)
         settings.status_message = f"Initialized body landmarks for {len(names)} source views."
+        mark_active_variant_dirty(settings, "Body landmarks were initialized")
         self.report({"INFO"}, settings.status_message)
         return {"FINISHED"}
 
@@ -126,6 +130,7 @@ class SBF_OT_reset_body_landmarks(Operator):
     def execute(self, context):
         settings = _settings(context)
         reset_body_landmarks(settings, self.view_name)
+        mark_active_variant_dirty(settings, "Body landmarks were reset")
         settings.status_message = f"Reset {VIEW_LABELS[self.view_name]} body landmarks."
         self.report({"INFO"}, settings.status_message)
         return {"FINISHED"}
@@ -148,6 +153,7 @@ class SBF_OT_generate_warped_sources(Operator):
         settings.status_message = (
             f"Prepared {len(results)} continuous sources after per-part pose preflight."
         )
+        mark_active_variant_dirty(settings, "Projection sources were prepared")
         self.report({"INFO"}, settings.status_message)
         return {"FINISHED"}
 
@@ -175,7 +181,10 @@ class SBF_OT_show_source_doctor_image(Operator):
             image = view.cleaned_image
         elif self.image_kind == "CONTAMINATION":
             image = bpy.data.images.get(
-                f"{SOURCE_DIAGNOSTIC_PREFIX}{self.view_name.upper()}"
+                image_name_for_settings(
+                    settings,
+                    f"{SOURCE_DIAGNOSTIC_PREFIX}{self.view_name.upper()}",
+                )
             )
         else:
             image = view.image
@@ -202,6 +211,7 @@ class SBF_OT_restore_original_source(Operator):
             context, settings.target_object, settings.production_material
         )
         restore_original_source(settings, self.view_name)
+        mark_active_variant_dirty(settings, "Processed source was restored")
         settings.status_message = settings.source_alignment_status
         self.report({"INFO"}, settings.status_message)
         return {"FINISHED"}
@@ -358,6 +368,7 @@ class SBF_OT_place_body_landmarks(Operator):
         settings.source_preview_ready = False
         settings.source_alignment_status = "Body landmarks changed; regenerate warped sources."
         settings.status_message = f"Saved {VIEW_LABELS[self.view_name]} body landmarks."
+        mark_active_variant_dirty(settings, "Body landmarks changed")
         self._close(context)
         return {"FINISHED"}
 

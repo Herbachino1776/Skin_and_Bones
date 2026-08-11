@@ -35,6 +35,12 @@ from ..constants import (
     WEIGHT_ATTRIBUTE_PREFIX,
 )
 from ..projection.body_alignment import BODY_PARTS
+from ..variants.runtime import (
+    active_variant,
+    image_name_for_settings,
+    stamp_image_owner,
+    variant_texture_path,
+)
 from .texture_repair import (
     ARTIST_PAINT,
     CLASSIFICATION_NAMES,
@@ -156,8 +162,34 @@ def _restore_production_material(info):
     return info.material
 
 
-def validate_repair_name_availability():
-    for name in REPAIR_IMAGE_NAMES:
+def repair_image_names(settings):
+    return {
+        "baked": image_name_for_settings(settings, REPAIR_BAKED_IMAGE),
+        "corrections": image_name_for_settings(
+            settings, REPAIR_CORRECTION_IMAGE
+        ),
+        "mask": image_name_for_settings(settings, REPAIR_MASK_IMAGE),
+        "final": image_name_for_settings(settings, REPAIR_FINAL_IMAGE),
+        "classification": image_name_for_settings(
+            settings, REPAIR_CLASSIFICATION_IMAGE
+        ),
+        "target_mask": image_name_for_settings(
+            settings, REPAIR_TARGET_MASK_IMAGE
+        ),
+        "donor_mask": image_name_for_settings(
+            settings, REPAIR_DONOR_MASK_IMAGE
+        ),
+        "forbidden_mask": image_name_for_settings(
+            settings, REPAIR_FORBIDDEN_MASK_IMAGE
+        ),
+        "diagnostic": image_name_for_settings(
+            settings, REPAIR_DIAGNOSTIC_IMAGE
+        ),
+    }
+
+
+def validate_repair_name_availability(settings):
+    for name in repair_image_names(settings).values():
         image = bpy.data.images.get(name)
         if image is not None and not image.get(REPAIR_OWNER_PROPERTY, False):
             raise RuntimeError(
@@ -362,17 +394,20 @@ def atlas_data(target):
     return cached
 
 
-def repair_images(target, *, require=True):
+def repair_images(target, settings, *, require=True):
     fingerprint = target.get(REPAIR_FINGERPRINT_PROPERTY, "")
+    names = repair_image_names(settings)
+    pointers = {
+        "baked": settings.last_raw_baked_image,
+        "corrections": settings.repair_correction_image,
+        "mask": settings.repair_mask_image,
+        "final": settings.repair_final_image,
+        "classification": settings.repair_classification_image,
+    }
     result = {}
-    for role, name in (
-        ("baked", REPAIR_BAKED_IMAGE),
-        ("corrections", REPAIR_CORRECTION_IMAGE),
-        ("mask", REPAIR_MASK_IMAGE),
-        ("final", REPAIR_FINAL_IMAGE),
-        ("classification", REPAIR_CLASSIFICATION_IMAGE),
-    ):
-        image = bpy.data.images.get(name)
+    for role in ("baked", "corrections", "mask", "final", "classification"):
+        name = names[role]
+        image = pointers[role] or bpy.data.images.get(name)
         valid = (
             image is not None
             and image.get(REPAIR_OWNER_PROPERTY, False)
@@ -387,7 +422,7 @@ def repair_images(target, *, require=True):
     return result
 
 
-def _mask_layer(name, target, role):
+def _mask_layer(name, target, role, settings):
     width, height = json.loads(target["sbf_repair_size"])
     fingerprint = target[REPAIR_FINGERPRINT_PROPERTY]
     image, reused = _owned_layer(
@@ -397,6 +432,7 @@ def _mask_layer(name, target, role):
         pixels = np.zeros((height, width, 4), dtype=np.float32)
         pixels[:, :, 3] = 1.0
         _set_image_pixels(image, pixels)
+    stamp_image_owner(settings, image)
     return image
 
 
@@ -410,7 +446,8 @@ def begin_repair_session(
 ):
     """Adopt a successful raw bake and create/reuse compatible repair layers."""
 
-    validate_repair_name_availability()
+    validate_repair_name_availability(settings)
+    names = repair_image_names(settings)
     target = info.obj
     width, height = int(baked_image.size[0]), int(baked_image.size[1])
     fingerprint = _mesh_repair_fingerprint(
@@ -422,7 +459,9 @@ def begin_repair_session(
     ):
         # Preserve native Blender paint before replacing Final during a re-bake.
         capture_blender_paint(info, settings)
-    previous = bpy.data.images.get(REPAIR_CORRECTION_IMAGE)
+    previous = settings.repair_correction_image or bpy.data.images.get(
+        names["corrections"]
+    )
     preserved = bool(
         previous is not None
         and previous.get(REPAIR_OWNER_PROPERTY, False)
@@ -432,18 +471,21 @@ def begin_repair_session(
         and tuple(previous.size) == (width, height)
     )
 
-    old_baked = bpy.data.images.get(REPAIR_BAKED_IMAGE)
+    old_baked = settings.last_raw_baked_image or bpy.data.images.get(
+        names["baked"]
+    )
     if old_baked is not baked_image:
         _remove_owned_image(old_baked)
-    baked_image.name = REPAIR_BAKED_IMAGE
+    baked_image.name = names["baked"]
     baked_image[REPAIR_OWNER_PROPERTY] = True
     baked_image[REPAIR_ROLE_PROPERTY] = "baked"
     baked_image[REPAIR_FINGERPRINT_PROPERTY] = fingerprint
+    stamp_image_owner(settings, baked_image)
     baked_pixels = _image_pixels(baked_image)
     baked_image["sbf_pixel_fingerprint"] = image_fingerprint(baked_pixels)
 
     corrections, reused_corrections = _owned_layer(
-        REPAIR_CORRECTION_IMAGE,
+        names["corrections"],
         width,
         height,
         "corrections",
@@ -451,7 +493,7 @@ def begin_repair_session(
         reuse=True,
     )
     mask, reused_mask = _owned_layer(
-        REPAIR_MASK_IMAGE,
+        names["mask"],
         width,
         height,
         "mask",
@@ -460,7 +502,7 @@ def begin_repair_session(
         reuse=True,
     )
     final, _reused_final = _owned_layer(
-        REPAIR_FINAL_IMAGE,
+        names["final"],
         width,
         height,
         "final",
@@ -472,7 +514,7 @@ def begin_repair_session(
     )
     final[REPAIR_COMPOSITE_SETTINGS_PROPERTY] = _composite_settings(settings)
     classification, reused_classification = _owned_layer(
-        REPAIR_CLASSIFICATION_IMAGE,
+        names["classification"],
         width,
         height,
         "classification",
@@ -488,6 +530,8 @@ def begin_repair_session(
         values = np.zeros((height, width, 4), dtype=np.float32)
         values[:, :, 3] = 1.0
         _set_image_pixels(mask, values)
+    for image in (corrections, mask, final, classification):
+        stamp_image_owner(settings, image)
 
     polygon_parts, polygon_confidence = _polygon_metadata(info.mesh)
     seam_pairs = _mesh_seam_pairs(info.mesh, bake_uv_name)
@@ -566,7 +610,7 @@ def _classification_values(image):
 def capture_blender_paint(info, settings):
     """Move native Blender paint on Final into persistent repair layers."""
 
-    images = repair_images(info.obj)
+    images = repair_images(info.obj, settings)
     painted = _image_pixels(images["final"])
     current_fingerprint = image_fingerprint(painted)
     stored_fingerprint = images["final"].get(
@@ -612,7 +656,7 @@ def commit_final_base_color(
 ):
     _restore_production_material(info)
     captured_blender_paint = capture_blender_paint(info, settings)
-    images = repair_images(info.obj)
+    images = repair_images(info.obj, settings)
     baked = _image_pixels(images["baked"])
     corrections = _image_pixels(images["corrections"])
     mask = _image_pixels(images["mask"])[:, :, 0]
@@ -669,9 +713,11 @@ def commit_final_base_color(
         + " "
         f"{metrics['unresolved']:,} unresolved."
     )
-    path = Path(
-        bpy.path.abspath(str(output_path or settings.output_image_path))
-    ).resolve()
+    path = (
+        Path(bpy.path.abspath(str(output_path))).resolve()
+        if output_path is not None
+        else variant_texture_path(settings, settings.output_image_path)
+    )
     if persist:
         path.parent.mkdir(parents=True, exist_ok=True)
         images["final"].filepath_raw = str(path)
@@ -691,15 +737,19 @@ def commit_final_base_color(
     info.obj["sbf_base_color_path"] = str(path)
     settings.last_baked_image = images["final"]
     settings.last_raw_baked_image = images["baked"]
+    variant = active_variant(settings)
+    if variant is not None:
+        variant.bake_output_path = str(path)
     return images["final"], path, metrics
 
 
 def validate_repair_for_delivery(info, settings):
     final, _path, metrics = commit_final_base_color(info, settings)
-    if final.name != REPAIR_FINAL_IMAGE or info.base_color_node.image != final:
+    expected = repair_image_names(settings)["final"]
+    if final.name != expected or info.base_color_node.image != final:
         raise RuntimeError(
             "Delivery is blocked because the production material does not use "
-            "SBF_BaseColor_Final."
+            f"the active variant final image '{expected}'."
         )
     threshold = int(settings.repair_unresolved_threshold)
     if metrics["unresolved"] > threshold:
@@ -731,7 +781,7 @@ def clone_source(settings):
 
 def _stroke_layers(info, settings):
     capture_blender_paint(info, settings)
-    images = repair_images(info.obj)
+    images = repair_images(info.obj, settings)
     return (
         images,
         _image_pixels(images["baked"]),
@@ -835,6 +885,7 @@ def _image_mask(image):
 
 
 def smart_fill(info, settings):
+    names = repair_image_names(settings)
     images, baked, corrections, mask, classes = _stroke_layers(info, settings)
     current = composite_corrections(
         baked,
@@ -850,7 +901,10 @@ def smart_fill(info, settings):
     elif source == "ARTIST_MASK":
         target_mask = _image_mask(
             _mask_layer(
-                REPAIR_TARGET_MASK_IMAGE, info.obj, "smart_fill_target_mask"
+                names["target_mask"],
+                info.obj,
+                "smart_fill_target_mask",
+                settings,
             )
         )
     elif source == "UNRESOLVED":
@@ -860,13 +914,13 @@ def smart_fill(info, settings):
     else:
         raise RuntimeError(f"Unknown Smart Fill target: {source}")
     forbidden_image = _mask_layer(
-        REPAIR_FORBIDDEN_MASK_IMAGE, info.obj, "forbidden_source_mask"
+        names["forbidden_mask"], info.obj, "forbidden_source_mask", settings
     )
     donor_image = _mask_layer(
-        REPAIR_DONOR_MASK_IMAGE, info.obj, "artist_donor_mask"
+        names["donor_mask"], info.obj, "artist_donor_mask", settings
     )
     settings.repair_target_mask_image = _mask_layer(
-        REPAIR_TARGET_MASK_IMAGE, info.obj, "smart_fill_target_mask"
+        names["target_mask"], info.obj, "smart_fill_target_mask", settings
     )
     settings.repair_donor_mask_image = donor_image
     settings.repair_forbidden_mask_image = forbidden_image
@@ -923,7 +977,7 @@ def _stored_seam_pairs(target):
 
 
 def detect_color_seams(info, settings):
-    images = repair_images(info.obj)
+    images = repair_images(info.obj, settings)
     current = _image_pixels(images["final"])
     pairs = _stored_seam_pairs(info.obj)
     errors = [seam_error(current, [pair]) for pair in pairs]
@@ -1022,11 +1076,11 @@ def clear_repairs(info, settings, *, selected=False):
     return changed
 
 
-def _diagnostic_image(target, values):
+def _diagnostic_image(target, values, settings):
     height, width = values.shape[:2]
     fingerprint = target[REPAIR_FINGERPRINT_PROPERTY]
     image, _reused = _owned_layer(
-        REPAIR_DIAGNOSTIC_IMAGE,
+        repair_image_names(settings)["diagnostic"],
         width,
         height,
         "diagnostic",
@@ -1034,6 +1088,7 @@ def _diagnostic_image(target, values):
         reuse=True,
     )
     _set_image_pixels(image, values)
+    stamp_image_owner(settings, image)
     return image
 
 
@@ -1076,7 +1131,8 @@ def clear_repair_preview(info):
 
 def show_repair_preview(context, info, settings):
     ensure_repair_compatible(info, settings)
-    images = repair_images(info.obj)
+    images = repair_images(info.obj, settings)
+    names = repair_image_names(settings)
     display = settings.repair_display
     if display == "FINAL":
         clear_repair_preview(info)
@@ -1094,20 +1150,26 @@ def show_repair_preview(context, info, settings):
         overlay = final.copy()
         low_confidence = atlas["coverage"] & (atlas["confidence"] < 0.20)
         overlay[low_confidence, :3] = (1.0, 0.0, 0.65)
-        display_image = _diagnostic_image(info.obj, overlay)
+        display_image = _diagnostic_image(info.obj, overlay, settings)
     elif display == "TARGET_MASK":
         display_image = _mask_layer(
-            REPAIR_TARGET_MASK_IMAGE, info.obj, "smart_fill_target_mask"
+            names["target_mask"],
+            info.obj,
+            "smart_fill_target_mask",
+            settings,
         )
         settings.repair_target_mask_image = display_image
     elif display == "DONOR_MASK":
         display_image = _mask_layer(
-            REPAIR_DONOR_MASK_IMAGE, info.obj, "artist_donor_mask"
+            names["donor_mask"], info.obj, "artist_donor_mask", settings
         )
         settings.repair_donor_mask_image = display_image
     elif display == "FORBIDDEN_MASK":
         display_image = _mask_layer(
-            REPAIR_FORBIDDEN_MASK_IMAGE, info.obj, "forbidden_source_mask"
+            names["forbidden_mask"],
+            info.obj,
+            "forbidden_source_mask",
+            settings,
         )
         settings.repair_forbidden_mask_image = display_image
     elif display == "UNRESOLVED":
@@ -1116,17 +1178,17 @@ def show_repair_preview(context, info, settings):
         overlay = final.copy()
         unresolved = detect_unresolved(final, atlas["coverage"], atlas["confidence"])
         overlay[unresolved, :3] = (1.0, 0.0, 0.1)
-        display_image = _diagnostic_image(info.obj, overlay)
+        display_image = _diagnostic_image(info.obj, overlay, settings)
     elif display == "SEAM_HEATMAP":
         final = _image_pixels(images["final"])
         display_image = _diagnostic_image(
-            info.obj, _seam_heatmap(info.obj, final)
+            info.obj, _seam_heatmap(info.obj, final), settings
         )
     elif display == "UNLIT_FINAL":
         display_image = images["final"]
     else:
         final = _image_pixels(images["final"])
-        display_image = _diagnostic_image(info.obj, final)
+        display_image = _diagnostic_image(info.obj, final, settings)
 
     clear_repair_preview(info)
     material = bpy.data.materials.new(f"{REPAIR_PREVIEW_PREFIX}{info.obj.name}")

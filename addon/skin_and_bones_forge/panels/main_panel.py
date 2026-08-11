@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from bpy.types import Panel
+from bpy.types import Panel, UIList
 
 from ..constants import VIEW_LABELS, VIEW_NAMES
 from ..projection.alignment import minimum_facial_landmarks
@@ -206,6 +206,124 @@ class SBF_PT_target(_SBF_PT_section, Panel):
         axes.prop(settings, "forward_axis")
         axes.prop(settings, "up_axis")
         layout.label(text="Advanced overrides for detected target data.", icon="INFO")
+
+
+class SBF_UL_appearance_variants(UIList):
+    bl_idname = "SBF_UL_appearance_variants"
+
+    def draw_item(
+        self,
+        _context,
+        layout,
+        _data,
+        item,
+        _icon,
+        _active_data,
+        _active_property,
+        _index,
+    ):
+        icon = {
+            "APPROVED": "CHECKMARK",
+            "DIRTY": "FILE_REFRESH",
+            "STALE": "ERROR",
+        }.get(item.approval_state, "RADIOBUT_OFF")
+        layout.label(text=item.display_name, icon=icon)
+        layout.label(text=f"r{item.revision}")
+
+
+class SBF_PT_appearance_variants(_SBF_PT_section, Panel):
+    bl_label = "Appearance Variants"
+    bl_idname = "SBF_PT_appearance_variants"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 1
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.sbf_settings
+        if not settings.appearance_family_id:
+            intro = layout.box()
+            intro.label(text="One technical body, many appearances.", icon="GROUP")
+            intro.label(text="Finalize the production rig before adoption.")
+            create = intro.row()
+            create.scale_y = 1.35
+            create.operator(
+                "sbf.create_appearance_family",
+                text="CREATE FAMILY FROM CURRENT APPEARANCE",
+                icon="ADD",
+            )
+            return
+
+        layout.prop(settings, "appearance_family_name")
+        layout.template_list(
+            "SBF_UL_appearance_variants",
+            "",
+            settings,
+            "appearance_variants",
+            settings,
+            "active_variant_index",
+            rows=3,
+        )
+        cycle = layout.row(align=True)
+        previous = cycle.operator(
+            "sbf.cycle_appearance_variant", text="Previous", icon="TRIA_LEFT"
+        )
+        previous.direction = -1
+        following = cycle.operator(
+            "sbf.cycle_appearance_variant", text="Next", icon="TRIA_RIGHT"
+        )
+        following.direction = 1
+        add = layout.row(align=True)
+        add.operator("sbf.add_appearance_variant", text="Add Variant", icon="ADD")
+        add.operator(
+            "sbf.duplicate_appearance_variant",
+            text="Duplicate Settings",
+            icon="DUPLICATE",
+        )
+        edit = layout.row(align=True)
+        edit.operator("sbf.rename_appearance_variant", icon="FONT_DATA")
+        edit.operator("sbf.delete_appearance_variant", icon="TRASH")
+
+        variant = (
+            settings.appearance_variants[settings.active_variant_index]
+            if len(settings.appearance_variants)
+            else None
+        )
+        status = layout.box()
+        status.label(
+            text=f"Technical Body: {settings.appearance_family_status.title()}",
+            icon=(
+                "CHECKMARK"
+                if settings.appearance_family_status == "VALID"
+                else "ERROR"
+            ),
+        )
+        if variant is not None:
+            status.label(text=f"Bake: {variant.bake_state.replace('_', ' ').title()}")
+            status.label(text=f"Repair: {settings.repair_state.replace('_', ' ').title()}")
+            status.label(
+                text=f"Approval: {variant.approval_state.replace('_', ' ').title()}"
+            )
+            status.prop(variant, "artist_notes")
+            status.prop(variant, "export_name")
+        status.operator("sbf.validate_appearance_family", icon="CHECKMARK")
+
+        approval = layout.row(align=True)
+        approval.operator(
+            "sbf.approve_appearance_variant",
+            text="APPROVE VARIANT",
+            icon="CHECKMARK",
+        )
+        approval.operator("sbf.unapprove_appearance_variant", text="UNAPPROVE")
+        layout.prop(settings, "appearance_export_directory")
+        exports = layout.row(align=True)
+        exports.operator(
+            "sbf.export_active_appearance", text="EXPORT ACTIVE", icon="EXPORT"
+        )
+        exports.operator(
+            "sbf.export_approved_appearances",
+            text="EXPORT APPROVED",
+            icon="EXPORT",
+        )
 
 
 class SBF_PT_sources(_SBF_PT_section, Panel):
@@ -936,6 +1054,8 @@ PANEL_CLASSES = (
     SBF_PT_spar3d_intake,
     SBF_PT_target,
     SBF_PT_spar3d_intake_advanced,
+    SBF_UL_appearance_variants,
+    SBF_PT_appearance_variants,
     SBF_PT_sources,
     SBF_PT_preview,
     SBF_PT_source_doctor,

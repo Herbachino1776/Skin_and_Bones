@@ -25,11 +25,55 @@ collapsed until they are needed.
 
 The sidebar follows the production sequence and keeps later stages collapsed:
 
+- **Appearance Variants** adopts a finalized technical body and switches only
+  projection/bake/repair state. It is optional for legacy single-character work.
 - **SKIN 1-5** moves from source images through alignment, bake, repair, and
   boneless base-asset delivery.
 - **BONES 1-4** moves from skeleton fitting through binding, deformation tests,
   and rigged compatibility export.
 - Advanced diagnostics and tuning stay nested under the stage they affect.
+
+## Create and use an Appearance Variant Family
+
+An appearance family represents exactly one finalized technical character.
+Complete the production mesh, rig, binding, weight validation, pose checks, and
+rig finalization once. Then expand **Appearance Variants** and click **CREATE
+FAMILY FROM CURRENT APPEARANCE**. The current source/calibration/bake/repair
+state becomes **Appearance 1** without copying any object, mesh, armature, or
+vertex group.
+
+For another person on the same body:
+
+1. Click **Add Variant** for a blank source selection, or **Duplicate Settings**
+   to retain source selections and calibration defaults. A duplicate never
+   inherits a bake, repair result, or approval.
+2. Load the alternate perspective folder and run the normal source, preview,
+   bake, and repair stages.
+3. Click **APPROVE VARIANT**. Approval is blocked unless the technical-body
+   fingerprint still matches, the final image exists, delivery diagnostics
+   pass, and the appearance has no edits since its current revision.
+4. Click any item in the list, **Previous**, or **Next**. The production
+   material immediately binds that variant's final base color; topology, rig,
+   modifiers, and weights are not replaced or rebuilt.
+5. Set **Appearance Export Folder**, then click **EXPORT ACTIVE** or **EXPORT
+   APPROVED**. These are the required export paths for a family because they
+   add family/variant identity to the normal rigged GLB metadata.
+
+Changing a projection source, calibration, bake, repair layer, or committed
+Blender paint makes that variant dirty and removes current approval. Changing
+topology, vertex order, production UV data, rig/rest hierarchy, weights,
+transforms, scale, or coordinate axes makes the whole family **STALE /
+INCOMPATIBLE**. Reverting the exact technical body restores compatibility;
+otherwise create/adopt a new family rather than treating the changed body as
+the old one.
+
+Deleting a variant is confirmed, removes only data stamped with that stable
+variant ID, and selects another appearance. The final variant cannot be
+deleted. Save/reopen stores the family collection and active ID in the scene;
+variant repair/bake images are packed, while original source plates retain the
+normal Blender file references. See
+[appearance_variant_handoff.md](appearance_variant_handoff.md) for the exact
+downstream contract.
 
 ## Prepare the sources
 
@@ -214,6 +258,11 @@ keeps four owned layers:
 - `SBF_BaseColor_Final`: `mix(Baked, Corrections, CorrectionMask)` and the only
   image bound for final PNG, packed Blender data, and GLB export.
 
+Inside a family, these are internal namespaced datablocks such as
+`SBF_<family-hash>_<variant-hash>_BaseColor_Final`; the friendly UI and output
+identity remain the variant display/export names. Legacy files keep the generic
+names until they are explicitly adopted.
+
 Topology, polygon/vertex order, `SBF_BaseColorUV`, and atlas size are
 fingerprinted. A compatible re-bake preserves the correction and mask layers;
 changing any fingerprinted contract clears stale corrections. Preview refreshes
@@ -272,12 +321,16 @@ Use these views to catch identity ghosting and through-projection. Then use
 `.sbf.json` file records the add-on version, UV, material, texture size, and
 output settings.
 
+When an Appearance Variant Family exists, use **EXPORT ACTIVE** or **EXPORT
+APPROVED** instead of **Export New GLB** or the ordinary Bones export. This
+ensures each downstream rigged GLB carries the family handoff record.
+
 The clean output contains no temporary projection data and remains a
 boneless base asset for a separate rigging project.
 
 ## Build the production Bones rig
 
-Version 2.1.0 fits, binds, tests, and exports the production rig. Select the
+Version 2.2.0 fits, binds, tests, and exports the production rig. Select the
 production target; the canonical Y+ template loads from the add-on automatically.
 Then follow **BONES 1-4**
 and the focused workflow in

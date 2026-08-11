@@ -431,6 +431,11 @@ class SBF_OT_export_glb(Operator):
     def execute(self, context):
         settings = _settings(context)
         try:
+            if settings.appearance_family_id:
+                raise RuntimeError(
+                    "Use Appearance Variants > EXPORT ACTIVE so family identity "
+                    "is included in the GLB."
+                )
             info = validate_target(context, settings)
             if not info.obj.get("sbf_processed", False):
                 raise RuntimeError("Bake a final texture before exporting the GLB.")

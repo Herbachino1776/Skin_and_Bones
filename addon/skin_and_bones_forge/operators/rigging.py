@@ -1011,6 +1011,11 @@ class SBF_OT_export_rigged_glb(Operator):
     def execute(self, context):
         settings = _settings(context)
         try:
+            if settings.appearance_family_id:
+                raise ValueError(
+                    "Use Appearance Variants > EXPORT ACTIVE so the rigged GLB "
+                    "carries family and variant identity."
+                )
             with _OperationState(context):
                 target = _target(context, settings)
                 armature = production_armature(target)

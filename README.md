@@ -4,8 +4,20 @@ Skin & Bones Forge is a Blender 5.1.2 add-on for rebuilding the base-color
 texture of a SPAR3D human mesh and building a validated production rig from
 the bundled Townsman-derived Y+ canonical humanoid skeleton.
 
-Version 2.1.0 implements one-click SPAR3D production-mesh intake, the Folsom
-visual workflow, production **Bones**, and non-destructive texture repair:
+Version 2.2.0 implements one-click SPAR3D production-mesh intake, the Folsom
+visual workflow, production **Bones**, non-destructive texture repair, and
+shared-body Appearance Variant Families:
+
+- Author one protected production mesh, canonical 21-bone rig, hierarchy,
+  scale, UV contract, and weight set once, then keep multiple independently
+  sourced, baked, repaired, approved, and exported appearances on that body.
+- Switch active variants in the sidebar without duplicating the mesh or rig;
+  the production material immediately binds the selected variant's final image.
+- Fingerprint topology, vertex order, UVs, production rig/rest hierarchy,
+  weights, transforms, axes, and stable production-mesh identity. Technical
+  changes stale every affected approval instead of silently reusing it.
+- Export active or all approved variants as distinct rigged GLBs with a compact
+  versioned family handoff in glTF extras and the sibling rigging manifest.
 
 - Import a raw SPAR3D GLB, weld only exactly coincident seam vertices, prove
   loop UV/corner-normal/material preservation, and normalize a protected clean
@@ -81,7 +93,7 @@ visual workflow, production **Bones**, and non-destructive texture repair:
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v2.1.0.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v2.2.0.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -114,6 +126,17 @@ required top-level `skin_and_bones_forge` module.
    **SAVE BLENDER PAINT + COMMIT**. Save/export also captures native paint.
 9. Use **Render Verification Set**, **Save New Base Asset**, and
    **Export New GLB**.
+
+To create alternate people on the same completed body, finish and finalize the
+production Bones rig, expand **Appearance Variants**, and click **CREATE FAMILY
+FROM CURRENT APPEARANCE**. Use **Add Variant** for a fresh source selection or
+**Duplicate Settings** to retain useful calibration while clearing bake,
+repair, and approval. Bake and repair each appearance normally, click
+**APPROVE VARIANT**, then use **EXPORT ACTIVE** or **EXPORT APPROVED**. The
+variant exporter writes rigged GLBs under `Rigged_GLB\Appearance_Variants`.
+Legacy files and the original single-character workflow remain optional and
+unchanged until a family is explicitly created. See the
+[appearance-family handoff contract](docs/appearance_variant_handoff.md).
 
 For Bones, select the production target and follow **BONES 1-4** in order. The
 packaged canonical rig loads automatically; **Load Bundled Canonical Rig** is
@@ -175,20 +198,17 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v2.1.0` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v2.2.0` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 
 ## Scope
 
-Version 2.1.0 adds a standardized high-A rig-landmark profile, anatomically
-reliable target-arm isolation, complete per-part
-pose diagnostics, named body-landmark overlays, continuous projection sources,
-saved-session cache recovery, and an adaptive production base-color atlas on
-top of the GPU-safe projection preview and permanent Texture Repair Studio
-correction-layer slice. It does not change production topology, original UVs,
-normal maps, or other PBR textures. Optional hand shape-key authoring, animation polish,
-gore/damage authoring, batch processing, Rigify, and runtime game editing remain
-downstream milestones.
+Version 2.2.0 adds persistent Appearance Variant Families on top of the 2.1
+canonical-rig and high-A fitting contract. Appearance variants own only source,
+calibration, bake, repair, diagnostics, approval, and export identity; they do
+not own mesh, rig, weights, Actions, damage, or other PBR authoring. Optional
+hand shape-key authoring, animation polish, gore/damage authoring, Rigify, and
+runtime game editing remain downstream milestones.
 
 Skin & Bones Forge is licensed under GPL-3.0-or-later.

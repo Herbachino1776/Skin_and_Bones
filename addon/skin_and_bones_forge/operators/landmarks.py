@@ -22,6 +22,7 @@ from ..projection.alignment import (
     facial_landmark_count,
     minimum_facial_landmarks,
 )
+from ..variants.runtime import mark_active_variant_dirty
 
 
 VIEW_ITEMS = tuple(
@@ -275,7 +276,9 @@ class SBF_OT_calibrate_face_landmarks(Operator):
         except ValueError as exc:
             view.facial_calibration_valid = False
             message += f" {exc}"
-        _settings(context).status_message = message
+        settings = _settings(context)
+        settings.status_message = message
+        mark_active_variant_dirty(settings, "Facial calibration changed")
         self.report({"INFO"}, message)
         self._close_editor(context)
         return {"FINISHED"}
@@ -377,6 +380,7 @@ class SBF_OT_apply_face_calibration(Operator):
             f"Applied {result['landmarks']}-point "
             f"{VIEW_LABELS[self.view_name]} facial calibration."
         )
+        mark_active_variant_dirty(settings, "Facial calibration reapplied")
         self.report({"INFO"}, settings.status_message)
         return {"FINISHED"}
 
