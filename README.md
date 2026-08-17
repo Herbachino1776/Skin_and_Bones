@@ -4,7 +4,7 @@ Skin & Bones Forge is a Blender 5.1.2 add-on for rebuilding the base-color
 texture of a SPAR3D human mesh and building a validated production rig from
 the bundled Townsman-derived Y+ canonical humanoid skeleton.
 
-Version 2.2.1 implements one-click SPAR3D production-mesh intake, the Folsom
+Version 2.2.2 implements one-click SPAR3D production-mesh intake, the Folsom
 visual workflow, production **Bones**, non-destructive texture repair,
 shared-body Appearance Variant Families, and a surgical mirrored single-plate
 weapon texture baker:
@@ -15,7 +15,9 @@ weapon texture baker:
   projection-depth axis and source side, mirror the plate onto the opposite
   side, fine-tune scale/width/offset/rotation/edge wrap live, then EMIT-bake
   and bind the result through the weapon's existing UV while preserving normal
-  and other PBR material data.
+  and other PBR material data. Broad front/back faces now reach full projection
+  strength in one bake; Edge Wrap feathers only the rounded/perpendicular
+  transition instead of requiring repeated bake buildup.
 - Author one protected production mesh, canonical 21-bone rig, hierarchy,
   scale, UV contract, and weight set once, then keep multiple independently
   sourced, baked, repaired, approved, and exported appearances on that body.
@@ -101,7 +103,7 @@ weapon texture baker:
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v2.2.1.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v2.2.2.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -151,7 +153,8 @@ It does not run Source Doctor, character landmarks, rigging, or body semantics.
    **Create / Refresh Weapon Preview**.
 6. Fine-tune Scale, Width Fit, Horizontal/Vertical offset, Rotation, Flip X/Y,
    Edge Wrap, Alpha Cut, and Projection Strength. These controls update the
-   existing preview live.
+   existing preview live. At Projection Strength 1.0, broad faces are opaque
+   source color in one pass; Edge Wrap changes only the feather around edges.
 7. Choose bake size/output and click **BAKE + BIND TEXTURE**. The resulting PNG
    is baked through the weapon's existing UV and becomes its Principled base
    color; normal/roughness/other PBR bindings remain intact.
@@ -227,21 +230,22 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v2.2.1` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v2.2.2` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 
 ## Scope
 
-Version 2.2.1 adds the isolated mirrored single-plate weapon finishing path on
-top of the 2.2 Appearance Variant Families and 2.1 canonical-rig/high-A fitting
-contracts. The weapon path owns only projection fit, preview, base-color bake,
-and material binding on an already-prepared mesh; it does not own weapon
-generation, rigging, collision, gameplay calibration, or source background
-removal. Appearance variants continue to own only source, calibration, bake,
-repair, diagnostics, approval, and export identity; they do not own mesh, rig,
-weights, Actions, damage, or other PBR authoring. Optional hand shape-key
-authoring, animation polish, gore/damage authoring, Rigify, and runtime game
-editing remain downstream milestones.
+Version 2.2.2 keeps the isolated mirrored single-plate weapon finishing path
+from 2.2.1 but changes its coverage policy so full-strength broad faces are
+complete in one bake while rounded/perpendicular edges remain feathered. The
+weapon path owns only projection fit, preview, base-color bake, and material
+binding on an already-prepared mesh; it does not own weapon generation,
+rigging, collision, gameplay calibration, or source background removal.
+Appearance variants continue to own only source, calibration, bake, repair,
+diagnostics, approval, and export identity; they do not own mesh, rig, weights,
+Actions, damage, or other PBR authoring. Optional hand shape-key authoring,
+animation polish, gore/damage authoring, Rigify, and runtime game editing remain
+downstream milestones.
 
 Skin & Bones Forge is licensed under GPL-3.0-or-later.
