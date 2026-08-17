@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_SCRIPT = ROOT / "scripts" / "build_release.py"
-OUTPUT = ROOT / "dist" / "Skin_and_Bones_Forge_v2.2.0.zip"
+OUTPUT = ROOT / "dist" / "Skin_and_Bones_Forge_v2.2.1.zip"
 
 
 class ReleasePackageTests(unittest.TestCase):
@@ -34,6 +34,7 @@ class ReleasePackageTests(unittest.TestCase):
             names = archive.namelist()
             self.assertIsNone(archive.testzip())
             self.assertIn("skin_and_bones_forge/__init__.py", names)
+            self.assertIn("skin_and_bones_forge/weapon_projection.py", names)
             self.assertIn(
                 "skin_and_bones_forge/baking/texture_repair.py", names
             )
