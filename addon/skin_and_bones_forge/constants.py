@@ -65,7 +65,7 @@ BODY_PART_ID_ATTRIBUTE = f"{BODY_PART_ATTRIBUTE_PREFIX}id"
 
 REPAIR_BAKED_IMAGE = "SBF_BaseColor_Baked"
 REPAIR_CORRECTION_IMAGE = "SBF_Texture_Corrections"
-REPAIR_MASK_IMAGE = "SBF_Texture_CorrectionMask"
+REPAIR_MASK_IMAGE = "SBF_Texture_Correction_Mask"
 REPAIR_FINAL_IMAGE = "SBF_BaseColor_Final"
 REPAIR_CLASSIFICATION_IMAGE = "SBF_Texture_Classification"
 REPAIR_TARGET_MASK_IMAGE = "SBF_Texture_Repair_TargetMask"
