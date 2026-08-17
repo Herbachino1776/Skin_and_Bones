@@ -12,13 +12,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "addon" / "skin_and_bones_forge"
-EXPECTED_VERSION = (2, 2, 1)
+EXPECTED_VERSION = (2, 2, 2)
 EXPECTED_BLENDER = (5, 1, 2)
 REQUIRED_FILES = (
     PACKAGE / "__init__.py",
     PACKAGE / "constants.py",
     PACKAGE / "properties.py",
     PACKAGE / "weapon_projection.py",
+    PACKAGE / "weapon_projection_full_strength.py",
     PACKAGE / "intake" / "analysis.py",
     PACKAGE / "intake" / "weld.py",
     PACKAGE / "intake" / "core.py",
