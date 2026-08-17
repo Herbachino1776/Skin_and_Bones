@@ -2,7 +2,7 @@
 
 ADDON_NAME = "Skin & Bones Forge"
 ADDON_MODULE = "skin_and_bones_forge"
-ADDON_VERSION = (2, 2, 0)
+ADDON_VERSION = (2, 2, 1)
 ADDON_VERSION_STRING = ".".join(str(part) for part in ADDON_VERSION)
 
 EXPORT_ROOT = r"E:\Skin_And_Bones_Exports"
@@ -65,7 +65,7 @@ BODY_PART_ID_ATTRIBUTE = f"{BODY_PART_ATTRIBUTE_PREFIX}id"
 
 REPAIR_BAKED_IMAGE = "SBF_BaseColor_Baked"
 REPAIR_CORRECTION_IMAGE = "SBF_Texture_Corrections"
-REPAIR_MASK_IMAGE = "SBF_Texture_Correction_Mask"
+REPAIR_MASK_IMAGE = "SBF_Texture_CorrectionMask"
 REPAIR_FINAL_IMAGE = "SBF_BaseColor_Final"
 REPAIR_CLASSIFICATION_IMAGE = "SBF_Texture_Classification"
 REPAIR_TARGET_MASK_IMAGE = "SBF_Texture_Repair_TargetMask"
