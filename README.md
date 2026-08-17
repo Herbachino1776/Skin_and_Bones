@@ -4,10 +4,18 @@ Skin & Bones Forge is a Blender 5.1.2 add-on for rebuilding the base-color
 texture of a SPAR3D human mesh and building a validated production rig from
 the bundled Townsman-derived Y+ canonical humanoid skeleton.
 
-Version 2.2.0 implements one-click SPAR3D production-mesh intake, the Folsom
-visual workflow, production **Bones**, non-destructive texture repair, and
-shared-body Appearance Variant Families:
+Version 2.2.1 implements one-click SPAR3D production-mesh intake, the Folsom
+visual workflow, production **Bones**, non-destructive texture repair,
+shared-body Appearance Variant Families, and a surgical mirrored single-plate
+weapon texture baker:
 
+- Finish mass-produced weapon GLBs from one already-background-removed RGBA
+  plate without entering the humanoid source/landmark workflow. Select the
+  weapon mesh, load the plate, auto-fit its alpha silhouette, choose the local
+  projection-depth axis and source side, mirror the plate onto the opposite
+  side, fine-tune scale/width/offset/rotation/edge wrap live, then EMIT-bake
+  and bind the result through the weapon's existing UV while preserving normal
+  and other PBR material data.
 - Author one protected production mesh, canonical 21-bone rig, hierarchy,
   scale, UV contract, and weight set once, then keep multiple independently
   sourced, baked, repaired, approved, and exported appearances on that body.
@@ -93,7 +101,7 @@ shared-body Appearance Variant Families:
 
 ## Install
 
-1. Use the release archive `Skin_and_Bones_Forge_v2.2.0.zip`.
+1. Use the release archive `Skin_and_Bones_Forge_v2.2.1.zip`.
 2. In Blender 5.1.2, open **Edit > Preferences > Add-ons**.
 3. Choose **Install from Disk**, select the ZIP, and enable **Skin & Bones Forge**.
 4. In the 3D Viewport, open the sidebar with `N` and select
@@ -126,6 +134,27 @@ required top-level `skin_and_bones_forge` module.
    **SAVE BLENDER PAINT + COMMIT**. Save/export also captures native paint.
 9. Use **Render Verification Set**, **Save New Base Asset**, and
    **Export New GLB**.
+
+## Mirrored single-plate weapon workflow
+
+This path assumes the upstream weapon-production pipeline has already produced
+both the weapon GLB and a transparent/background-removed RGBA projection image.
+It does not run Source Doctor, character landmarks, rigging, or body semantics.
+
+1. Import/open the weapon GLB normally and select the mesh to texture.
+2. Expand **WEAPON — Single-Plate Bake** and click **Use Selected Weapon Mesh**.
+3. Click **Load Weapon Projection Plate** and choose the transparent plate.
+4. Leave **Projection Depth** on Local Y for the common X/Z weapon silhouette,
+   or switch to Local X/Z if that particular generated asset is oriented
+   differently. Choose which side receives the unmirrored source.
+5. Keep **Mirror Opposite Side** enabled and click **Auto Fit Plate** followed by
+   **Create / Refresh Weapon Preview**.
+6. Fine-tune Scale, Width Fit, Horizontal/Vertical offset, Rotation, Flip X/Y,
+   Edge Wrap, Alpha Cut, and Projection Strength. These controls update the
+   existing preview live.
+7. Choose bake size/output and click **BAKE + BIND TEXTURE**. The resulting PNG
+   is baked through the weapon's existing UV and becomes its Principled base
+   color; normal/roughness/other PBR bindings remain intact.
 
 To create alternate people on the same completed body, finish and finalize the
 production Bones rig, expand **Appearance Variants**, and click **CREATE FAMILY
@@ -198,17 +227,21 @@ The ZIP and SHA-256 checksum are written to `dist/`.
 
 Every push to `main` runs
 [Validate and build](https://github.com/Herbachino1776/Skin_and_Bones/actions/workflows/validate.yml).
-The successful run exposes `Skin_and_Bones_Forge_v2.2.0` under **Artifacts**
+The successful run exposes `Skin_and_Bones_Forge_v2.2.1` under **Artifacts**
 for 30 days. Download the artifact, extract its one contained installable ZIP,
 and drop that ZIP into Blender using **Install from Disk**.
 
 ## Scope
 
-Version 2.2.0 adds persistent Appearance Variant Families on top of the 2.1
-canonical-rig and high-A fitting contract. Appearance variants own only source,
-calibration, bake, repair, diagnostics, approval, and export identity; they do
-not own mesh, rig, weights, Actions, damage, or other PBR authoring. Optional
-hand shape-key authoring, animation polish, gore/damage authoring, Rigify, and
-runtime game editing remain downstream milestones.
+Version 2.2.1 adds the isolated mirrored single-plate weapon finishing path on
+top of the 2.2 Appearance Variant Families and 2.1 canonical-rig/high-A fitting
+contracts. The weapon path owns only projection fit, preview, base-color bake,
+and material binding on an already-prepared mesh; it does not own weapon
+generation, rigging, collision, gameplay calibration, or source background
+removal. Appearance variants continue to own only source, calibration, bake,
+repair, diagnostics, approval, and export identity; they do not own mesh, rig,
+weights, Actions, damage, or other PBR authoring. Optional hand shape-key
+authoring, animation polish, gore/damage authoring, Rigify, and runtime game
+editing remain downstream milestones.
 
 Skin & Bones Forge is licensed under GPL-3.0-or-later.
