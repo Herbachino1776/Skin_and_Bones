@@ -5,14 +5,14 @@ from __future__ import annotations
 import bpy
 from .operators import OPERATOR_CLASSES
 from .panels import PANEL_CLASSES
-from . import properties, weapon_projection
+from . import properties, weapon_projection, weapon_projection_full_strength
 
 
 bl_info = {
     "name": "Skin & Bones Forge",
     "author": "Skin & Bones Forge contributors",
     # Blender's add-on scanner parses bl_info with ast.literal_eval.
-    "version": (2, 2, 1),
+    "version": (2, 2, 2),
     "blender": (5, 1, 2),
     "location": "3D Viewport > Sidebar > Skin & Bones Forge",
     "description": (
@@ -27,6 +27,7 @@ CLASSES = OPERATOR_CLASSES + PANEL_CLASSES
 
 def register():
     properties.register()
+    weapon_projection_full_strength.install()
     weapon_projection.register()
     for cls in CLASSES:
         bpy.utils.register_class(cls)
